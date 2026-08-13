@@ -605,6 +605,16 @@ public class ApiController : ControllerBase
         return Ok(data);
     }
 
+    [HttpPost("companies")]
+    public async Task<IActionResult> AddCompany([FromBody] JsonObject payload)
+    {
+        string name = payload["name"]?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre de la empresa es obligatorio." });
+        
+        var result = await _supabase.InsertCompanyAsync(payload);
+        return Ok(new { success = result != null, data = result });
+    }
+
     [HttpGet("sites")]
     public async Task<IActionResult> GetSites([FromQuery] string? companyId)
     {
@@ -615,8 +625,58 @@ public class ApiController : ControllerBase
     [HttpPost("sites")]
     public async Task<IActionResult> AddSite([FromBody] JsonObject payload)
     {
+        string name = payload["name"]?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre de la planta/site es obligatorio." });
+
         var result = await _supabase.InsertSiteAsync(payload);
         return Ok(new { success = result != null, data = result });
+    }
+
+    [HttpGet("hierarchy")]
+    public async Task<IActionResult> GetHierarchy()
+    {
+        var companies = await _supabase.GetCompaniesAsync();
+        var sites = await _supabase.GetSitesAsync();
+
+        var tree = new JsonArray();
+        foreach (var c in companies)
+        {
+            if (c is JsonObject cObj)
+            {
+                string companyId = cObj["id"]?.ToString() ?? "";
+                var companySites = new JsonArray();
+
+                foreach (var s in sites)
+                {
+                    if (s is JsonObject sObj && sObj["company_id"]?.ToString() == companyId)
+                    {
+                        string siteId = sObj["id"]?.ToString() ?? "";
+                        var assets = await _supabase.GetAssetsAsync(siteId);
+                        var locations = new HashSet<string>();
+
+                        foreach (var a in assets)
+                        {
+                            if (a is JsonObject aObj && aObj["location"] != null)
+                            {
+                                string locStr = aObj["location"]!.ToString().Trim();
+                                if (!string.IsNullOrEmpty(locStr)) locations.Add(locStr);
+                            }
+                        }
+
+                        var locArray = new JsonArray();
+                        foreach (var l in locations) locArray.Add(l);
+
+                        sObj["locations"] = locArray;
+                        companySites.Add(sObj);
+                    }
+                }
+
+                cObj["sites"] = companySites;
+                tree.Add(cObj);
+            }
+        }
+
+        return Ok(tree);
     }
 
     [HttpGet("users")]

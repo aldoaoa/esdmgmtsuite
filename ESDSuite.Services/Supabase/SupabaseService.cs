@@ -429,6 +429,11 @@ public class SupabaseService
         return await GetAsync("companies?select=*&order=name.asc");
     }
 
+    public async Task<JsonObject?> InsertCompanyAsync(object data)
+    {
+        return await InsertAsync("companies", data);
+    }
+
     public async Task<JsonArray> GetSitesAsync(string? companyId = null)
     {
         if (string.IsNullOrEmpty(companyId)) return await GetAsync("sites?select=*,companies(name)&order=name.asc");
