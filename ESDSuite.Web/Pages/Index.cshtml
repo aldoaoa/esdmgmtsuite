@@ -1340,55 +1340,64 @@
     }
 
     async function loadHierarchyTree() {
-        const res = await fetch('/api/hierarchy');
-        const tree = await res.json();
         const container = document.getElementById('multi-tenant-tree');
-        
-        if (!tree || tree.length === 0) {
-            container.innerHTML = `<p style="font-size:12.5px; color:var(--text-muted);">No hay empresas o sites registrados aún.</p>`;
-            return;
-        }
-
-        let html = '';
-        tree.forEach((comp, cIdx) => {
-            const compId = `comp-children-${cIdx}`;
-            const sites = comp.sites || [];
-            
-            html += `<div class="tree-node">
-                <div class="tree-header" onclick="toggleTreeNode('${compId}')">
-                    <span>🏢 <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
-                    <span style="font-size:11px;">▶️</span>
-                </div>
-                <div class="tree-children" id="${compId}">`;
-
-            if (sites.length === 0) {
-                html += `<div class="tree-leaf"><i>Sin sites registrados en esta empresa.</i></div>`;
-            } else {
-                sites.forEach((site, sIdx) => {
-                    const siteId = `site-children-${cIdx}-${sIdx}`;
-                    const locs = site.locations || [];
-
-                    html += `<div style="margin:4px 0;">
-                        <div class="tree-subnode" onclick="toggleTreeNode('${siteId}')">
-                            <span>🏭 <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
-                            <span style="font-size:10px;">▶️</span>
-                        </div>
-                        <div class="tree-children" id="${siteId}">`;
-
-                    if (locs.length === 0) {
-                        html += `<div class="tree-leaf">📍 <i>Línea 1 (Por Defecto)</i></div>`;
-                    } else {
-                        locs.forEach(loc => {
-                            html += `<div class="tree-leaf">📍 <b>${loc}</b></div>`;
-                        });
-                    }
-                    html += `</div></div>`;
-                });
+        try {
+            const res = await fetch('/api/hierarchy');
+            if (!res.ok) {
+                container.innerHTML = `<p style="font-size:12.5px; color:var(--accent-rose);">❌ Error al cargar jerarquía desde el servidor.</p>`;
+                return;
             }
-            html += `</div></div>`;
-        });
+            const tree = await res.json();
+            
+            if (!tree || tree.length === 0) {
+                container.innerHTML = `<p style="font-size:12.5px; color:var(--text-muted);">No hay empresas o sites registrados aún.</p>`;
+                return;
+            }
 
-        container.innerHTML = html;
+            let html = '';
+            tree.forEach((comp, cIdx) => {
+                const compId = `comp-children-${cIdx}`;
+                const sites = comp.sites || [];
+                
+                html += `<div class="tree-node">
+                    <div class="tree-header" onclick="toggleTreeNode('${compId}')">
+                        <span>🏢 <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
+                        <span style="font-size:11px;">▶️</span>
+                    </div>
+                    <div class="tree-children" id="${compId}">`;
+
+                if (sites.length === 0) {
+                    html += `<div class="tree-leaf"><i>Sin sites registrados en esta empresa.</i></div>`;
+                } else {
+                    sites.forEach((site, sIdx) => {
+                        const siteId = `site-children-${cIdx}-${sIdx}`;
+                        const locs = site.locations || [];
+
+                        html += `<div style="margin:4px 0;">
+                            <div class="tree-subnode" onclick="toggleTreeNode('${siteId}')">
+                                <span>🏭 <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
+                                <span style="font-size:10px;">▶️</span>
+                            </div>
+                            <div class="tree-children" id="${siteId}">`;
+
+                        if (locs.length === 0) {
+                            html += `<div class="tree-leaf">📍 <i>Línea 1 (Por Defecto)</i></div>`;
+                        } else {
+                            locs.forEach(loc => {
+                                html += `<div class="tree-leaf">📍 <b>${loc}</b></div>`;
+                            });
+                        }
+                        html += `</div></div>`;
+                    });
+                }
+                html += `</div></div>`;
+            });
+
+            container.innerHTML = html;
+        } catch (ex) {
+            console.log('Error loading hierarchy:', ex);
+            container.innerHTML = `<p style="font-size:12.5px; color:var(--accent-rose);">❌ Error de conexión al cargar la estructura.</p>`;
+        }
     }
 
     function toggleTreeNode(id) {

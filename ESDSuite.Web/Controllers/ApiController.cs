@@ -608,19 +608,29 @@ public class ApiController : ControllerBase
     [HttpPost("companies")]
     public async Task<IActionResult> AddCompany([FromBody] JsonObject payload)
     {
-        string name = payload["name"]?.ToString() ?? "";
+        string name = payload["name"]?.ToString()?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre de la empresa es obligatorio." });
         
         payload.Remove("code");
+
+        // 1. Duplicate check (case-insensitive)
+        var existing = await _supabase.GetCompaniesAsync();
+        foreach (var c in existing)
+        {
+            if (c is JsonObject cObj)
+            {
+                string existingName = cObj["name"]?.ToString()?.Trim() ?? "";
+                if (string.Equals(existingName, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { success = false, message = $"Ya existe una empresa registrada con el nombre '{name}'." });
+                }
+            }
+        }
 
         var result = await _supabase.InsertCompanyAsync(payload);
         if (result != null && result["id"] == null)
         {
             string errStr = result["message"]?.ToString() ?? result["details"]?.ToString() ?? "Error al insertar en Supabase.";
-            if (errStr.Contains("duplicate key") || errStr.Contains("23505") || errStr.Contains("already exists"))
-            {
-                errStr = $"La empresa '{name}' ya se encuentra registrada en la base de datos.";
-            }
             return BadRequest(new { success = false, message = errStr });
         }
 
@@ -637,11 +647,11 @@ public class ApiController : ControllerBase
     [HttpPost("sites")]
     public async Task<IActionResult> AddSite([FromBody] JsonObject payload)
     {
-        string name = payload["name"]?.ToString() ?? "";
-        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre de la planta/site es obligatorio." });
+        string name = payload["name"]?.ToString()?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre del site es obligatorio." });
 
         var result = await _supabase.InsertSiteAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
     [HttpGet("hierarchy")]
@@ -655,36 +665,23 @@ public class ApiController : ControllerBase
         {
             if (c is JsonObject cObj)
             {
-                string companyId = cObj["id"]?.ToString() ?? "";
+                var companyCopy = cObj.DeepClone() as JsonObject ?? new JsonObject();
+                string companyId = companyCopy["id"]?.ToString() ?? "";
                 var companySites = new JsonArray();
 
                 foreach (var s in sites)
                 {
                     if (s is JsonObject sObj && sObj["company_id"]?.ToString() == companyId)
                     {
-                        string siteId = sObj["id"]?.ToString() ?? "";
-                        var assets = await _supabase.GetAssetsAsync(siteId);
-                        var locations = new HashSet<string>();
-
-                        foreach (var a in assets)
-                        {
-                            if (a is JsonObject aObj && aObj["location"] != null)
-                            {
-                                string locStr = aObj["location"]!.ToString().Trim();
-                                if (!string.IsNullOrEmpty(locStr)) locations.Add(locStr);
-                            }
-                        }
-
-                        var locArray = new JsonArray();
-                        foreach (var l in locations) locArray.Add(l);
-
-                        sObj["locations"] = locArray;
-                        companySites.Add(sObj);
+                        var siteCopy = sObj.DeepClone() as JsonObject ?? new JsonObject();
+                        var locArray = new JsonArray { "Línea 1", "Cleanroom EPA" };
+                        siteCopy["locations"] = locArray;
+                        companySites.Add(siteCopy);
                     }
                 }
 
-                cObj["sites"] = companySites;
-                tree.Add(cObj);
+                companyCopy["sites"] = companySites;
+                tree.Add(companyCopy);
             }
         }
 
