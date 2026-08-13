@@ -18,6 +18,8 @@
 </head>
 <body>
 
+<div id="toast-container"></div>
+
 <div id="app-container">
 
     <!-- LOGIN MODAL / OVERLAY -->
@@ -1339,6 +1341,22 @@
         document.getElementById('equipment-list').innerHTML = eq.map(e => `<div class="glass-card" style="margin-bottom:6px;">🛠️ <b>${e.codigo_equipo}</b> - ${e.nombre_equipo}</div>`).join('');
     }
 
+    let expandedTreeNodes = new Set();
+
+    function showToast(msg, type = 'success') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast-msg toast-${type}`;
+        toast.innerHTML = msg;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 2200);
+    }
+
     async function loadHierarchyTree() {
         const container = document.getElementById('multi-tenant-tree');
         try {
@@ -1359,16 +1377,17 @@
                 const compId = `comp-children-${cIdx}`;
                 const sites = comp.sites || [];
                 const safeCompName = (comp.name || '').replace(/'/g, "\\'");
+                const isCompOpen = expandedTreeNodes.has(compId) ? ' open' : '';
                 
                 html += `<div class="tree-node">
                     <div class="tree-header" onclick="toggleTreeNode('${compId}')">
                         <span>🏢 <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}')">➕ Site</button>
+                            <button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}', '${compId}')">➕ Site</button>
                             <span style="font-size:11px;">▶️</span>
                         </div>
                     </div>
-                    <div class="tree-children" id="${compId}">`;
+                    <div class="tree-children${isCompOpen}" id="${compId}">`;
 
                 if (sites.length === 0) {
                     html += `<div class="tree-leaf"><i>Sin sites registrados en esta empresa.</i></div>`;
@@ -1377,16 +1396,17 @@
                         const siteId = `site-children-${cIdx}-${sIdx}`;
                         const locs = site.locations || [];
                         const safeSiteName = (site.name || '').replace(/'/g, "\\'");
+                        const isSiteOpen = expandedTreeNodes.has(siteId) ? ' open' : '';
 
                         html += `<div style="margin:4px 0;">
                             <div class="tree-subnode" onclick="toggleTreeNode('${siteId}')">
                                 <span>🏭 <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
                                 <div style="display:flex; align-items:center; gap:8px;">
-                                    <button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}')">➕ Área / Línea</button>
+                                    <button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}', '${compId}', '${siteId}')">➕ Área / Línea</button>
                                     <span style="font-size:10px;">▶️</span>
                                 </div>
                             </div>
-                            <div class="tree-children" id="${siteId}">`;
+                            <div class="tree-children${isSiteOpen}" id="${siteId}">`;
 
                         if (locs.length === 0) {
                             html += `<div class="tree-leaf" style="justify-content:space-between;">
@@ -1397,7 +1417,7 @@
                                 const safeLoc = (loc || '').replace(/'/g, "\\'");
                                 html += `<div class="tree-leaf" style="justify-content:space-between;">
                                     <span>📍 <b>${loc}</b></span>
-                                    <button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px;" title="Agregar Operación a esta Área" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeLoc}')">➕ Operación</button>
+                                    <button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px;" title="Agregar Operación a esta Área" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeLoc}', '${compId}', '${siteId}')">➕ Operación</button>
                                 </div>`;
                             });
                         }
@@ -1416,7 +1436,14 @@
 
     function toggleTreeNode(id) {
         const el = document.getElementById(id);
-        if (el) el.classList.toggle('open');
+        if (el) {
+            el.classList.toggle('open');
+            if (el.classList.contains('open')) {
+                expandedTreeNodes.add(id);
+            } else {
+                expandedTreeNodes.delete(id);
+            }
+        }
     }
 
     async function loadCompaniesAndSitesSelects() {
@@ -1456,14 +1483,15 @@
         });
         const data = await res.json();
         if (data.success) {
-            alert(`✅ Empresa "${name}" creada exitosamente en Supabase.`);
+            showToast(`✅ Empresa "${name.trim()}" registrada en Supabase.`);
             loadSettings();
         } else {
-            alert('❌ ' + (data.message || 'Error al crear la empresa. Es posible que ya exista.'));
+            showToast('❌ ' + (data.message || 'Error al crear la empresa.'), 'error');
         }
     }
 
-    async function showAddSiteForCompanyModal(companyId, companyName) {
+    async function showAddSiteForCompanyModal(companyId, companyName, parentCompNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
         const siteName = prompt(`Ingrese el nombre del Nuevo Site / Planta para "${companyName}":`);
         if (!siteName || !siteName.trim()) return;
 
@@ -1478,14 +1506,17 @@
         });
         const data = await res.json();
         if (data.success) {
-            alert(`✅ Site "${siteName}" registrado exitosamente en Supabase.`);
+            showToast(`✅ Site "${siteName.trim()}" registrado en Supabase.`);
             loadSettings();
         } else {
-            alert('❌ ' + (data.message || 'Error al crear el Site en Supabase.'));
+            showToast('❌ ' + (data.message || 'Error al crear el Site.'), 'error');
         }
     }
 
-    async function showAddAreaForSiteModal(siteId, siteName) {
+    async function showAddAreaForSiteModal(siteId, siteName, parentCompNodeId, parentSiteNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
+        if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
+
         const areaName = prompt(`Ingrese el nombre de la Nueva Área / Línea de Producción para "${siteName}":`);
         if (!areaName || !areaName.trim()) return;
 
@@ -1499,14 +1530,17 @@
         });
         const data = await res.json();
         if (data.success) {
-            alert(`✅ Área / Línea "${areaName}" registrada exitosamente en Supabase.`);
+            showToast(`✅ Área / Línea "${areaName.trim()}" registrada en Supabase.`);
             loadSettings();
         } else {
-            alert('❌ ' + (data.message || 'Error al crear el Área / Línea en Supabase.'));
+            showToast('❌ ' + (data.message || 'Error al crear el Área / Línea.'), 'error');
         }
     }
 
-    async function showAddSubOperationModal(siteId, areaName) {
+    async function showAddSubOperationModal(siteId, areaName, parentCompNodeId, parentSiteNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
+        if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
+
         const opName = prompt(`Ingrese el nombre de la Operación / Sub-área para "${areaName}":`);
         if (!opName || !opName.trim()) return;
 
@@ -1521,10 +1555,10 @@
         });
         const data = await res.json();
         if (data.success) {
-            alert(`✅ Operación "${opName}" agregada a "${areaName}" en Supabase.`);
+            showToast(`✅ Operación "${opName.trim()}" agregada a "${areaName}" en Supabase.`);
             loadSettings();
         } else {
-            alert('❌ ' + (data.message || 'Error al crear la Operación en Supabase.'));
+            showToast('❌ ' + (data.message || 'Error al crear la Operación.'), 'error');
         }
     }
 
