@@ -134,7 +134,7 @@ public class SupabaseService
         }
 
         string storedHash = userObj["password_hash"]?.ToString() ?? "";
-        bool pwdValid = PasswordHasher.VerifyPassword(password, storedHash);
+        bool pwdValid = PasswordHasher.VerifyPassword(storedHash, password);
 
         if (!pwdValid)
         {
