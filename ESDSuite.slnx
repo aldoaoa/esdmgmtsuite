@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ESDSuite.Core/ESDSuite.Core.csproj" />
+  <Project Path="ESDSuite.Services/ESDSuite.Services.csproj" />
+  <Project Path="ESDSuite.Web/ESDSuite.Web.csproj" />
+</Solution>

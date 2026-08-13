@@ -1,0 +1,88 @@
+{
+  "login": {
+    "title": "ESD Management Suite - Acceso al Sistema",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "submit": "Iniciar Sesión",
+    "account_inactive": "Tu cuenta de usuario está inactiva.",
+    "invalid_password": "La contraseña ingresada es incorrecta.",
+    "user_not_found": "No existe un usuario registrado con este correo."
+  },
+  "auth": {
+    "login_required": "Por favor inicia sesión para acceder a este módulo.",
+    "logout": "Cerrar Sesión"
+  },
+  "dashboard": {
+    "title": "Overview de Cumplimiento ESD",
+    "subtitle": "Estado global de cumplimiento normativo ANSI/ESD S20.20"
+  },
+  "audit": {
+    "title": "Módulo de Auditoría y Verificación ESD",
+    "lbl_scan": "Escanear Código QR del Activo"
+  },
+  "routes": {
+    "title": "Alta, Enrutamiento y Secuencia de Productos"
+  },
+  "lab": {
+    "title": "🧪 Laboratorio de Pruebas ESD",
+    "subtitle": "Evaluación de descargas transitorias (Event Meter) y ensayos de caminata (Walking Test)",
+    "tab_event": "⚡ Event Meter",
+    "tab_walking": "👣 Walking Test",
+    "tab_records": "📊 Consulta de Ensayos",
+    "em_location": "Ubicación / Línea",
+    "em_operation": "Operación / Estación ID",
+    "em_contact": "Tipo de Contacto",
+    "em_events": "Número de Eventos Detectados",
+    "em_voltage": "Voltaje Máximo Detectado (V)",
+    "em_save": "💾 Guardar Registro de Event Meter",
+    "wt_upload": "Cargar Gráfica PDF de Walking Test",
+    "wt_extracting": "Extrayendo gráfica y texto con OCR...",
+    "wt_save": "💾 Guardar Registro de Walking Test",
+    "lbl_search_lab": "Buscar por Ubicación, Operación u Operador...",
+    "lbl_filter_status": "Filtrar por Estatus:",
+    "lbl_em_history": "⚡ Histórico de Mediciones Event Meter (PCBA)",
+    "lbl_wt_history": "👣 Histórico de Ensayos Walking Test (OCR)",
+    "btn_export_csv": "📥 Exportar Tabla a CSV",
+    "no_records": "No se encontraron registros guardados en esta categoría."
+  },
+  "infra": {
+    "title": "⚡ Infraestructura y Puntos EPA",
+    "subtitle": "Verificación periódica de tierras auxiliares, conexiones de pulsera, pisos ESD y checadores",
+    "tab_ground": "⚡ Tierras y Conexiones",
+    "tab_floor": "🔲 Piso ESD",
+    "tab_iso": "⚡ Conductores Aislados",
+    "tab_checkers": "🥾 Checadores de Ingreso",
+    "tab_records": "📋 Histórico de Infraestructura",
+    "gr_type": "Tipo de Punto de Tierra",
+    "gr_loc": "Ubicación / Línea",
+    "gr_id": "Identificador del Punto (ID)",
+    "gr_ohms": "Resistencia a Tierra (Ohms)",
+    "gr_save": "💾 Guardar Verificación de Tierra",
+    "msg_pass": "✅ Medición APROBADA (PASS)",
+    "msg_fail": "🚨 Medición RECHAZADA (FAIL)",
+    "fl_room": "Nombre del Cuarto / Área Cleanroom",
+    "fl_point": "Número de Punto de Medición",
+    "fl_save": "💾 Guardar Verificación de Piso",
+    "iso_op": "Operación / Estación ID",
+    "iso_volt": "Voltaje Inducido Máximo (V)",
+    "iso_save": "💾 Guardar Registro de Conductor Aislado",
+    "lbl_gr_history": "⚡ Histórico de Tierras y Conexiones",
+    "lbl_fl_history": "🔲 Histórico de Validación de Pisos ESD",
+    "lbl_iso_history": "⚡ Histórico de Conductores Aislados",
+    "lbl_chk_history": "🥾 Histórico de Calibración de Checadores",
+    "btn_export_csv": "📥 Exportar Tabla a CSV",
+    "no_records": "No se encontraron registros guardados de infraestructura."
+  },
+  "sidebar": {
+    "placeholder_logo": "🖼️ Coloca logotipo aquí"
+  },
+  "settings": {
+    "tab_logo": "Logotipo",
+    "logo_title": "Personalización del Logotipo de la Empresa / Planta",
+    "logo_subtitle": "Carga el logotipo oficial de tu empresa en formato PNG o JPG. Se mostrará en la parte superior del menú lateral.",
+    "lbl_upload_logo": "Selecciona una imagen de logotipo (PNG, JPG, JPEG):",
+    "btn_save_logo": "💾 Guardar Nuevo Logotipo",
+    "btn_remove_logo": "🗑️ Eliminar Logotipo Personalizado",
+    "logo_prompt": "👋 Has accedido desde el enlace del Sidebar. Carga la imagen de tu logotipo aquí."
+  }
+}

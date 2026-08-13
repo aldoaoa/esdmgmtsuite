@@ -1,0 +1,88 @@
+{
+  "login": {
+    "title": "ESD Management Suite - System Login",
+    "email": "Email Address",
+    "password": "Password",
+    "submit": "Log In",
+    "account_inactive": "Your user account is inactive.",
+    "invalid_password": "The entered password is incorrect.",
+    "user_not_found": "No user account found with this email."
+  },
+  "auth": {
+    "login_required": "Please log in to access this module.",
+    "logout": "Log Out"
+  },
+  "dashboard": {
+    "title": "ESD Compliance Overview",
+    "subtitle": "Global status of ANSI/ESD S20.20 compliance"
+  },
+  "audit": {
+    "title": "ESD Audit & Measurement Verification Module",
+    "lbl_scan": "Scan Asset QR Code"
+  },
+  "routes": {
+    "title": "Product Registration, Routing & Sequence"
+  },
+  "lab": {
+    "title": "🧪 ESD Testing Laboratory",
+    "subtitle": "Transient discharge evaluation (Event Meter) and body voltage tests (Walking Test)",
+    "tab_event": "⚡ Event Meter",
+    "tab_walking": "👣 Walking Test",
+    "tab_records": "📊 Test Consultation & History",
+    "em_location": "Location / Line",
+    "em_operation": "Operation / Station ID",
+    "em_contact": "Contact Type",
+    "em_events": "Number of Detected Events",
+    "em_voltage": "Max Voltage Detected (V)",
+    "em_save": "💾 Save Event Meter Log",
+    "wt_upload": "Upload Walking Test PDF Chart",
+    "wt_extracting": "Extracting chart and OCR text...",
+    "wt_save": "💾 Save Walking Test Log",
+    "lbl_search_lab": "Search by Location, Operation or Operator...",
+    "lbl_filter_status": "Filter by Status:",
+    "lbl_em_history": "⚡ Event Meter Test History (PCBA)",
+    "lbl_wt_history": "👣 Walking Test History (OCR)",
+    "btn_export_csv": "📥 Export Table to CSV",
+    "no_records": "No saved test logs found in this category."
+  },
+  "infra": {
+    "title": "⚡ Infrastructure & EPA Grounding",
+    "subtitle": "Periodic verification of auxiliary grounds, wrist strap points, ESD flooring & testers",
+    "tab_ground": "⚡ Grounds & Connections",
+    "tab_floor": "🔲 ESD Flooring",
+    "tab_iso": "⚡ Isolated Conductors",
+    "tab_checkers": "🥾 Entrance Checkers",
+    "tab_records": "📋 Infrastructure Log History",
+    "gr_type": "Ground Point Type",
+    "gr_loc": "Location / Line",
+    "gr_id": "Point Identifier (ID)",
+    "gr_ohms": "Resistance to Ground (Ohms)",
+    "gr_save": "💾 Save Ground Verification",
+    "msg_pass": "✅ Measurement PASSED",
+    "msg_fail": "🚨 Measurement FAILED",
+    "fl_room": "Room Name / Cleanroom Area",
+    "fl_point": "Measurement Point Number",
+    "fl_save": "💾 Save Floor Verification",
+    "iso_op": "Operation / Station ID",
+    "iso_volt": "Max Induced Voltage (V)",
+    "iso_save": "💾 Save Isolated Conductor Log",
+    "lbl_gr_history": "⚡ Grounding Points History",
+    "lbl_fl_history": "🔲 ESD Floor Validation History",
+    "lbl_iso_history": "⚡ Isolated Conductors History",
+    "lbl_chk_history": "🥾 Entrance Checkers History",
+    "btn_export_csv": "📥 Export Table to CSV",
+    "no_records": "No saved infrastructure records found."
+  },
+  "sidebar": {
+    "placeholder_logo": "🖼️ Place logo here"
+  },
+  "settings": {
+    "tab_logo": "Company Logo",
+    "logo_title": "Company / Plant Logo Customization",
+    "logo_subtitle": "Upload your official company logo in PNG or JPG format. It will be displayed at the top of the sidebar.",
+    "lbl_upload_logo": "Select a logo image file (PNG, JPG, JPEG):",
+    "btn_save_logo": "💾 Save New Logo",
+    "btn_remove_logo": "🗑️ Remove Custom Logo",
+    "logo_prompt": "👋 You were redirected from the Sidebar link. Upload your company logo here."
+  }
+}
