@@ -56,7 +56,13 @@ public class SupabaseService
             {
                 var errStr = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"InsertAsync Error ({response.StatusCode}) for {table}: {errStr}");
-                return null;
+                try
+                {
+                    var errObj = JsonNode.Parse(errStr) as JsonObject;
+                    if (errObj != null) return errObj;
+                }
+                catch { }
+                return new JsonObject { ["message"] = errStr };
             }
 
             var resJson = await response.Content.ReadAsStringAsync();
@@ -70,7 +76,7 @@ public class SupabaseService
         catch (Exception ex)
         {
             Console.WriteLine($"InsertAsync Exception for {table}: {ex.Message}");
-            return null;
+            return new JsonObject { ["message"] = ex.Message };
         }
     }
 
@@ -106,156 +112,114 @@ public class SupabaseService
         }
     }
 
-    // --- AUTH ---
+    // --- AUTHENTICATION SERVICE ---
     public async Task<(bool Success, UserSession? Session, string Message)> IniciarSesionAsync(string email, string password)
     {
-        string cleanEmail = email.Trim().ToLower();
-        Console.WriteLine($"[IniciarSesionAsync] Attempting login for email: '{cleanEmail}'");
-
-        var users = await GetAsync($"users?email=eq.{Uri.EscapeDataString(cleanEmail)}&select=*,sites!users_site_id_fkey(name),companies(name)");
+        var users = await GetAsync($"users?email=eq.{email.Trim()}&select=*");
         if (users.Count == 0)
         {
-            users = await GetAsync($"users?email=eq.{Uri.EscapeDataString(cleanEmail)}&select=*");
+            return (false, null, "No existe un usuario registrado con este correo.");
         }
 
-        if (users.Count == 0)
+        var userObj = users[0] as JsonObject;
+        if (userObj == null)
         {
-            Console.WriteLine($"[IniciarSesionAsync] User not found for email: '{cleanEmail}'");
-            return (false, null, "user_not_found");
+            return (false, null, "Error al procesar usuario.");
         }
 
-        var u = users[0] as JsonObject;
-        if (u == null) return (false, null, "user_not_found");
-
-        bool isActive = u["is_active"]?.GetValue<bool>() ?? true;
+        bool isActive = userObj["is_active"]?.GetValue<bool>() ?? true;
         if (!isActive)
         {
-            Console.WriteLine($"[IniciarSesionAsync] Account inactive for email: '{cleanEmail}'");
-            return (false, null, "account_inactive");
+            return (false, null, "Tu cuenta de usuario está inactiva.");
         }
 
-        string storedHash = u["password_hash"]?.ToString() ?? "";
-        bool passwordMatches = PasswordHasher.VerifyPassword(storedHash, password);
-        Console.WriteLine($"[IniciarSesionAsync] Password match result for '{cleanEmail}': {passwordMatches}");
+        string storedHash = userObj["password_hash"]?.ToString() ?? "";
+        bool pwdValid = PasswordHasher.VerifyPassword(password, storedHash);
 
-        if (!passwordMatches)
+        if (!pwdValid)
         {
-            return (false, null, "invalid_password");
+            return (false, null, "La contraseña ingresada es incorrecta.");
+        }
+
+        string siteId = userObj["site_id"]?.ToString() ?? "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+        string companyId = userObj["company_id"]?.ToString() ?? "";
+
+        string siteName = "Queretaro Plant";
+        string companyName = "BCS AIS";
+
+        if (!string.IsNullOrEmpty(siteId))
+        {
+            var sites = await GetAsync($"sites?id=eq.{siteId}&select=name,company_id");
+            if (sites.Count > 0 && sites[0] is JsonObject sObj)
+            {
+                siteName = sObj["name"]?.ToString() ?? siteName;
+                if (string.IsNullOrEmpty(companyId)) companyId = sObj["company_id"]?.ToString() ?? "";
+            }
+        }
+
+        if (!string.IsNullOrEmpty(companyId))
+        {
+            var companies = await GetAsync($"companies?id=eq.{companyId}&select=name");
+            if (companies.Count > 0 && companies[0] is JsonObject cObj)
+            {
+                companyName = cObj["name"]?.ToString() ?? companyName;
+            }
         }
 
         var session = new UserSession
         {
-            Id = u["id"]?.ToString() ?? "",
-            Email = u["email"]?.ToString() ?? cleanEmail,
-            FullName = u["full_name"]?.ToString() ?? cleanEmail,
-            Role = u["role"]?.ToString() ?? "AUDITOR",
-            IsActive = true,
-            SiteId = u["site_id"]?.ToString(),
-            CompanyId = u["company_id"]?.ToString(),
-            PasswordHash = storedHash
+            Id = userObj["id"]?.ToString() ?? Guid.NewGuid().ToString(),
+            Email = userObj["email"]?.ToString() ?? email,
+            FullName = userObj["full_name"]?.ToString() ?? userObj["email"]?.ToString() ?? "Usuario",
+            Role = userObj["role"]?.ToString() ?? "AUDITOR",
+            CompanyId = companyId,
+            SiteId = siteId,
+            CompanyName = companyName,
+            SiteName = siteName,
+            IsLoggedIn = true
         };
-
-        if (u["sites"] is JsonObject sObj && sObj["name"] != null)
-        {
-            session.SiteName = sObj["name"]!.ToString();
-        }
-        else if (!string.IsNullOrEmpty(session.SiteId))
-        {
-            var siteRes = await GetAsync($"sites?id=eq.{session.SiteId}&select=name");
-            if (siteRes.Count > 0 && siteRes[0] is JsonObject s1)
-            {
-                session.SiteName = s1["name"]?.ToString() ?? "Site Principal";
-            }
-        }
-
-        if (u["companies"] is JsonObject cObj && cObj["name"] != null)
-        {
-            session.CompanyName = cObj["name"]!.ToString();
-        }
-
-        string? permsRaw = u["permissions"]?.ToString();
-        if (!string.IsNullOrEmpty(permsRaw))
-        {
-            try
-            {
-                var p = JsonSerializer.Deserialize<UserPermissions>(permsRaw);
-                if (p != null) session.Permissions = p;
-            }
-            catch { }
-        }
 
         return (true, session, "OK");
     }
 
-    // --- AUDIT VERIFICATION (VALIDACION_ESD, INVENTARIO_ESD, MEDICIONES_MAQUINARIA) ---
+    // --- AUDIT & MEASUREMENTS ---
     public async Task<JsonObject?> GetUltimaMedicionAsync(string idElemento)
     {
-        string idClean = Uri.EscapeDataString(idElemento.Trim());
-        
-        // 1. Buscar en validacion_esd
-        var valRes = await GetAsync($"validacion_esd?id_elemento=ilike.{idClean}&order=fecha_medicion.desc&limit=1");
-        if (valRes.Count > 0 && valRes[0] is JsonObject vObj)
+        string cleanId = idElemento.Trim().ToUpper();
+
+        var assets = await GetAsync($"assets?custom_id=eq.{cleanId}&select=id,custom_id,category,location,status");
+        if (assets.Count > 0 && assets[0] is JsonObject asset)
         {
-            return vObj;
+            string assetId = asset["id"]?.ToString() ?? "";
+            var measurements = await GetAsync($"measurements?asset_id=eq.{assetId}&order=measured_at.desc&limit=1");
+            if (measurements.Count > 0 && measurements[0] is JsonObject m)
+            {
+                m["id_elemento"] = cleanId;
+                m["category"] = asset["category"]?.ToString();
+                m["location"] = asset["location"]?.ToString();
+                return m;
+            }
         }
 
-        // 2. Buscar en mediciones_maquinaria
-        var maqRes = await GetAsync($"mediciones_maquinaria?id_maquinaria=ilike.{idClean}&order=fecha_medicion.desc&limit=1");
-        if (maqRes.Count > 0 && maqRes[0] is JsonObject mObj)
-        {
-            mObj["es_maquinaria"] = true;
-            return mObj;
-        }
+        var maq = await GetAsync($"mediciones_maquinaria?id_maquinaria=eq.{cleanId}&order=fecha_medicion.desc&limit=1");
+        if (maq.Count > 0) return maq[0] as JsonObject;
 
-        // 3. Buscar en inventario_esd
-        var invRes = await GetAsync($"inventario_esd?id_producto=ilike.{idClean}&limit=1");
-        if (invRes.Count > 0 && invRes[0] is JsonObject iObj)
-        {
-            return iObj;
-        }
+        var inv = await GetAsync($"inventario_esd?id_elemento=eq.{cleanId}&select=*");
+        if (inv.Count > 0) return inv[0] as JsonObject;
+
+        var val = await GetAsync($"validacion_esd?id_elemento=eq.{cleanId}&order=fecha_medicion.desc&limit=1");
+        if (val.Count > 0) return val[0] as JsonObject;
 
         return null;
     }
 
-    public async Task<JsonObject?> InsertValidacionEsdAsync(object data)
+    public async Task<JsonObject?> InsertMeasurementAsync(object data)
     {
-        return await InsertAsync("validacion_esd", data);
+        return await InsertAsync("measurements", data);
     }
 
-    public async Task<bool> UpdateInventarioEsdStatusAsync(string idProducto, string fechaActual, string estatusEval)
+    public async Task<JsonArray> GetAssetsAsync(string siteId)
     {
-        return await UpdateAsync("inventario_esd", $"id_producto=ilike.{Uri.EscapeDataString(idProducto)}", new
-        {
-            fecha_ultima_verif = fechaActual,
-            estatus_verificacion = estatusEval
-        });
-    }
-
-    public async Task<bool> UpdateMedicionesMaquinariaStatusAsync(string idMaquinaria, string fechaActual, string estatusEval)
-    {
-        return await UpdateAsync("mediciones_maquinaria", $"id_maquinaria=ilike.{Uri.EscapeDataString(idMaquinaria)}", new
-        {
-            fecha_medicion = fechaActual,
-            status_operativo = estatusEval,
-            resultado_estatus = estatusEval
-        });
-    }
-
-    // --- EVENT METER ---
-    public async Task<JsonArray> GetEventMeterLogsAsync()
-    {
-        return await GetAsync("event_meter?select=*&order=fecha.desc");
-    }
-
-    public async Task<JsonObject?> InsertEventMeterLogAsync(object data)
-    {
-        return await InsertAsync("event_meter", data);
-    }
-
-    // --- DASHBOARD, MEASUREMENTS & INFRASTRUCTURE ---
-    public async Task<JsonArray> GetAssetsAsync(string? siteId)
-    {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("assets?select=*");
         return await GetAsync($"assets?site_id=eq.{siteId}&select=*");
     }
 
@@ -264,37 +228,15 @@ public class SupabaseService
         return await InsertAsync("assets", data);
     }
 
-    public async Task<bool> UpdateAssetStatusAsync(string siteId, string customId, string status)
+    public async Task<JsonArray> GetEventMeterLogsAsync()
     {
-        return await UpdateAsync("assets", $"site_id=eq.{siteId}&custom_id=eq.{Uri.EscapeDataString(customId)}", new { status });
+        return await GetAsync("measurements?extra_data->>type=eq.event_meter&select=*&order=measured_at.desc");
     }
 
-    public async Task<JsonArray> GetMeasurementsAsync(string? siteId)
+    // --- INFRASTRUCTURE EPA ---
+    public async Task<JsonArray> GetGroundingLogsAsync(string siteId)
     {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("measurements?select=*&order=measured_at.desc");
-        return await GetAsync($"measurements?site_id=eq.{siteId}&select=*&order=measured_at.desc");
-    }
-
-    public async Task<JsonObject?> InsertMeasurementAsync(object data)
-    {
-        return await InsertAsync("measurements", data);
-    }
-
-    public async Task<JsonArray> GetFloorValidationLogsAsync(string? siteId)
-    {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("floor_validation_logs?select=*&order=measured_at.desc");
-        return await GetAsync($"floor_validation_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc");
-    }
-
-    public async Task<JsonObject?> InsertFloorValidationLogAsync(object data)
-    {
-        return await InsertAsync("floor_validation_logs", data);
-    }
-
-    public async Task<JsonArray> GetGroundingLogsAsync(string? siteId)
-    {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("grounding_logs?select=*&order=measured_at.desc");
-        return await GetAsync($"grounding_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc");
+        return await GetAsync($"grounding_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
     }
 
     public async Task<JsonObject?> InsertGroundingLogAsync(object data)
@@ -302,10 +244,19 @@ public class SupabaseService
         return await InsertAsync("grounding_logs", data);
     }
 
-    public async Task<JsonArray> GetIsolatedConductorsLogsAsync(string? siteId)
+    public async Task<JsonArray> GetFloorValidationLogsAsync(string siteId)
     {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("isolated_conductors_logs?select=*&order=measured_at.desc");
-        return await GetAsync($"isolated_conductors_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc");
+        return await GetAsync($"floor_validation_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
+    }
+
+    public async Task<JsonObject?> InsertFloorValidationLogAsync(object data)
+    {
+        return await InsertAsync("floor_validation_logs", data);
+    }
+
+    public async Task<JsonArray> GetIsolatedConductorsLogsAsync(string siteId)
+    {
+        return await GetAsync($"isolated_conductors_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
     }
 
     public async Task<JsonObject?> InsertIsolatedConductorsLogAsync(object data)
@@ -313,10 +264,9 @@ public class SupabaseService
         return await InsertAsync("isolated_conductors_logs", data);
     }
 
-    public async Task<JsonArray> GetEntranceCheckersLogsAsync(string? siteId)
+    public async Task<JsonArray> GetEntranceCheckersLogsAsync(string siteId)
     {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("entrance_checkers_logs?select=*&order=measured_at.desc");
-        return await GetAsync($"entrance_checkers_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc");
+        return await GetAsync($"entrance_checkers_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
     }
 
     public async Task<JsonObject?> InsertEntranceCheckersLogAsync(object data)
@@ -324,16 +274,16 @@ public class SupabaseService
         return await InsertAsync("entrance_checkers_logs", data);
     }
 
-    // --- OFFICIAL LINE REPORTS ---
+    // --- SCHEDULE & REPORTS ---
     public async Task<JsonObject?> InsertLogReportesLineaAsync(object data)
     {
         return await InsertAsync("log_reportes_linea", data);
     }
 
-    // --- LAB SENSITIVITY ---
+    // --- SENSITIVITY LAB ---
     public async Task<JsonArray> GetCatalogoSensibilidadAsync()
     {
-        return await GetAsync("catalogo_sensibilidad?select=*&order=created_at.desc");
+        return await GetAsync("catalogo_sensibilidad?select=*&order=numero_parte.asc");
     }
 
     public async Task<JsonObject?> InsertCatalogoSensibilidadAsync(object data)
@@ -351,11 +301,10 @@ public class SupabaseService
         return await InsertAsync("componentes_sensibilidad", data);
     }
 
-    // --- PRODUCT ROUTES & SEQUENCES ---
-    public async Task<JsonArray> GetCatalogoProductosAsync(string? siteId)
+    // --- PRODUCT ROUTES ---
+    public async Task<JsonArray> GetCatalogoProductosAsync(string siteId)
     {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("catalogo_productos?select=*&order=created_at.desc");
-        return await GetAsync($"catalogo_productos?site_id=eq.{siteId}&select=*&order=created_at.desc");
+        return await GetAsync($"catalogo_productos?site_id=eq.{siteId}&select=*&order=nombre_producto.asc");
     }
 
     public async Task<JsonObject?> InsertCatalogoProductoAsync(object data)
@@ -365,12 +314,11 @@ public class SupabaseService
 
     public async Task<bool> UpdateCatalogoProductoRutaAsync(string nombreProducto, string siteId, object lineasAsociadas)
     {
-        return await UpdateAsync("catalogo_productos", $"nombre_producto=eq.{Uri.EscapeDataString(nombreProducto)}&site_id=eq.{siteId}", new { lineas_asociadas = lineasAsociadas });
+        return await UpdateAsync("catalogo_productos", $"nombre_producto=eq.{nombreProducto}&site_id=eq.{siteId}", new { lineas_asociadas = lineasAsociadas });
     }
 
-    public async Task<JsonArray> GetCatalogoLineasAsync(string? siteId)
+    public async Task<JsonArray> GetCatalogoLineasAsync(string siteId)
     {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("catalogo_lineas?select=*&order=nombre_linea.asc");
         return await GetAsync($"catalogo_lineas?site_id=eq.{siteId}&select=*&order=nombre_linea.asc");
     }
 
@@ -379,21 +327,29 @@ public class SupabaseService
         return await InsertAsync("catalogo_lineas", data);
     }
 
-    // --- EMPLOYEES & TRAINING ---
-    public async Task<JsonArray> GetEmpleadosBatasAsync(string? siteId)
+    // --- EMPLOYEES & TRAINING EXAMS ---
+    public async Task<JsonArray> GetEmpleadosBatasAsync(string siteId)
     {
-        if (string.IsNullOrEmpty(siteId)) return await GetAsync("empleados_batas?select=*");
-        return await GetAsync($"empleados_batas?site_id=eq.{siteId}&select=*");
+        return await GetAsync($"empleados_batas?site_id=eq.{siteId}&select=*&order=num_empleado.asc");
     }
 
-    public async Task<JsonObject?> InsertOrUpdateEmpleadoAsync(object data)
+    public async Task<JsonObject?> InsertOrUpdateEmpleadoAsync(JsonObject emp)
     {
-        return await InsertAsync("empleados_batas", data);
+        string numEmp = emp["num_empleado"]?.ToString() ?? "";
+        string siteId = emp["site_id"]?.ToString() ?? "";
+
+        var existing = await GetAsync($"empleados_batas?num_empleado=eq.{numEmp}&site_id=eq.{siteId}&select=*");
+        if (existing.Count > 0)
+        {
+            bool ok = await UpdateAsync("empleados_batas", $"num_empleado=eq.{numEmp}&site_id=eq.{siteId}", emp);
+            return ok ? emp : null;
+        }
+        return await InsertAsync("empleados_batas", emp);
     }
 
     public async Task<JsonArray> GetEntrenamientosEsdAsync()
     {
-        return await GetAsync("entrenamientos_esd?select=*&order=created_at.desc");
+        return await GetAsync("entrenamientos_esd?select=*&order=fecha_entrenamiento.desc");
     }
 
     public async Task<JsonObject?> InsertEntrenamientoEsdAsync(object data)

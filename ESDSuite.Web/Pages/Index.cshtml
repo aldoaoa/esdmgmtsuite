@@ -592,7 +592,7 @@
                     <div id="set-tab-tree" class="tab-content active">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                             <div>
-                                <h4 style="font-size:15px; font-weight:700;">📁 Explorador Jerárquico de la Organización</h4>
+                                <h4 style="font-size:15px; font-weight:700;">📁 Organizaciones</h4>
                                 <p style="font-size:12px; color:var(--text-muted);">Despliega la estructura: Empresa (Nivel 1) &rarr; Site / Planta (Nivel 2) &rarr; Áreas / Ubicaciones (Nivel 3).</p>
                             </div>
                             <div style="display:flex; gap:8px;">
@@ -1429,14 +1429,14 @@
         const res = await fetch('/api/companies', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name.trim(), code: name.trim().substring(0, 4).toUpperCase(), is_active: true })
+            body: JSON.stringify({ name: name.trim(), is_active: true })
         });
         const data = await res.json();
         if (data.success) {
             alert(`✅ Empresa "${name}" creada exitosamente.`);
             loadSettings();
         } else {
-            alert('❌ Error al crear la empresa.');
+            alert('❌ ' + (data.message || 'Error al crear la empresa. Es posible que ya exista.'));
         }
     }
 
@@ -1473,7 +1473,7 @@
             alert(`✅ Site "${siteName}" creado exitosamente para "${selectedCompany.name}".`);
             loadSettings();
         } else {
-            alert('❌ Error al crear el Site.');
+            alert('❌ ' + (data.message || 'Error al crear el Site.'));
         }
     }
 

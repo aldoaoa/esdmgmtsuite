@@ -19,6 +19,9 @@ public class UserSession
     [JsonPropertyName("is_active")]
     public bool IsActive { get; set; } = true;
 
+    [JsonPropertyName("is_logged_in")]
+    public bool IsLoggedIn { get; set; } = true;
+
     [JsonPropertyName("site_id")]
     public string? SiteId { get; set; }
 

@@ -611,8 +611,20 @@ public class ApiController : ControllerBase
         string name = payload["name"]?.ToString() ?? "";
         if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre de la empresa es obligatorio." });
         
+        payload.Remove("code");
+
         var result = await _supabase.InsertCompanyAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        if (result != null && result["id"] == null)
+        {
+            string errStr = result["message"]?.ToString() ?? result["details"]?.ToString() ?? "Error al insertar en Supabase.";
+            if (errStr.Contains("duplicate key") || errStr.Contains("23505") || errStr.Contains("already exists"))
+            {
+                errStr = $"La empresa '{name}' ya se encuentra registrada en la base de datos.";
+            }
+            return BadRequest(new { success = false, message = errStr });
+        }
+
+        return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
     [HttpGet("sites")]
