@@ -634,25 +634,61 @@ public class ApiController : ControllerBase
     [HttpGet("equipment")]
     public async Task<IActionResult> GetEquipment([FromQuery] string? siteId)
     {
-        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        var data = await _supabase.GetCatalogoEquiposAsync(targetSite);
+        string targetSite = siteId ?? "";
+        if (!IsSuperAdmin && !IsCompanyAdmin)
+        {
+            targetSite = CurrentUserSiteId;
+        }
+
+        var data = await _supabase.GetCatalogoEquiposAsync(string.IsNullOrEmpty(targetSite) ? null : targetSite);
         return Ok(data);
     }
 
     [HttpPost("equipment")]
     public async Task<IActionResult> AddEquipment([FromBody] JsonObject payload)
     {
-        if (payload["site_id"] == null)
+        if (!IsSiteAdmin)
         {
-            payload["site_id"] = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+            return StatusCode(403, new { success = false, message = "No tienes permisos para registrar equipos de medición. Requiere rol SiteAdmin o superior." });
         }
+
+        string siteId = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+        if (!IsSuperAdmin && !IsCompanyAdmin)
+        {
+            siteId = CurrentUserSiteId;
+        }
+        payload["site_id"] = siteId;
+
+        string code = payload["codigo_equipo"]?.ToString()?.Trim() ?? "";
+        string name = payload["nombre_equipo"]?.ToString()?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { success = false, message = "El código y el nombre del equipo son obligatorios." });
+        }
+
+        // Calculate calibration status based on fecha_proxima_calibracion
+        string nextDateStr = payload["fecha_proxima_calibracion"]?.ToString() ?? "";
+        string estatus = "VIGENTE";
+        if (DateTime.TryParse(nextDateStr, out DateTime nextDate))
+        {
+            double daysLeft = (nextDate.Date - DateTime.Now.Date).TotalDays;
+            if (daysLeft < 0) estatus = "VENCIDO";
+            else if (daysLeft <= 30) estatus = "PROXIMO_VENCER";
+            else estatus = "VIGENTE";
+        }
+        payload["estatus"] = estatus;
+
         var result = await _supabase.InsertCatalogoEquipoAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
     [HttpDelete("equipment/{id}")]
     public async Task<IActionResult> DeleteEquipment(string id)
     {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar equipos de medición." });
+        }
         bool success = await _supabase.DeleteCatalogoEquipoAsync(id);
         return Ok(new { success });
     }

@@ -698,8 +698,80 @@
 
                     <!-- TAB 4: EQUIPMENT -->
                     <div id="set-tab-equipment" class="tab-content">
-                        <h4>Directorio de Equipos de Medición y Calibración</h4>
-                        <div id="equipment-list" style="margin-top:14px;"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <div>
+                                <h4 style="margin:0; font-size:16px;">🛠️ Directorio & Calibración de Equipos de Medición (TR53)</h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">Control de Megóhmetros, Medidores de Campo Estático, Placas de Carga de Ionizadores y Terómetros con estatus en tiempo real en Supabase.</p>
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <select id="eq-site-filter" class="form-control" style="width:200px; font-size:12px;" onchange="loadEquipmentTable()">
+                                    <!-- Populated dynamically -->
+                                </select>
+                                <button type="button" id="btn-add-eq-modal" class="btn-primary" style="font-size:12px; padding:6px 12px;" onclick="toggleAddEquipmentForm()">➕ Registrar Equipo</button>
+                            </div>
+                        </div>
+
+                        <!-- FORM: REGISTRAR NUEVO EQUIPO -->
+                        <div id="eq-form-container" class="glass-card" style="display:none; margin-bottom:20px; padding:18px; border-left:4px solid var(--accent-blue);">
+                            <h5 style="margin-top:0; margin-bottom:14px; font-size:14px; color:var(--text-primary);">📝 Alta de Equipo de Medición</h5>
+                            <form id="form-create-equipment">
+                                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+                                    <div class="form-group" id="eq-site-group">
+                                        <label>Site / Planta Asignada*</label>
+                                        <select id="eq-form-site" class="form-control" required></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Código / Identificador del Equipo*</label>
+                                        <input type="text" id="eq-code" class="form-control" placeholder="Ej: MEG-01, MCE-02, PL-01" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Nombre / Descripción del Equipo*</label>
+                                        <input type="text" id="eq-name" class="form-control" placeholder="Ej: Megóhmetro Digital Superficial TR53" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Marca & Modelo</label>
+                                        <input type="text" id="eq-brand" class="form-control" placeholder="Ej: Desco 19787 / Simco FMX-004" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Número de Serie</label>
+                                        <input type="text" id="eq-sn" class="form-control" placeholder="Ej: SN-984210" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Fecha de Última Calibración</label>
+                                        <input type="date" id="eq-date-last" class="form-control" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Fecha Próxima Calibración (Vencimiento)*</label>
+                                        <input type="date" id="eq-date-next" class="form-control" required />
+                                    </div>
+                                </div>
+                                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                                    <button type="button" class="btn-primary" style="background:var(--text-muted);" onclick="toggleAddEquipmentForm()">Cancelar</button>
+                                    <button type="submit" class="btn-primary">💾 Guardar en Supabase</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- TABLE: LISTADO DE EQUIPOS DE MEDICIÓN -->
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código / ID</th>
+                                        <th>Descripción del Equipo</th>
+                                        <th>Marca & Modelo</th>
+                                        <th>No. Serie</th>
+                                        <th>Última Calibración</th>
+                                        <th>Vencimiento</th>
+                                        <th>Estatus Calibración</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="equipment-table-body">
+                                    <!-- Populated via loadEquipmentTable() -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -861,18 +933,68 @@
     }
 
     async function loadSites() {
-        const res = await fetch('/api/sites');
-        const sites = await res.json();
-        allSites = sites;
         const sel = document.getElementById('active-site-select');
-        sel.innerHTML = '';
-        sites.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.innerText = s.name;
-            if (s.id === sessionData.site_id) opt.selected = true;
-            sel.appendChild(opt);
-        });
+        try {
+            const res = await fetch('/api/sites');
+            const sites = await res.json();
+            allSites = sites || [];
+
+            if (sel) {
+                sel.innerHTML = '';
+                if (!sessionData.can_change_site) {
+                    const activeName = sessionData.site_name || (allSites.length > 0 ? allSites[0].name : 'Mi Planta');
+                    const activeId = sessionData.site_id || (allSites.length > 0 ? allSites[0].id : '');
+                    sel.innerHTML = `<option value="${activeId}" selected>🏭 ${activeName}</option>`;
+                    sel.disabled = true;
+                    sel.title = "Tu rol no permite cambiar de site. Estás asignado exclusivamente a tu planta.";
+                } else {
+                    sel.disabled = false;
+                    allSites.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.innerText = `🏭 ${s.name}`;
+                        if (s.id === sessionData.site_id) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                }
+            }
+
+            populateEquipmentSiteSelects(allSites);
+        } catch (ex) {
+            console.log('Error loading sites:', ex);
+            if (sel) {
+                sel.innerHTML = `<option value="${sessionData.site_id || ''}" selected>🏭 ${sessionData.site_name || 'Mi Planta'}</option>`;
+                sel.disabled = true;
+            }
+        }
+    }
+
+    function populateEquipmentSiteSelects(sites) {
+        const eqFilter = document.getElementById('eq-site-filter');
+        const eqFormSite = document.getElementById('eq-form-site');
+        const siteGroup = document.getElementById('eq-site-group');
+
+        if (eqFilter) {
+            eqFilter.innerHTML = '<option value="">Todos los Sites...</option>';
+            sites.forEach(s => {
+                eqFilter.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+            if (sessionData.site_id) eqFilter.value = sessionData.site_id;
+        }
+
+        if (eqFormSite) {
+            eqFormSite.innerHTML = '';
+            if (!sessionData.can_change_site) {
+                eqFormSite.innerHTML = `<option value="${sessionData.site_id}" selected>${sessionData.site_name || 'Mi Planta'}</option>`;
+                if (siteGroup) siteGroup.style.display = 'none';
+            } else {
+                if (siteGroup) siteGroup.style.display = 'block';
+                sites.forEach(s => {
+                    eqFormSite.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+                });
+                if (sessionData.site_id) eqFormSite.value = sessionData.site_id;
+            }
+        }
     }
 
     async function changeActiveSite(siteId) {
@@ -1348,17 +1470,125 @@
         document.querySelectorAll('#mod-settings .tab-content').forEach(c => c.classList.remove('active'));
         event.currentTarget.classList.add('active');
         document.getElementById('set-tab-' + tabName).classList.add('active');
+
+        if (tabName === 'equipment') loadEquipmentTable();
     }
 
-    // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW ---
+    // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW & SETTINGS ---
     async function loadSettings() {
         loadHierarchyTree();
         loadUsersTable();
         loadCompaniesAndSitesSelects();
+        loadEquipmentTable();
+    }
 
-        const eRes = await fetch('/api/equipment');
-        const eq = await eRes.json();
-        document.getElementById('equipment-list').innerHTML = eq.map(e => `<div class="glass-card" style="margin-bottom:6px;">🛠️ <b>${e.codigo_equipo}</b> - ${e.nombre_equipo}</div>`).join('');
+    async function loadEquipmentTable() {
+        const filterVal = document.getElementById('eq-site-filter')?.value || '';
+        const url = filterVal ? `/api/equipment?siteId=${filterVal}` : '/api/equipment';
+        try {
+            const res = await fetch(url);
+            const eqList = await res.json();
+            const tbody = document.getElementById('equipment-table-body');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            if (!eqList || eqList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:18px; color:var(--text-muted);">No hay equipos de medición registrados en este site.</td></tr>';
+                return;
+            }
+
+            eqList.forEach(eq => {
+                const nextDateStr = eq.fecha_proxima_calibracion || eq.fecha_vencimiento || '';
+                let statusBadge = `<span class="badge-pass">🟢 Vigente</span>`;
+                
+                if (nextDateStr) {
+                    const nextDate = new Date(nextDateStr);
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const diffTime = nextDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays < 0) {
+                        statusBadge = `<span class="badge-fail">🔴 Vencido (${Math.abs(diffDays)}d atrás)</span>`;
+                    } else if (diffDays <= 30) {
+                        statusBadge = `<span class="badge-pending">⚠️ Próximo a Vencer (${diffDays}d)</span>`;
+                    } else {
+                        statusBadge = `<span class="badge-pass">🟢 Vigente (${diffDays}d)</span>`;
+                    }
+                }
+
+                const canDelete = sessionData && sessionData.can_create_area; // SiteAdmin or higher
+
+                tbody.innerHTML += `<tr>
+                    <td><b>${eq.codigo_equipo || 'N/A'}</b></td>
+                    <td>${eq.nombre_equipo || 'Sin descripción'}</td>
+                    <td>${eq.marca_modelo || eq.marca || 'N/A'}</td>
+                    <td>${eq.numero_serie || 'N/A'}</td>
+                    <td>${eq.fecha_ultima_calibracion || 'N/A'}</td>
+                    <td><b>${nextDateStr || 'N/A'}</b></td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        ${canDelete ? `<button type="button" class="btn-primary" style="background:var(--accent-rose); padding:3px 7px; font-size:11px;" onclick="deleteEquipment('${eq.id}')">🗑️ Eliminar</button>` : '<span style="color:var(--text-muted); font-size:11px;">Lectura</span>'}
+                    </td>
+                </tr>`;
+            });
+        } catch (ex) {
+            console.log('Error loading equipment table:', ex);
+        }
+    }
+
+    function toggleAddEquipmentForm() {
+        const container = document.getElementById('eq-form-container');
+        if (container) {
+            container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    document.getElementById('form-create-equipment').onsubmit = async function(e) {
+        e.preventDefault();
+        const site_id = document.getElementById('eq-form-site').value || sessionData.site_id;
+        const codigo_equipo = document.getElementById('eq-code').value.trim();
+        const nombre_equipo = document.getElementById('eq-name').value.trim();
+        const marca_modelo = document.getElementById('eq-brand').value.trim();
+        const numero_serie = document.getElementById('eq-sn').value.trim();
+        const fecha_ultima_calibracion = document.getElementById('eq-date-last').value;
+        const fecha_proxima_calibracion = document.getElementById('eq-date-next').value;
+
+        const res = await fetch('/api/equipment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                site_id,
+                codigo_equipo,
+                nombre_equipo,
+                marca_modelo,
+                numero_serie,
+                fecha_ultima_calibracion,
+                fecha_proxima_calibracion
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(`✅ Equipo "${codigo_equipo}" registrado exitosamente en Supabase.`);
+            toggleAddEquipmentForm();
+            document.getElementById('form-create-equipment').reset();
+            loadEquipmentTable();
+        } else {
+            showToast('❌ ' + (data.message || 'Error al registrar el equipo de medición.'), 'error');
+        }
+    };
+
+    async function deleteEquipment(id) {
+        if (!confirm('¿Estás seguro de eliminar este equipo de medición?')) return;
+        const res = await fetch(`/api/equipment/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('✅ Equipo eliminado correctamente.');
+            loadEquipmentTable();
+        } else {
+            showToast('❌ Error al eliminar el equipo.', 'error');
+        }
     }
 
     let expandedTreeNodes = new Set();
