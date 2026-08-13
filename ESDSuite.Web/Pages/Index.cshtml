@@ -1654,7 +1654,11 @@
             if (role === 'CompanyAdmin') roleBadgeClass = 'badge-pass';
             if (role === 'Viewer') roleBadgeClass = 'badge-fail';
 
-            const siteName = u.sites ? u.sites.name : 'Todas / Global';
+            const compObj = u.companies || allCompanies.find(c => c.id === u.company_id);
+            const compName = compObj ? compObj.name : 'Corporativo Global';
+
+            const siteObj = u.sites || allSites.find(s => s.id === u.site_id);
+            const siteName = siteObj ? siteObj.name : 'Todos / Global';
 
             tbody.innerHTML += `<tr>
                 <td>
@@ -1662,7 +1666,7 @@
                     <div style="font-size:11px; color:var(--text-muted);">${u.email}</div>
                 </td>
                 <td><span class="${roleBadgeClass}">${role}</span></td>
-                <td>${u.company_id ? 'Empresa Registrada' : 'Global'}</td>
+                <td><b>${compName}</b></td>
                 <td>${siteName}</td>
                 <td>
                     <button type="button" class="btn-primary" style="background:var(--accent-rose); padding:4px 8px; font-size:11px;" onclick="deleteUser('${u.id}')">🗑️ Eliminar</button>

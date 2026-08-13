@@ -115,7 +115,8 @@ public class SupabaseService
     // --- AUTHENTICATION SERVICE ---
     public async Task<(bool Success, UserSession? Session, string Message)> IniciarSesionAsync(string email, string password)
     {
-        var users = await GetAsync($"users?email=eq.{email.Trim()}&select=*");
+        string cleanEmail = email.Trim();
+        var users = await GetAsync($"users?email=ilike.{cleanEmail}&select=*");
         if (users.Count == 0)
         {
             return (false, null, "No existe un usuario registrado con este correo.");
@@ -411,13 +412,13 @@ public class SupabaseService
     {
         if (!string.IsNullOrEmpty(siteId))
         {
-            return await GetAsync($"users?site_id=eq.{siteId}&select=*,sites!users_site_id_fkey(name)&order=email.asc");
+            return await GetAsync($"users?site_id=eq.{siteId}&select=*,sites!users_site_id_fkey(name),companies(name)&order=email.asc");
         }
         if (!string.IsNullOrEmpty(companyId))
         {
-            return await GetAsync($"users?company_id=eq.{companyId}&select=*,sites!users_site_id_fkey(name)&order=email.asc");
+            return await GetAsync($"users?company_id=eq.{companyId}&select=*,sites!users_site_id_fkey(name),companies(name)&order=email.asc");
         }
-        return await GetAsync("users?select=*,sites!users_site_id_fkey(name)&order=email.asc");
+        return await GetAsync("users?select=*,sites!users_site_id_fkey(name),companies(name)&order=email.asc");
     }
 
     public async Task<JsonObject?> InsertUserAsync(object data)

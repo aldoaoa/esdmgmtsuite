@@ -23,6 +23,9 @@ public static class PasswordHasher
         if (string.IsNullOrWhiteSpace(storedHash) || string.IsNullOrWhiteSpace(password))
             return false;
 
+        storedHash = storedHash.Trim();
+        password = password.Trim();
+
         try
         {
             // Format 1: scrypt:N:r:p$salt$hash
