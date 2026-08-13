@@ -460,6 +460,29 @@ h1, h2, h3, h4, h5, h6 {
     gap: 6px;
 }
 
+.tree-action-btn {
+    background: var(--accent-blue-light);
+    color: var(--accent-blue);
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tree-action-btn:hover {
+    background: var(--accent-blue);
+    color: #FFFFFF;
+    transform: translateY(-0.5px);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
 /* TABLES - COMPACT DENSE ROWS */
 .table-responsive {
     width: 100%;

@@ -1358,11 +1358,15 @@
             tree.forEach((comp, cIdx) => {
                 const compId = `comp-children-${cIdx}`;
                 const sites = comp.sites || [];
+                const safeCompName = (comp.name || '').replace(/'/g, "\\'");
                 
                 html += `<div class="tree-node">
                     <div class="tree-header" onclick="toggleTreeNode('${compId}')">
                         <span>🏢 <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
-                        <span style="font-size:11px;">▶️</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}')">➕ Site</button>
+                            <span style="font-size:11px;">▶️</span>
+                        </div>
                     </div>
                     <div class="tree-children" id="${compId}">`;
 
@@ -1372,19 +1376,29 @@
                     sites.forEach((site, sIdx) => {
                         const siteId = `site-children-${cIdx}-${sIdx}`;
                         const locs = site.locations || [];
+                        const safeSiteName = (site.name || '').replace(/'/g, "\\'");
 
                         html += `<div style="margin:4px 0;">
                             <div class="tree-subnode" onclick="toggleTreeNode('${siteId}')">
                                 <span>🏭 <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
-                                <span style="font-size:10px;">▶️</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}')">➕ Área / Línea</button>
+                                    <span style="font-size:10px;">▶️</span>
+                                </div>
                             </div>
                             <div class="tree-children" id="${siteId}">`;
 
                         if (locs.length === 0) {
-                            html += `<div class="tree-leaf">📍 <i>Línea 1 (Por Defecto)</i></div>`;
+                            html += `<div class="tree-leaf" style="justify-content:space-between;">
+                                <span>📍 <i>Sin áreas registradas en este site.</i></span>
+                            </div>`;
                         } else {
                             locs.forEach(loc => {
-                                html += `<div class="tree-leaf">📍 <b>${loc}</b></div>`;
+                                const safeLoc = (loc || '').replace(/'/g, "\\'");
+                                html += `<div class="tree-leaf" style="justify-content:space-between;">
+                                    <span>📍 <b>${loc}</b></span>
+                                    <button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px;" title="Agregar Operación a esta Área" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeLoc}')">➕ Operación</button>
+                                </div>`;
                             });
                         }
                         html += `</div></div>`;
@@ -1442,10 +1456,75 @@
         });
         const data = await res.json();
         if (data.success) {
-            alert(`✅ Empresa "${name}" creada exitosamente.`);
+            alert(`✅ Empresa "${name}" creada exitosamente en Supabase.`);
             loadSettings();
         } else {
             alert('❌ ' + (data.message || 'Error al crear la empresa. Es posible que ya exista.'));
+        }
+    }
+
+    async function showAddSiteForCompanyModal(companyId, companyName) {
+        const siteName = prompt(`Ingrese el nombre del Nuevo Site / Planta para "${companyName}":`);
+        if (!siteName || !siteName.trim()) return;
+
+        const res = await fetch('/api/sites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                company_id: companyId,
+                name: siteName.trim(),
+                timezone: "America/Mexico_City"
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`✅ Site "${siteName}" registrado exitosamente en Supabase.`);
+            loadSettings();
+        } else {
+            alert('❌ ' + (data.message || 'Error al crear el Site en Supabase.'));
+        }
+    }
+
+    async function showAddAreaForSiteModal(siteId, siteName) {
+        const areaName = prompt(`Ingrese el nombre de la Nueva Área / Línea de Producción para "${siteName}":`);
+        if (!areaName || !areaName.trim()) return;
+
+        const res = await fetch('/api/lines', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                site_id: siteId,
+                nombre_linea: areaName.trim()
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`✅ Área / Línea "${areaName}" registrada exitosamente en Supabase.`);
+            loadSettings();
+        } else {
+            alert('❌ ' + (data.message || 'Error al crear el Área / Línea en Supabase.'));
+        }
+    }
+
+    async function showAddSubOperationModal(siteId, areaName) {
+        const opName = prompt(`Ingrese el nombre de la Operación / Sub-área para "${areaName}":`);
+        if (!opName || !opName.trim()) return;
+
+        const fullName = `${areaName} -> ${opName.trim()}`;
+        const res = await fetch('/api/lines', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                site_id: siteId,
+                nombre_linea: fullName
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`✅ Operación "${opName}" agregada a "${areaName}" en Supabase.`);
+            loadSettings();
+        } else {
+            alert('❌ ' + (data.message || 'Error al crear la Operación en Supabase.'));
         }
     }
 
@@ -1465,25 +1544,7 @@
         }
 
         const selectedCompany = allCompanies[idx];
-        const siteName = prompt(`Ingrese el nombre del Nuevo Site / Planta para "${selectedCompany.name}":`);
-        if (!siteName || !siteName.trim()) return;
-
-        const res = await fetch('/api/sites', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                company_id: selectedCompany.id,
-                name: siteName.trim(),
-                timezone: "America/Mexico_City"
-            })
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert(`✅ Site "${siteName}" creado exitosamente para "${selectedCompany.name}".`);
-            loadSettings();
-        } else {
-            alert('❌ ' + (data.message || 'Error al crear el Site.'));
-        }
+        showAddSiteForCompanyModal(selectedCompany.id, selectedCompany.name);
     }
 
     // --- USER MANAGEMENT & ROLE PERMISSION BADGES ---

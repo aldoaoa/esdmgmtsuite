@@ -317,8 +317,9 @@ public class SupabaseService
         return await UpdateAsync("catalogo_productos", $"nombre_producto=eq.{nombreProducto}&site_id=eq.{siteId}", new { lineas_asociadas = lineasAsociadas });
     }
 
-    public async Task<JsonArray> GetCatalogoLineasAsync(string siteId)
+    public async Task<JsonArray> GetCatalogoLineasAsync(string? siteId = null)
     {
+        if (string.IsNullOrEmpty(siteId)) return await GetAsync("catalogo_lineas?select=*&order=nombre_linea.asc");
         return await GetAsync($"catalogo_lineas?site_id=eq.{siteId}&select=*&order=nombre_linea.asc");
     }
 

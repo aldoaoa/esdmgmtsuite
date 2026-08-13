@@ -494,23 +494,41 @@ public class ApiController : ControllerBase
         return Ok(new { success });
     }
 
+    [HttpGet("lines")]
     [HttpGet("routes/lines")]
     public async Task<IActionResult> GetLines([FromQuery] string? siteId)
     {
-        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        var data = await _supabase.GetCatalogoLineasAsync(targetSite);
+        var data = await _supabase.GetCatalogoLineasAsync(siteId);
         return Ok(data);
     }
 
+    [HttpPost("lines")]
     [HttpPost("routes/lines")]
     public async Task<IActionResult> AddLine([FromBody] JsonObject payload)
     {
-        if (payload["site_id"] == null)
+        string siteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string nombreLinea = payload["nombre_linea"]?.ToString()?.Trim() ?? "";
+
+        if (string.IsNullOrWhiteSpace(nombreLinea)) return BadRequest(new { success = false, message = "El nombre de la área/línea es obligatorio." });
+
+        payload["site_id"] = siteId;
+
+        // Duplicate check in site
+        var existingLines = await _supabase.GetCatalogoLineasAsync(siteId);
+        foreach (var l in existingLines)
         {
-            payload["site_id"] = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+            if (l is JsonObject lObj)
+            {
+                string existingName = lObj["nombre_linea"]?.ToString()?.Trim() ?? "";
+                if (string.Equals(existingName, nombreLinea, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { success = false, message = $"Ya existe el área/línea '{nombreLinea}' en este site." });
+                }
+            }
         }
+
         var result = await _supabase.InsertCatalogoLineaAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
     // --- EMPLOYEES & TRAINING EXAMS ---
@@ -659,6 +677,7 @@ public class ApiController : ControllerBase
     {
         var companies = await _supabase.GetCompaniesAsync();
         var sites = await _supabase.GetSitesAsync();
+        var allDbLines = await _supabase.GetCatalogoLineasAsync();
 
         var tree = new JsonArray();
         foreach (var c in companies)
@@ -674,8 +693,25 @@ public class ApiController : ControllerBase
                     if (s is JsonObject sObj && sObj["company_id"]?.ToString() == companyId)
                     {
                         var siteCopy = sObj.DeepClone() as JsonObject ?? new JsonObject();
-                        var locArray = new JsonArray { "Línea 1", "Cleanroom EPA" };
-                        siteCopy["locations"] = locArray;
+                        string siteId = siteCopy["id"]?.ToString() ?? "";
+
+                        var siteLocations = new JsonArray();
+                        var seenLocations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                        // 1. Get lines live from catalogo_lineas in Supabase
+                        foreach (var lineItem in allDbLines)
+                        {
+                            if (lineItem is JsonObject lineObj && lineObj["site_id"]?.ToString() == siteId)
+                            {
+                                string lName = lineObj["nombre_linea"]?.ToString()?.Trim() ?? "";
+                                if (!string.IsNullOrEmpty(lName) && seenLocations.Add(lName))
+                                {
+                                    siteLocations.Add(lName);
+                                }
+                            }
+                        }
+
+                        siteCopy["locations"] = siteLocations;
                         companySites.Add(siteCopy);
                     }
                 }
