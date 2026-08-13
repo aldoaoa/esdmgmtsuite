@@ -4,6 +4,8 @@ namespace ESDSuite.Core.Constants;
 
 public static class EsdConstants
 {
+    public const string SystemVersion = "1.0.1";
+
     public static readonly Dictionary<string, EsdElementInfo> InfoElementosEsd = new()
     {
         { "Pulsera antiestática", new EsdElementInfo { Limite = "RS < 3.5x10^7 ohms", RefNum = 3.5e7, TipoMaterial = "Banda elástica / Metal", Magnitud = "Resistencia", Metodo = "ANSI/ESD TR53", Frecuencia = "Semestralmente" } },

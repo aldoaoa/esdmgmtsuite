@@ -74,7 +74,8 @@ public class ApiController : ControllerBase
             company_id = HttpContext.Session.GetString("company_id"),
             site_name = HttpContext.Session.GetString("site_name"),
             company_name = HttpContext.Session.GetString("company_name"),
-            lang = HttpContext.Session.GetString("lang") ?? "es"
+            lang = HttpContext.Session.GetString("lang") ?? "es",
+            version = EsdConstants.SystemVersion
         });
     }
 
