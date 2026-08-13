@@ -21,11 +21,11 @@
 <div id="app-container">
 
     <!-- LOGIN MODAL / OVERLAY -->
-    <div id="login-overlay" class="glass-panel" style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:rgba(9,13,22,0.95);">
-        <div class="glass-card" style="width: 420px; padding: 40px; border-radius: 20px;">
+    <div id="login-overlay" style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:rgba(15, 23, 42, 0.6); backdrop-filter:blur(6px);">
+        <div class="glass-panel" style="width: 420px; padding: 40px; border-radius: 16px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);">
             <div style="text-align: center; margin-bottom: 24px;">
                 <div style="font-size: 40px; margin-bottom: 8px;">🛡️</div>
-                <h2 style="font-weight: 800; font-size: 24px; color:#fff;">ESD Suite .NET</h2>
+                <h2 style="font-weight: 800; font-size: 24px; color:var(--text-primary);">ESD Suite .NET</h2>
                 <p style="font-size: 13px; color: var(--text-muted); margin-top:4px;">ANSI/ESD S20.20 / TR53 Control System</p>
             </div>
             <form id="login-form">
@@ -109,13 +109,13 @@
             <div class="header-actions">
                 <div id="site-selector-container" class="site-badge">
                     <span>🏭 Site:</span>
-                    <select id="active-site-select" onchange="changeActiveSite(this.value)" style="background:transparent; border:none; color:inherit; font-weight:bold; cursor:pointer;">
+                    <select id="active-site-select" onchange="changeActiveSite(this.value)" style="background:transparent; border:none; color:inherit; font-weight:700; cursor:pointer;">
                         <option value="">Cargando Sites...</option>
                     </select>
                 </div>
-                <div class="site-badge" style="background:rgba(0, 242, 254, 0.1); border-color:rgba(0, 242, 254, 0.3); color:var(--accent-cyan);">
+                <div class="site-badge" style="background:var(--accent-blue-light); border-color:rgba(37,99,235,0.2); color:var(--accent-blue);">
                     <span>🌐</span>
-                    <select id="lang-select" onchange="changeLanguage(this.value)" style="background:transparent; border:none; color:inherit; font-weight:bold; cursor:pointer;">
+                    <select id="lang-select" onchange="changeLanguage(this.value)" style="background:transparent; border:none; color:inherit; font-weight:700; cursor:pointer;">
                         <option value="es">ES (Español)</option>
                         <option value="en">EN (English)</option>
                         <option value="zh">ZH (中文)</option>
@@ -170,32 +170,32 @@
                     </div>
                 </div>
 
-                <div class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
-                    <h3 style="margin-bottom: 16px; font-weight:700;">📊 Cumplimiento Operativo por Categoría de Activo</h3>
-                    <div style="height: 300px; position:relative;">
+                <div class="glass-panel">
+                    <h3 style="margin-bottom: 18px; font-weight:700;">📊 Cumplimiento Operativo por Categoría de Activo</h3>
+                    <div style="height: 320px; position:relative; width:100%;">
                         <canvas id="dashboardChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- MODULE 2: AUDIT & VERIFICATION WITH INTEGRATED LIGHTWEIGHT QR SCANNER -->
+            <!-- MODULE 2: AUDIT & VERIFICATION WITH LIGHTWEIGHT QR SCANNER -->
             <div id="mod-audit" class="module-view" style="display:none;">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 24px;">
 
                     <!-- LEFT COLUMN: LIGHTWEIGHT CAMERA QR SCANNER & MANUAL SEARCH -->
-                    <div class="glass-panel" style="padding: 24px;">
-                        <h3 style="margin-bottom: 8px;" data-i18n="audit.lbl_scan">📸 Escanear Código QR del Activo</h3>
-                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">Camara principal activada por defecto. Cambio rápido entre lentes.</p>
+                    <div class="glass-panel">
+                        <h3 style="margin-bottom: 6px;" data-i18n="audit.lbl_scan">📸 Escanear Código QR del Activo</h3>
+                        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:16px;">Lente principal activado por defecto. Cambio rápido entre cámaras.</p>
 
-                        <div id="qr-reader-wrapper" style="width:100%; border-radius:12px; overflow:hidden; border:2px solid var(--accent-cyan); background:#090d16; min-height:260px; position:relative;">
+                        <div id="qr-reader-wrapper" style="width:100%; border-radius:12px; overflow:hidden; border:2px solid var(--accent-blue); background:#F8FAFC; min-height:260px; position:relative;">
                             <div id="qr-reader" style="width:100%;"></div>
                         </div>
 
-                        <div style="display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                        <div style="display:flex; justify-content:center; gap:8px; margin-top:14px; flex-wrap:wrap;">
                             <button type="button" class="tab-btn active" id="btn-cam-standard" onclick="startScannerStandard()">📸 LENTE ESTÁNDAR</button>
                             <button type="button" class="tab-btn" id="btn-cam-cycle" onclick="cycleCamera()">🔄 OTRA CÁMARA</button>
                         </div>
-                        <p id="cam-status" style="text-align:center; color:var(--text-dim); font-size:12px; margin-top:8px;">Buscando cámaras...</p>
+                        <p id="cam-status" style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:8px;">Buscando cámaras...</p>
 
                         <hr style="border-color:var(--border-color); margin:20px 0;" />
 
@@ -209,28 +209,28 @@
                     </div>
 
                     <!-- RIGHT COLUMN: AUDIT FORM & HISTORICAL VALIDATION METRICS -->
-                    <div class="glass-panel" style="padding: 24px;">
-                        <h3 style="margin-bottom: 8px;" data-i18n="audit.new_record">✍️ Registrar Nueva Auditoría</h3>
+                    <div class="glass-panel">
+                        <h3 style="margin-bottom: 12px;" data-i18n="audit.new_record">✍️ Registrar Nueva Auditoría</h3>
                         
                         <!-- SCANNED ASSET HISTORY CARD -->
-                        <div id="scanned-asset-card" class="glass-card" style="margin-bottom: 20px; display:none;">
+                        <div id="scanned-asset-card" class="glass-card" style="margin-bottom: 20px; display:none; background:#F8FAFC;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <h4 id="card-asset-id" style="color:var(--accent-cyan); font-weight:800;">ID: -</h4>
+                                <h4 id="card-asset-id" style="color:var(--accent-blue); font-weight:800;">ID: -</h4>
                                 <span id="card-asset-status" class="badge-pass">ACTIVE</span>
                             </div>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12.5px; color:var(--text-muted); margin-bottom:12px;">
                                 <div><b data-i18n="audit.loc">Ubicación</b>: <span id="card-asset-loc">N/A</span></div>
                                 <div><b data-i18n="audit.class">Clasificación</b>: <span id="card-asset-class">N/A</span></div>
                             </div>
                             <div style="border-top:1px dashed var(--border-color); padding-top:8px;">
-                                <div style="font-size:12px; font-weight:700; color:var(--text-bright);" data-i18n="audit.last_audit_title">🕒 Última Auditoría Registrada</div>
+                                <div style="font-size:12px; font-weight:700; color:var(--text-primary);" data-i18n="audit.last_audit_title">🕒 Última Auditoría Registrada</div>
                                 <div id="card-history-details" style="font-size:12px; margin-top:4px;">Cargando historial...</div>
                             </div>
                         </div>
 
                         <!-- MAIN AUDIT FORM -->
                         <form id="audit-main-form">
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                                 <div class="form-group">
                                     <label>ID Elemento / Activo*</label>
                                     <input type="text" id="audit-id-elemento" class="form-control" placeholder="Ej: EQ-001" required onchange="lookupScannedAsset(this.value)" />
@@ -254,8 +254,8 @@
                             </div>
 
                             <!-- CAMPOS ESPECÍFICOS: IONIZADOR -->
-                            <div id="fields-ionizer" style="display:none; background:rgba(0,242,254,0.05); padding:14px; border-radius:10px; border:1px solid rgba(0,242,254,0.2); margin-top:12px;">
-                                <h5 style="margin-bottom:8px; color:var(--accent-cyan);">⚡ Medición de Ionizador (Límite: Descarga &le; 10.0s, Balance &plusmn; 35V)</h5>
+                            <div id="fields-ionizer" style="display:none; background:var(--accent-blue-light); padding:16px; border-radius:10px; border:1px solid rgba(37,99,235,0.2); margin-top:12px;">
+                                <h5 style="margin-bottom:10px; color:var(--accent-blue);">⚡ Medición de Ionizador (Límite: Descarga &le; 10.0s, Balance &plusmn; 35V)</h5>
                                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                                     <div class="form-group">
                                         <label>Tiempo de Descarga [seg]*</label>
@@ -269,8 +269,8 @@
                             </div>
 
                             <!-- CAMPOS ESPECÍFICOS: MOBILIARIO Y MAQUINARIA -->
-                            <div id="fields-furniture-machinery" style="background:rgba(255,255,255,0.02); padding:14px; border-radius:10px; border:1px solid var(--border-color); margin-top:12px;">
-                                <h5 style="margin-bottom:8px; color:var(--text-bright);">🔌 Medición Estándar (Resistencia &le; 1.0e9 &Omega;, Campo &le; 100V)</h5>
+                            <div id="fields-furniture-machinery" style="background:#F8FAFC; padding:16px; border-radius:10px; border:1px solid var(--border-color); margin-top:12px;">
+                                <h5 style="margin-bottom:10px; color:var(--text-primary);">🔌 Medición Estándar (Resistencia &le; 1.0e9 &Omega;, Campo &le; 100V)</h5>
                                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                                     <div class="form-group">
                                         <label data-i18n="audit.lbl_res">Resistencia [Ohms]*</label>
@@ -283,9 +283,9 @@
                                 </div>
 
                                 <!-- MEDICIONES ADICIONALES DINÁMICAS -->
-                                <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--border-color);">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                        <h6 style="color:var(--accent-amber);">➕ Puntos de Medición Extras</h6>
+                                <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border-color);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                        <h6 style="color:var(--accent-amber); font-weight:700;">➕ Puntos de Medición Extras</h6>
                                         <div>
                                             <button type="button" class="tab-btn" onclick="addExtraPoint('resistencia')">➕ Resistencia</button>
                                             <button type="button" class="tab-btn" onclick="addExtraPoint('voltaje')">➕ Voltaje</button>
@@ -295,12 +295,12 @@
                                 </div>
                             </div>
 
-                            <div class="form-group" style="margin-top:12px;">
+                            <div class="form-group" style="margin-top:14px;">
                                 <label data-i18n="audit.lbl_obs">Observaciones / Comentarios</label>
                                 <input type="text" id="audit-comentarios" class="form-control" placeholder="Sin observaciones" />
                             </div>
 
-                            <button type="submit" class="btn-primary" style="width:100%; margin-top:16px; font-size:15px; padding:12px;" data-i18n="audit.btn_save">💾 Guardar Auditoría</button>
+                            <button type="submit" class="btn-primary" style="width:100%; margin-top:16px; font-size:14.5px; padding:12px;" data-i18n="audit.btn_save">💾 Guardar Auditoría</button>
                         </form>
                     </div>
                 </div>
@@ -308,7 +308,7 @@
 
             <!-- MODULE: EVENT METER -->
             <div id="mod-eventmeter" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 30px; max-width: 800px; margin: 0 auto;">
+                <div class="glass-panel" style="max-width: 860px; margin: 0 auto;">
                     <h3>⚡ Detección de Eventos ESD (Event Meter)</h3>
                     <p style="font-size:13px; color:var(--text-muted); margin-bottom: 24px;">Monitoreo de descargas en operaciones críticas (Límite: Voltaje Máximo &le; 100V)</p>
 
@@ -355,16 +355,16 @@
                         <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;" data-i18n="lab.em_save">💾 Guardar Registro de Event Meter</button>
                     </form>
 
-                    <h4 style="margin-top:30px;" data-i18n="lab.lbl_em_history">⚡ Histórico de Event Meter</h4>
-                    <div id="event-meter-history-table" style="margin-top:12px;"></div>
+                    <h4 style="margin-top:32px;" data-i18n="lab.lbl_em_history">⚡ Histórico de Event Meter</h4>
+                    <div id="event-meter-history-table" style="margin-top:14px;"></div>
                 </div>
             </div>
 
             <!-- MODULE 3: INFRAESTRUCTURA EPA -->
             <div id="mod-infra" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
+                <div class="glass-panel">
                     <h3 data-i18n="infra.title">⚡ Infraestructura y Puntos EPA</h3>
-                    <div class="tabs-header">
+                    <div class="tabs-header" style="margin-top:16px;">
                         <button class="tab-btn active" onclick="switchInfraTab('ground')" data-i18n="infra.tab_ground">⚡ Tierras y Conexiones</button>
                         <button class="tab-btn" onclick="switchInfraTab('floor')" data-i18n="infra.tab_floor">🔲 Piso ESD</button>
                         <button class="tab-btn" onclick="switchInfraTab('iso')" data-i18n="infra.tab_iso">⚡ Conductores Aislados</button>
@@ -428,7 +428,7 @@
 
             <!-- MODULE 4: CRONOGRAMA & REPORTES -->
             <div id="mod-schedule" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
+                <div class="glass-panel">
                     <h3>📅 Cronograma de Validación y Generación de Reportes Oficiales de Línea</h3>
                     <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Emisión de Certificados de Línea Folio <b>BCS-LV-XXX-YY</b> según norma ANSI/ESD S20.20</p>
                     
@@ -448,8 +448,8 @@
 
             <!-- MODULE 5: INVENTORY -->
             <div id="mod-inventory" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
-                    <h3>📦 Directorio General de Activos ESD</h3>
+                <div class="glass-panel">
+                    <h3 style="margin-bottom:16px;">📦 Directorio General de Activos ESD</h3>
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
@@ -470,7 +470,7 @@
 
             <!-- MODULE 6: LAB -->
             <div id="mod-lab" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
+                <div class="glass-panel">
                     <h3 data-i18n="lab.title">🔬 Laboratorio ESD: Clasificación HBM / CDM</h3>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;">
                         <div class="glass-card">
@@ -501,7 +501,7 @@
 
             <!-- MODULE 7: PRODUCT ROUTES -->
             <div id="mod-routes" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
+                <div class="glass-panel">
                     <h3 data-i18n="routes.title">🗺️ Rutas de Producto y Secuencia Estricta de Proceso</h3>
                     <div id="routes-container" style="margin-top:20px;"></div>
                 </div>
@@ -509,8 +509,8 @@
 
             <!-- MODULE 8: EMPLOYEES -->
             <div id="mod-employees" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
-                    <h3>👥 Personal, Padrón de Batas y Vigencias</h3>
+                <div class="glass-panel">
+                    <h3 style="margin-bottom:16px;">👥 Personal, Padrón de Batas y Vigencias</h3>
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
@@ -532,7 +532,7 @@
 
             <!-- MODULE 9: TRAINING & EXAMS -->
             <div id="mod-training" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 30px; max-width: 700px; margin: 0 auto;">
+                <div class="glass-panel" style="max-width: 760px; margin: 0 auto;">
                     <h3>🎓 Examen de Capacitación ANSI/ESD S20.20</h3>
                     <form id="exam-form" style="margin-top:20px;">
                         <div class="form-group"><label>Número de Empleado</label><input id="exam-num" class="form-control" required /></div>
@@ -572,9 +572,9 @@
 
             <!-- MODULE 10: SETTINGS & MULTI-TENANT & I18N LANGUAGE -->
             <div id="mod-settings" class="module-view" style="display:none;">
-                <div class="glass-panel" style="padding: 24px;">
+                <div class="glass-panel">
                     <h3>⚙️ Ajustes del Sistema, Idioma & Multi-Tenant</h3>
-                    <div class="tabs-header">
+                    <div class="tabs-header" style="margin-top:16px;">
                         <button class="tab-btn active" onclick="switchSettingsTab('lang')">🌐 Idioma / Language</button>
                         <button class="tab-btn" onclick="switchSettingsTab('sites')">🏭 Plantas (Sites)</button>
                         <button class="tab-btn" onclick="switchSettingsTab('equipment')">🛠️ Equipos de Medición</button>
@@ -781,7 +781,7 @@
         if (modName === 'settings') loadSettings();
     }
 
-    // --- LIGHTWEIGHT QR SCANNER LOGIC (PARIDAD CON STREAMLIT) ---
+    // --- LIGHTWEIGHT QR SCANNER LOGIC ---
     function initQRScanner() {
         if (!window.Html5Qrcode) return;
         const statusEl = document.getElementById('cam-status');
@@ -900,7 +900,7 @@
         }
     }
 
-    // --- AUDIT FORM LOGIC (PARIDAD CON VENCIDOS.PY) ---
+    // --- AUDIT FORM LOGIC ---
     function toggleAuditFormType(type) {
         const isIon = type === 'Ionizador';
         document.getElementById('fields-ionizer').style.display = isIon ? 'block' : 'none';
@@ -998,7 +998,7 @@
         const container = document.getElementById('event-meter-history-table');
         container.innerHTML = logs.map(l => `<div class="glass-card" style="margin-bottom:8px;">
             <b>${l.id_operacion}</b> (${l.linea_ubicacion}) - ${l.tipo_contacto}
-            <div style="font-size:12px; color:var(--accent-cyan); margin-top:4px;">Eventos: ${l.cantidad_eventos} | Volt Max: ${l.voltaje_maximo}V | Estatus: <b>${l.estatus_verificacion}</b></div>
+            <div style="font-size:12px; color:var(--accent-blue); margin-top:4px;">Eventos: ${l.cantidad_eventos} | Volt Max: ${l.voltaje_maximo}V | Estatus: <b>${l.estatus_verificacion}</b></div>
         </div>`).join('');
     }
 
@@ -1032,17 +1032,17 @@
                 datasets: [{
                     label: 'Cantidad de Activos Registrados',
                     data: Object.values(categories),
-                    backgroundColor: '#00f2fe',
+                    backgroundColor: '#2563EB',
                     borderRadius: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#fff' } } },
+                plugins: { legend: { labels: { color: '#0F172A', font: { family: 'Montserrat', weight: '700' } } } },
                 scales: {
-                    x: { ticks: { color: '#9ca3af' } },
-                    y: { ticks: { color: '#9ca3af' } }
+                    x: { ticks: { color: '#64748B', font: { family: 'Montserrat' } }, grid: { color: '#F1F5F9' } },
+                    y: { ticks: { color: '#64748B', font: { family: 'Inter' } }, grid: { color: '#F1F5F9' } }
                 }
             }
         });
@@ -1127,7 +1127,7 @@
         data.forEach(p => {
             container.innerHTML += `<div class="glass-card" style="margin-bottom:10px;">
                 <strong>${p.numero_parte}</strong> - ${p.nombre_producto}
-                <div style="font-size:12px; color:var(--accent-cyan); margin-top:4px;">Nivel: ${p.nivel_sensibilidad}</div>
+                <div style="font-size:12px; color:var(--accent-blue); margin-top:4px;">Nivel: ${p.nivel_sensibilidad}</div>
             </div>`;
         });
     }
@@ -1164,7 +1164,7 @@
                 if (idx < lineas.length - 1) stepsHtml += '<div class="step-arrow">➡️</div>';
             });
             container.innerHTML += `<div class="glass-card" style="margin-bottom:20px;">
-                <h4 style="color:var(--accent-cyan);">📦 ${p.nombre_producto}</h4>
+                <h4 style="color:var(--accent-blue);">📦 ${p.nombre_producto}</h4>
                 <div class="sequence-flow">${stepsHtml}</div>
             </div>`;
         });
