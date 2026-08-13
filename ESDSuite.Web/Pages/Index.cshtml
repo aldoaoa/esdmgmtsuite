@@ -1413,12 +1413,43 @@
                                 <span>📍 <i>Sin áreas registradas en este site.</i></span>
                             </div>`;
                         } else {
+                            const areaGroupMap = {};
                             locs.forEach(loc => {
-                                const safeLoc = (loc || '').replace(/'/g, "\\'");
-                                html += `<div class="tree-leaf" style="justify-content:space-between;">
-                                    <span>📍 <b>${loc}</b></span>
-                                    <button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px;" title="Agregar Operación a esta Área" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeLoc}', '${compId}', '${siteId}')">➕ Operación</button>
-                                </div>`;
+                                if (loc.includes(' -> ')) {
+                                    const parts = loc.split(' -> ');
+                                    const parent = parts[0].trim();
+                                    const child = parts.slice(1).join(' -> ').trim();
+                                    if (!areaGroupMap[parent]) areaGroupMap[parent] = [];
+                                    if (child && !areaGroupMap[parent].includes(child)) {
+                                        areaGroupMap[parent].push(child);
+                                    }
+                                } else {
+                                    if (!areaGroupMap[loc]) areaGroupMap[loc] = [];
+                                }
+                            });
+
+                            Object.keys(areaGroupMap).forEach(areaName => {
+                                const subOps = areaGroupMap[areaName];
+                                const safeAreaName = (areaName || '').replace(/'/g, "\\'");
+
+                                html += `<div class="area-card-box">
+                                    <div class="area-header">
+                                        <span>📍 <b>${areaName}</b> ${subOps.length > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${subOps.length} Sub-operaciones)</span>` : ''}</span>
+                                        <button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>
+                                    </div>`;
+
+                                if (subOps.length > 0) {
+                                    html += `<div class="sub-ops-container">`;
+                                    subOps.forEach(sub => {
+                                        html += `<div class="sub-op-item">
+                                            <span>⚙️ <b>${sub}</b></span>
+                                            <span style="font-size:10.5px; color:var(--text-muted); font-weight:600;">Operación</span>
+                                        </div>`;
+                                    });
+                                    html += `</div>`;
+                                }
+
+                                html += `</div>`;
                             });
                         }
                         html += `</div></div>`;
