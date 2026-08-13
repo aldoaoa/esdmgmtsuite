@@ -17,6 +17,14 @@ public class ApiController : ControllerBase
     private const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
     private const string DefaultAuditorId = "84d85bea-272c-42d1-ad14-35eb702f1e56";
 
+    private string CurrentUserRole => HttpContext.Session.GetString("user_role") ?? "Auditor";
+    private string? CurrentUserCompanyId => HttpContext.Session.GetString("company_id");
+    private string CurrentUserSiteId => HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+
+    private bool IsSuperAdmin => string.Equals(CurrentUserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+    private bool IsCompanyAdmin => IsSuperAdmin || string.Equals(CurrentUserRole, "CompanyAdmin", StringComparison.OrdinalIgnoreCase);
+    private bool IsSiteAdmin => IsCompanyAdmin || string.Equals(CurrentUserRole, "SiteAdmin", StringComparison.OrdinalIgnoreCase);
+
     public ApiController(SupabaseService supabase)
     {
         _supabase = supabase;
@@ -69,24 +77,58 @@ public class ApiController : ControllerBase
             user_id = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId,
             user_email = HttpContext.Session.GetString("user_email"),
             user_name = HttpContext.Session.GetString("user_name"),
-            user_role = HttpContext.Session.GetString("user_role"),
-            site_id = HttpContext.Session.GetString("site_id") ?? DefaultSiteId,
-            company_id = HttpContext.Session.GetString("company_id"),
+            user_role = CurrentUserRole,
+            site_id = CurrentUserSiteId,
+            company_id = CurrentUserCompanyId,
             site_name = HttpContext.Session.GetString("site_name"),
             company_name = HttpContext.Session.GetString("company_name"),
+            can_create_company = IsSuperAdmin,
+            can_create_site = IsCompanyAdmin,
+            can_create_area = IsSiteAdmin,
+            can_create_user = IsSiteAdmin,
+            can_change_site = IsCompanyAdmin,
             lang = HttpContext.Session.GetString("lang") ?? "es",
             version = EsdConstants.SystemVersion
         });
     }
 
     [HttpPost("set-site")]
-    public IActionResult SetActiveSite([FromBody] JsonObject payload)
+    public async Task<IActionResult> SetActiveSite([FromBody] JsonObject payload)
     {
-        string siteId = payload["site_id"]?.ToString() ?? "";
-        string siteName = payload["site_name"]?.ToString() ?? "";
-        if (!string.IsNullOrEmpty(siteId)) HttpContext.Session.SetString("site_id", siteId);
-        if (!string.IsNullOrEmpty(siteName)) HttpContext.Session.SetString("site_name", siteName);
-        return Ok(new { success = true });
+        string targetSiteId = payload["site_id"]?.ToString() ?? "";
+        string targetSiteName = payload["site_name"]?.ToString() ?? "";
+
+        if (string.IsNullOrEmpty(targetSiteId)) return BadRequest(new { success = false, message = "site_id invalido" });
+
+        if (IsSuperAdmin)
+        {
+            HttpContext.Session.SetString("site_id", targetSiteId);
+            if (!string.IsNullOrEmpty(targetSiteName)) HttpContext.Session.SetString("site_name", targetSiteName);
+            return Ok(new { success = true });
+        }
+
+        if (IsCompanyAdmin)
+        {
+            var allowedSites = await _supabase.GetSitesAsync(CurrentUserCompanyId);
+            bool isAllowed = false;
+            foreach (var s in allowedSites)
+            {
+                if (s is JsonObject sObj && sObj["id"]?.ToString() == targetSiteId)
+                {
+                    isAllowed = true; break;
+                }
+            }
+            if (!isAllowed)
+            {
+                return StatusCode(403, new { success = false, message = "No tienes permiso para acceder a sitios de otra empresa." });
+            }
+
+            HttpContext.Session.SetString("site_id", targetSiteId);
+            if (!string.IsNullOrEmpty(targetSiteName)) HttpContext.Session.SetString("site_name", targetSiteName);
+            return Ok(new { success = true });
+        }
+
+        return StatusCode(403, new { success = false, message = "Tu rol de usuario está asignado exclusivamente a tu planta y no permite cambiar de site." });
     }
 
     [HttpPost("set-lang")]
@@ -619,13 +661,28 @@ public class ApiController : ControllerBase
     [HttpGet("companies")]
     public async Task<IActionResult> GetCompanies()
     {
-        var data = await _supabase.GetCompaniesAsync();
-        return Ok(data);
+        var allCompanies = await _supabase.GetCompaniesAsync();
+        if (IsSuperAdmin) return Ok(allCompanies);
+
+        var filtered = new JsonArray();
+        foreach (var c in allCompanies)
+        {
+            if (c is JsonObject cObj && cObj["id"]?.ToString() == CurrentUserCompanyId)
+            {
+                filtered.Add(cObj);
+            }
+        }
+        return Ok(filtered);
     }
 
     [HttpPost("companies")]
     public async Task<IActionResult> AddCompany([FromBody] JsonObject payload)
     {
+        if (!IsSuperAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para crear empresas. Requiere rol SuperAdmin." });
+        }
+
         string name = payload["name"]?.ToString()?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre de la empresa es obligatorio." });
         
@@ -658,13 +715,45 @@ public class ApiController : ControllerBase
     [HttpGet("sites")]
     public async Task<IActionResult> GetSites([FromQuery] string? companyId)
     {
-        var data = await _supabase.GetSitesAsync(companyId);
-        return Ok(data);
+        if (IsSuperAdmin)
+        {
+            var data = await _supabase.GetSitesAsync(companyId);
+            return Ok(data);
+        }
+
+        if (IsCompanyAdmin)
+        {
+            var data = await _supabase.GetSitesAsync(CurrentUserCompanyId);
+            return Ok(data);
+        }
+
+        // SiteAdmin / Auditor / Viewer: Return ONLY assigned site
+        var allSites = await _supabase.GetSitesAsync(CurrentUserCompanyId);
+        var singleSiteList = new JsonArray();
+        foreach (var s in allSites)
+        {
+            if (s is JsonObject sObj && sObj["id"]?.ToString() == CurrentUserSiteId)
+            {
+                singleSiteList.Add(sObj);
+            }
+        }
+        return Ok(singleSiteList);
     }
 
     [HttpPost("sites")]
     public async Task<IActionResult> AddSite([FromBody] JsonObject payload)
     {
+        if (!IsCompanyAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para crear sites/plantas. Requiere rol CompanyAdmin o SuperAdmin." });
+        }
+
+        if (!IsSuperAdmin)
+        {
+            // Force site to belong to CompanyAdmin's own company
+            payload["company_id"] = CurrentUserCompanyId;
+        }
+
         string name = payload["name"]?.ToString()?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { success = false, message = "El nombre del site es obligatorio." });
 
@@ -684,21 +773,27 @@ public class ApiController : ControllerBase
         {
             if (c is JsonObject cObj)
             {
+                string companyId = cObj["id"]?.ToString() ?? "";
+
+                // Non-SuperAdmin CANNOT view other companies!
+                if (!IsSuperAdmin && companyId != CurrentUserCompanyId) continue;
+
                 var companyCopy = cObj.DeepClone() as JsonObject ?? new JsonObject();
-                string companyId = companyCopy["id"]?.ToString() ?? "";
                 var companySites = new JsonArray();
 
                 foreach (var s in sites)
                 {
                     if (s is JsonObject sObj && sObj["company_id"]?.ToString() == companyId)
                     {
-                        var siteCopy = sObj.DeepClone() as JsonObject ?? new JsonObject();
-                        string siteId = siteCopy["id"]?.ToString() ?? "";
+                        string siteId = sObj["id"]?.ToString() ?? "";
 
+                        // SiteAdmin / Auditor / Viewer CANNOT view other sites!
+                        if (!IsCompanyAdmin && siteId != CurrentUserSiteId) continue;
+
+                        var siteCopy = sObj.DeepClone() as JsonObject ?? new JsonObject();
                         var siteLocations = new JsonArray();
                         var seenLocations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                        // 1. Get lines live from catalogo_lineas in Supabase
                         foreach (var lineItem in allDbLines)
                         {
                             if (lineItem is JsonObject lineObj && lineObj["site_id"]?.ToString() == siteId)
@@ -727,24 +822,77 @@ public class ApiController : ControllerBase
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers([FromQuery] string? companyId, [FromQuery] string? siteId)
     {
-        var data = await _supabase.GetUsersAsync(companyId, siteId);
-        return Ok(data);
+        if (IsSuperAdmin)
+        {
+            var data = await _supabase.GetUsersAsync(companyId, siteId);
+            return Ok(data);
+        }
+
+        if (IsCompanyAdmin)
+        {
+            var data = await _supabase.GetUsersAsync(CurrentUserCompanyId, null);
+            return Ok(data);
+        }
+
+        if (IsSiteAdmin)
+        {
+            var data = await _supabase.GetUsersAsync(null, CurrentUserSiteId);
+            return Ok(data);
+        }
+
+        return StatusCode(403, new { success = false, message = "No tienes permisos para listar usuarios." });
     }
 
     [HttpPost("users")]
     public async Task<IActionResult> CreateUser([FromBody] JsonObject payload)
     {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para registrar usuarios. Se requiere rol SiteAdmin o superior." });
+        }
+
+        string targetRole = payload["role"]?.ToString() ?? "Auditor";
+
+        if (!IsSuperAdmin)
+        {
+            // CompanyAdmin and SiteAdmin can ONLY create users for their assigned company
+            payload["company_id"] = CurrentUserCompanyId;
+
+            if (!IsCompanyAdmin)
+            {
+                // SiteAdmin can ONLY create users for their assigned site
+                payload["site_id"] = CurrentUserSiteId;
+
+                if (string.Equals(targetRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(targetRole, "CompanyAdmin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { success = false, message = "SiteAdmin solo puede crear usuarios con rol SiteAdmin, Auditor o Viewer." });
+                }
+            }
+            else
+            {
+                if (string.Equals(targetRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { success = false, message = "CompanyAdmin no puede otorgar el rol SuperAdmin." });
+                }
+            }
+        }
+
         string pwd = payload["password"]?.ToString() ?? "123456";
         payload["password_hash"] = PasswordHasher.HashPassword(pwd);
         payload.Remove("password");
 
         var result = await _supabase.InsertUserAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
     [HttpDelete("users/{id}")]
     public async Task<IActionResult> DeleteUser(string id)
     {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar usuarios." });
+        }
         bool success = await _supabase.DeleteUserAsync(id);
         return Ok(new { success });
     }

@@ -756,15 +756,35 @@
     }
 
     function enforceRolePermissions() {
-        const role = sessionData.user_role || 'AUDITOR';
-        const isSuper = role === 'SuperAdmin';
-        const isCompanyAdmin = role === 'CompanyAdmin' || isSuper;
+        const canComp = sessionData.can_create_company;
+        const canSite = sessionData.can_create_site;
+        const canArea = sessionData.can_create_area;
+        const canUser = sessionData.can_create_user;
+        const canChangeSite = sessionData.can_change_site;
 
         const btnComp = document.getElementById('btn-add-company');
-        if (btnComp) btnComp.style.display = isSuper ? 'inline-flex' : 'none';
+        if (btnComp) btnComp.style.display = canComp ? 'inline-flex' : 'none';
 
         const btnSite = document.getElementById('btn-add-site');
-        if (btnSite) btnSite.style.display = isCompanyAdmin ? 'inline-flex' : 'none';
+        if (btnSite) btnSite.style.display = canSite ? 'inline-flex' : 'none';
+
+        const siteSelect = document.getElementById('active-site-select');
+        if (siteSelect) {
+            siteSelect.disabled = !canChangeSite;
+            if (!canChangeSite) {
+                siteSelect.title = "Tu rol no permite cambiar de site. Estás asignado a tu planta.";
+            }
+        }
+
+        // Filter user role options in User Creation Form based on session user permissions
+        const roleSel = document.getElementById('u-role');
+        if (roleSel) {
+            Array.from(roleSel.options).forEach(opt => {
+                if (opt.value === 'SuperAdmin') opt.disabled = !canComp;
+                if (opt.value === 'CompanyAdmin') opt.disabled = !canComp;
+                if (opt.value === 'SiteAdmin') opt.disabled = !canSite;
+            });
+        }
     }
 
     // --- I18N ENGINE LOGIC ---
@@ -1372,6 +1392,9 @@
                 return;
             }
 
+            const canCreateSite = sessionData && sessionData.can_create_site;
+            const canCreateArea = sessionData && sessionData.can_create_area;
+
             let html = '';
             tree.forEach((comp, cIdx) => {
                 const compId = `comp-children-${cIdx}`;
@@ -1383,7 +1406,7 @@
                     <div class="tree-header" onclick="toggleTreeNode('${compId}')">
                         <span>🏢 <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}', '${compId}')">➕ Site</button>
+                            ${canCreateSite ? `<button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}', '${compId}')">➕ Site</button>` : ''}
                             <span style="font-size:11px;">▶️</span>
                         </div>
                     </div>
@@ -1402,7 +1425,7 @@
                             <div class="tree-subnode" onclick="toggleTreeNode('${siteId}')">
                                 <span>🏭 <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
                                 <div style="display:flex; align-items:center; gap:8px;">
-                                    <button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}', '${compId}', '${siteId}')">➕ Área / Línea</button>
+                                    ${canCreateArea ? `<button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}', '${compId}', '${siteId}')">➕ Área / Línea</button>` : ''}
                                     <span style="font-size:10px;">▶️</span>
                                 </div>
                             </div>
@@ -1435,7 +1458,7 @@
                                 html += `<div class="area-card-box">
                                     <div class="area-header">
                                         <span>📍 <b>${areaName}</b> ${subOps.length > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${subOps.length} Sub-operaciones)</span>` : ''}</span>
-                                        <button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>
+                                        ${canCreateArea ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>` : ''}
                                     </div>`;
 
                                 if (subOps.length > 0) {
