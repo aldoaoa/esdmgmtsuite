@@ -41,10 +41,10 @@
 
             <!-- LEFT COLUMN: LOGIN FORM -->
             <div style="flex:1; min-width:320px; padding:44px 38px; display:flex; flex-direction:column; justify-content:center;">
-                <div style="margin-bottom:26px;">
-                    <img src="/images/esd360-logo.png" alt="esd360 Logo" style="height:52px; width:auto; object-fit:contain; display:block; margin-bottom:18px;" />
+                <div style="margin-bottom:26px; text-align:center; display:flex; flex-direction:column; align-items:center;">
+                    <img src="/images/esd360-logo.png" alt="esd360 Logo" style="height:64px; max-width:240px; width:auto; object-fit:contain; display:block; margin:0 auto 16px auto; filter:drop-shadow(0 4px 6px rgba(15, 23, 42, 0.06));" />
                     <h2 style="font-family:var(--font-heading); font-weight:800; font-size:24px; color:#0F172A; margin:0 0 6px 0;" data-i18n="login.heading">Sign In</h2>
-                    <p style="font-size:13px; color:#64748B; margin:0;" data-i18n="login.access_sub">Access your account on the <b>esd360</b> platform</p>
+                    <p style="font-size:13px; color:#64748B; margin:0; text-align:center;" data-i18n="login.access_sub">Access your account on the esd360 platform</p>
                 </div>
                 
                 <form id="login-form">
@@ -116,8 +116,8 @@
 
     <!-- SIDEBAR NAVIGATION -->
     <aside class="sidebar">
-        <div class="sidebar-brand" style="padding:14px 18px; display:flex; align-items:center;">
-            <img src="/images/esd360-logo.png" alt="esd360" style="height:36px; width:auto; object-fit:contain;" />
+        <div class="sidebar-brand" style="padding:16px 14px; display:flex; align-items:center; justify-content:center; text-align:center;">
+            <img src="/images/esd360-logo.png" alt="esd360" style="height:46px; max-width:85%; width:auto; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 2px 4px rgba(15, 23, 42, 0.08));" />
         </div>
 
         <div class="sidebar-category">MONITOREO & MÉTRICAS</div>
@@ -170,7 +170,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.3</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.4</span>
             </div>
         </div>
     </aside>
@@ -964,8 +964,8 @@
     function applyTranslations() {
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
-            const translated = t(key, el.innerText);
-            if (translated) el.innerText = translated;
+            const translated = t(key, el.innerHTML || el.innerText);
+            if (translated) el.innerHTML = translated;
         });
     }
 
