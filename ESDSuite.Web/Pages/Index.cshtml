@@ -170,7 +170,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.5</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.6</span>
             </div>
         </div>
     </aside>
@@ -191,16 +191,6 @@
                         <option value="">Cargando Sites...</option>
                     </select>
                 </div>
-                <div class="site-badge" style="background:var(--accent-blue-light); border-color:rgba(37,99,235,0.2); color:var(--accent-blue);">
-                    <span>🌐</span>
-                    <select id="lang-select" onchange="changeLanguage(this.value)" style="background:transparent; border:none; color:inherit; font-weight:700; cursor:pointer;">
-                        <option value="es">ES (Español)</option>
-                        <option value="en">EN (English)</option>
-                        <option value="zh">ZH (中文)</option>
-                        <option value="de">DE (Deutsch)</option>
-                        <option value="it">IT (Italiano)</option>
-                        <option value="ro">RO (Română)</option>
-                    </select>
                 </div>
                 <div class="user-profile">
                     <div class="avatar" id="user-avatar-initials">U</div>
@@ -941,7 +931,7 @@
     // --- I18N ENGINE LOGIC ---
     async function loadTranslations(lang) {
         try {
-            const res = await fetch(`/locales/${lang}.json`);
+            const res = await fetch(`/locales/${lang}.json?v=${Date.now()}`);
             if (res.ok) {
                 currentLocale = await res.json();
                 applyTranslations();
@@ -952,6 +942,7 @@
     }
 
     function t(path, defaultStr) {
+        if (!path) return defaultStr;
         const parts = path.split('.');
         let val = currentLocale;
         for (const p of parts) {
@@ -962,16 +953,52 @@
     }
 
     function applyTranslations() {
+        if (!currentLocale) return;
+
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
-            const translated = t(key, el.innerHTML || el.innerText);
-            if (translated) el.innerHTML = translated;
+            const translated = t(key, null);
+            if (translated !== null && translated !== undefined) {
+                if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                    if (el.hasAttribute('placeholder')) el.placeholder = translated;
+                } else {
+                    el.innerHTML = translated;
+                }
+            }
         });
+
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            const translated = t(key, null);
+            if (translated !== null && translated !== undefined) {
+                el.placeholder = translated;
+            }
+        });
+
+        document.querySelectorAll('[data-i18n-title]').forEach(el => {
+            const key = el.getAttribute('data-i18n-title');
+            const translated = t(key, null);
+            if (translated !== null && translated !== undefined) {
+                el.title = translated;
+            }
+        });
+
+        if (currentModule) {
+            const hTitle = document.getElementById('header-module-title');
+            const hSub = document.getElementById('header-module-caption');
+            if (hTitle) {
+                const titleVal = t(currentModule + '.title', null);
+                if (titleVal !== null) hTitle.innerHTML = titleVal;
+            }
+            if (hSub) {
+                const subVal = t(currentModule + '.subtitle', null);
+                if (subVal !== null) hSub.innerHTML = subVal;
+            }
+        }
     }
 
     async function changeLanguage(lang) {
         localStorage.setItem('esd360_lang', lang);
-        if (document.getElementById('lang-select')) document.getElementById('lang-select').value = lang;
         if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = lang;
         if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = lang;
         try {
