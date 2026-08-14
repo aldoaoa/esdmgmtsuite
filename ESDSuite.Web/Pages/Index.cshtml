@@ -121,43 +121,43 @@
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_monitoring">MONITOREO & MÉTRICAS</div>
-        <div class="nav-item active" onclick="switchModule('dashboard')">
+        <div id="nav-dashboard" class="nav-item active" onclick="switchModule('dashboard')">
             <span class="icon">📊</span> <span data-i18n="nav.dashboard">Dashboard Overview</span>
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_verification">VERIFICACIÓN Y PISO</div>
-        <div class="nav-item" onclick="switchModule('audit')">
+        <div id="nav-audit" class="nav-item" onclick="switchModule('audit')">
             <span class="icon">🔍</span> <span data-i18n="nav.audit">Auditoría en Piso (TR53)</span>
         </div>
-        <div class="nav-item" onclick="switchModule('eventmeter')">
+        <div id="nav-eventmeter" class="nav-item" onclick="switchModule('eventmeter')">
             <span class="icon">⚡</span> <span data-i18n="nav.eventmeter">Event Meter (Eventos ESD)</span>
         </div>
-        <div class="nav-item" onclick="switchModule('infra')">
+        <div id="nav-infra" class="nav-item" onclick="switchModule('infra')">
             <span class="icon">⚡</span> <span data-i18n="nav.infra">Infraestructura EPA</span>
         </div>
-        <div class="nav-item" onclick="switchModule('schedule')">
+        <div id="nav-schedule" class="nav-item" onclick="switchModule('schedule')">
             <span class="icon">📅</span> <span data-i18n="nav.schedule">Cronograma & Reportes</span>
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_assets">ACTIVOS & CAPACITACIÓN</div>
-        <div class="nav-item" onclick="switchModule('inventory')">
+        <div id="nav-inventory" class="nav-item" onclick="switchModule('inventory')">
             <span class="icon">📦</span> <span data-i18n="nav.inventory">Directorio de Activos</span>
         </div>
-        <div class="nav-item" onclick="switchModule('lab')">
+        <div id="nav-lab" class="nav-item" onclick="switchModule('lab')">
             <span class="icon">🔬</span> <span data-i18n="nav.lab">Laboratorio ESD (HBM/CDM)</span>
         </div>
-        <div class="nav-item" onclick="switchModule('routes')">
+        <div id="nav-routes" class="nav-item" onclick="switchModule('routes')">
             <span class="icon">🗺️</span> <span data-i18n="nav.routes">Rutas de Productos</span>
         </div>
-        <div class="nav-item" onclick="switchModule('employees')">
+        <div id="nav-employees" class="nav-item" onclick="switchModule('employees')">
             <span class="icon">👥</span> <span data-i18n="nav.employees">Personal & Batas</span>
         </div>
-        <div class="nav-item" onclick="switchModule('training')">
+        <div id="nav-training" class="nav-item" onclick="switchModule('training')">
             <span class="icon">🎓</span> <span data-i18n="nav.training">Exámenes & Certificación</span>
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_config">CONFIGURACIÓN</div>
-        <div class="nav-item" onclick="switchModule('settings')">
+        <div id="nav-settings" class="nav-item" onclick="switchModule('settings')">
             <span class="icon">⚙️</span> <span data-i18n="nav.settings">Ajustes & Multi-Tenant</span>
         </div>
 
@@ -170,7 +170,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.6</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.7</span>
             </div>
         </div>
     </aside>
@@ -190,7 +190,6 @@
                     <select id="active-site-select" onchange="changeActiveSite(this.value)" style="background:transparent; border:none; color:inherit; font-weight:700; cursor:pointer;">
                         <option value="">Cargando Sites...</option>
                     </select>
-                </div>
                 </div>
                 <div class="user-profile">
                     <div class="avatar" id="user-avatar-initials">U</div>
@@ -1125,17 +1124,19 @@
 
         const modEl = document.getElementById('mod-' + modName);
         if (modEl) modEl.style.display = 'block';
-        if (window.event && window.event.currentTarget) {
-            window.event.currentTarget.classList.add('active');
-        }
+
+        const navEl = document.getElementById('nav-' + modName);
+        if (navEl) navEl.classList.add('active');
 
         const hTitle = document.getElementById('header-module-title');
         const hSub = document.getElementById('header-module-caption');
         if (hTitle && hSub) {
             hTitle.setAttribute('data-i18n', modName + '.title');
             hSub.setAttribute('data-i18n', modName + '.subtitle');
-            hTitle.innerText = t(modName + '.title', hTitle.innerText);
-            hSub.innerText = t(modName + '.subtitle', hSub.innerText);
+            const titleVal = t(modName + '.title', null);
+            const subVal = t(modName + '.subtitle', null);
+            if (titleVal !== null) hTitle.innerHTML = titleVal;
+            if (subVal !== null) hSub.innerHTML = subVal;
         }
 
         if (modName === 'dashboard') loadDashboardMetrics();
