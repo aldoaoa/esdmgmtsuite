@@ -170,7 +170,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.7</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.8</span>
             </div>
         </div>
     </aside>
@@ -182,7 +182,7 @@
         <header class="top-header">
             <div class="header-title">
                 <h2 id="header-module-title" data-i18n="dashboard.title">Dashboard Overview</h2>
-                <caption id="header-module-caption" data-i18n="dashboard.subtitle">Estado global de cumplimiento normativo ANSI/ESD S20.20</caption>
+                <p id="header-module-caption" style="font-size:12px; color:var(--text-muted); margin-top:2px;" data-i18n="dashboard.subtitle">Global status of ANSI/ESD S20.20 normative compliance</p>
             </div>
             <div class="header-actions">
                 <div id="site-selector-container" class="site-badge">
@@ -868,9 +868,9 @@
                 document.getElementById('user-avatar-initials').innerText = (data.user_name || 'U').substring(0, 1).toUpperCase();
                 document.getElementById('audit-auditor').value = data.user_name || 'Auditor ESD';
                 
-                const userLang = data.lang || localStorage.getItem('esd360_lang') || 'en';
-                if (document.getElementById('lang-select')) document.getElementById('lang-select').value = userLang;
+                const userLang = getStoredLang();
                 if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = userLang;
+                if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = userLang;
                 if (data.version) document.getElementById('system-version-badge').innerText = 'v' + data.version;
                 
                 enforceRolePermissions();
@@ -878,7 +878,7 @@
                 loadSites();
                 loadDashboardMetrics();
             } else {
-                const landingLang = localStorage.getItem('esd360_lang') || 'en';
+                const landingLang = getStoredLang();
                 document.getElementById('login-overlay').style.display = 'flex';
                 if (document.getElementById('login-landing-lang-select')) {
                     document.getElementById('login-landing-lang-select').value = landingLang;
@@ -886,13 +886,24 @@
                 await loadTranslations(landingLang);
             }
         } catch (e) {
-            const landingLang = localStorage.getItem('esd360_lang') || 'en';
+            const landingLang = getStoredLang();
             document.getElementById('login-overlay').style.display = 'flex';
             if (document.getElementById('login-landing-lang-select')) {
                 document.getElementById('login-landing-lang-select').value = landingLang;
             }
             await loadTranslations(landingLang);
         }
+    }
+
+    function getStoredLang() {
+        const match = document.cookie.match(/(?:^|; )esd360_lang=([^;]*)/);
+        if (match && match[1]) return match[1];
+        return localStorage.getItem('esd360_lang') || 'en';
+    }
+
+    function setStoredLang(lang) {
+        localStorage.setItem('esd360_lang', lang);
+        document.cookie = `esd360_lang=${lang}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
     }
 
     function enforceRolePermissions() {
@@ -997,7 +1008,7 @@
     }
 
     async function changeLanguage(lang) {
-        localStorage.setItem('esd360_lang', lang);
+        setStoredLang(lang);
         if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = lang;
         if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = lang;
         try {

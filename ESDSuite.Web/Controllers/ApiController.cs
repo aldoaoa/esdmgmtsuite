@@ -87,7 +87,7 @@ public class ApiController : ControllerBase
             can_create_area = IsSiteAdmin,
             can_create_user = IsSiteAdmin,
             can_change_site = IsCompanyAdmin,
-            lang = HttpContext.Session.GetString("lang") ?? "es",
+            lang = HttpContext.Session.GetString("lang") ?? Request.Cookies["esd360_lang"] ?? "en",
             version = EsdConstants.SystemVersion
         });
     }
@@ -134,8 +134,16 @@ public class ApiController : ControllerBase
     [HttpPost("set-lang")]
     public IActionResult SetLanguage([FromBody] JsonObject payload)
     {
-        string lang = payload["lang"]?.ToString() ?? "es";
+        string lang = payload["lang"]?.ToString() ?? "en";
         HttpContext.Session.SetString("lang", lang);
+        Response.Cookies.Append("esd360_lang", lang, new CookieOptions
+        {
+            Expires = DateTimeOffset.UtcNow.AddYears(1),
+            IsEssential = true,
+            HttpOnly = false,
+            SameSite = SameSiteMode.Lax,
+            Path = "/"
+        });
         return Ok(new { success = true, lang });
     }
 

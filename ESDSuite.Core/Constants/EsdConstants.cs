@@ -4,7 +4,7 @@ namespace ESDSuite.Core.Constants;
 
 public static class EsdConstants
 {
-    public const string SystemVersion = "1.2.7";
+    public const string SystemVersion = "1.2.8";
 
     public static readonly Dictionary<string, EsdElementInfo> InfoElementosEsd = new()
     {
