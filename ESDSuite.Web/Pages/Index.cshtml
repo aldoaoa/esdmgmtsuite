@@ -24,31 +24,44 @@
 
     <!-- LOGIN OVERLAY / SPLIT SCREEN LANDING HOME -->
     <div id="login-overlay" style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:#F8FAFC; backdrop-filter:blur(10px); padding:20px;">
-        <div style="width:960px; max-width:95vw; background:#FFFFFF; border-radius:20px; box-shadow:0 25px 60px -15px rgba(15, 23, 42, 0.18); border:1px solid #E2E8F0; overflow:hidden; display:flex; flex-wrap:wrap;">
+        <div style="width:960px; max-width:95vw; background:#FFFFFF; border-radius:20px; box-shadow:0 25px 60px -15px rgba(15, 23, 42, 0.18); border:1px solid #E2E8F0; overflow:hidden; display:flex; flex-wrap:wrap; position:relative;">
             
+            <!-- DISCRETE LANGUAGE SELECTOR -->
+            <div style="position:absolute; top:18px; right:20px; z-index:10; display:flex; align-items:center; gap:6px;">
+                <span style="font-size:13px;">🌐</span>
+                <select id="login-landing-lang-select" onchange="changeLanguage(this.value)" style="background:#F1F5F9; border:1px solid #CBD5E1; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:700; color:#334155; cursor:pointer; font-family:var(--font-main);">
+                    <option value="en">English (EN)</option>
+                    <option value="es">Español (ES)</option>
+                    <option value="de">Deutsch (DE)</option>
+                    <option value="zh">中文 (ZH)</option>
+                    <option value="it">Italiano (IT)</option>
+                    <option value="ro">Română (RO)</option>
+                </select>
+            </div>
+
             <!-- LEFT COLUMN: LOGIN FORM -->
             <div style="flex:1; min-width:320px; padding:44px 38px; display:flex; flex-direction:column; justify-content:center;">
                 <div style="margin-bottom:26px;">
                     <img src="/images/esd360-logo.png" alt="esd360 Logo" style="height:52px; width:auto; object-fit:contain; display:block; margin-bottom:18px;" />
-                    <h2 style="font-family:var(--font-heading); font-weight:800; font-size:24px; color:#0F172A; margin:0 0 6px 0;">Iniciar Sesión</h2>
-                    <p style="font-size:13px; color:#64748B; margin:0;">Accede a tu cuenta de la plataforma <b>esd360</b></p>
+                    <h2 style="font-family:var(--font-heading); font-weight:800; font-size:24px; color:#0F172A; margin:0 0 6px 0;" data-i18n="login.heading">Sign In</h2>
+                    <p style="font-size:13px; color:#64748B; margin:0;" data-i18n="login.access_sub">Access your account on the <b>esd360</b> platform</p>
                 </div>
                 
                 <form id="login-form">
                     <div class="form-group" style="margin-bottom:16px;">
-                        <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.email">Correo Electrónico</label>
-                        <input type="email" id="login-email" class="form-control" placeholder="usuario@empresa.com" required value="" style="height:44px; font-size:13.5px;" />
+                        <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.email">Email Address</label>
+                        <input type="email" id="login-email" class="form-control" placeholder="user@company.com" required value="" style="height:44px; font-size:13.5px;" />
                     </div>
                     <div class="form-group" style="margin-bottom:20px;">
-                        <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.password">Contraseña</label>
+                        <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.password">Password</label>
                         <input type="password" id="login-password" class="form-control" placeholder="••••••••" required value="" style="height:44px; font-size:13.5px;" />
                     </div>
                     <div id="login-error" style="color:var(--accent-rose); font-size:12.5px; font-weight:600; margin-bottom:14px; display:none;"></div>
-                    <button type="submit" class="btn-primary" style="width:100%; height:46px; font-size:14px; font-weight:700; border-radius:8px;" data-i18n="login.submit">🔒 Iniciar Sesión en esd360</button>
+                    <button type="submit" class="btn-primary" style="width:100%; height:46px; font-size:14px; font-weight:700; border-radius:8px;" data-i18n="login.submit">🔒 Log In to esd360</button>
                 </form>
 
-                <div style="margin-top:32px; padding-top:20px; border-top:1px solid #F1F5F9; font-size:11.5px; color:#94A3B8; text-align:center;">
-                    <b>esd360</b> &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53
+                <div style="margin-top:32px; padding-top:20px; border-top:1px solid #F1F5F9; font-size:11.5px; color:#94A3B8; text-align:center;" data-i18n="login.footer">
+                    esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53
                 </div>
             </div>
 
@@ -56,43 +69,43 @@
             <div style="flex:1.1; min-width:340px; background:linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%); padding:44px 38px; color:#FFFFFF; display:flex; flex-direction:column; justify-content:center; position:relative; overflow:hidden;">
                 <div style="position:absolute; top:-60px; right:-60px; width:220px; height:220px; background:rgba(99, 102, 241, 0.15); border-radius:50%; filter:blur(40px); pointer-events:none;"></div>
                 
-                <h3 style="font-family:var(--font-heading); font-size:25px; font-weight:800; line-height:1.25; margin:0 0 14px 0; color:#FFFFFF;">
-                    Gestión Digital del Sistema de Control ESD
+                <h3 style="font-family:var(--font-heading); font-size:25px; font-weight:800; line-height:1.25; margin:0 0 14px 0; color:#FFFFFF;" data-i18n="login.title">
+                    Digital ESD Control System Management
                 </h3>
-                <p style="font-size:13.5px; line-height:1.65; color:#CBD5E1; margin:0 0 24px 0;">
-                    Plataforma especializada para la administración, monitoreo y auditoría del programa de control electrostático. Simplifica el cumplimiento de los requerimientos internacionales más exigentes de la industria electrónica.
+                <p style="font-size:13.5px; line-height:1.65; color:#CBD5E1; margin:0 0 24px 0;" data-i18n="login.subtitle">
+                    Specialized platform for administration, monitoring, and auditing of electrostatic control programs. Simplifies compliance with the most demanding international requirements in the electronics industry.
                 </p>
 
                 <div style="display:flex; flex-direction:column; gap:16px;">
                     <div style="display:flex; align-items:flex-start; gap:12px;">
                         <span style="font-size:20px;">🛡️</span>
                         <div>
-                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Alineación Normativa S20.20, IEC y TR53</div>
-                            <div style="font-size:12px; color:#94A3B8;">Automatización de verificaciones periódicas e inspecciones en áreas protegidas de estática (EPA).</div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;" data-i18n="login.kpi1_title">Normative Alignment S20.20, IEC & TR53</div>
+                            <div style="font-size:12px; color:#94A3B8;" data-i18n="login.kpi1_desc">Automated periodic verifications and inspections in Electrostatic Protected Areas (EPA).</div>
                         </div>
                     </div>
 
                     <div style="display:flex; align-items:flex-start; gap:12px;">
                         <span style="font-size:20px;">🏭</span>
                         <div>
-                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Visibilidad Operativa Integral</div>
-                            <div style="font-size:12px; color:#94A3B8;">Monitoreo en tiempo real del estatus de cumplimiento a nivel línea, planta o corporativo.</div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;" data-i18n="login.kpi2_title">Comprehensive Operational Visibility</div>
+                            <div style="font-size:12px; color:#94A3B8;" data-i18n="login.kpi2_desc">Real-time monitoring of compliance status at line, plant, or corporate level.</div>
                         </div>
                     </div>
 
                     <div style="display:flex; align-items:flex-start; gap:12px;">
                         <span style="font-size:20px;">🔧</span>
                         <div>
-                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Gestión de Equipos y Metrología ESD</div>
-                            <div style="font-size:12px; color:#94A3B8;">Historial centralizado de calibraciones, mantenimiento preventivo y trazabilidad de instrumentos.</div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;" data-i18n="login.kpi3_title">ESD Equipment & Metrology Management</div>
+                            <div style="font-size:12px; color:#94A3B8;" data-i18n="login.kpi3_desc">Centralized history of calibrations, preventive maintenance, and instrument traceability.</div>
                         </div>
                     </div>
 
                     <div style="display:flex; align-items:flex-start; gap:12px;">
                         <span style="font-size:20px;">📋</span>
                         <div>
-                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Certificación y Reportes en 1 Clic</div>
-                            <div style="font-size:12px; color:#94A3B8;">Exportación directa de expedientes de auditoría y certificados de calibración en formato PDF.</div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;" data-i18n="login.kpi4_title">1-Click Certification & Reports</div>
+                            <div style="font-size:12px; color:#94A3B8;" data-i18n="login.kpi4_desc">Direct export of audit files and calibration certificates in PDF format.</div>
                         </div>
                     </div>
                 </div>
@@ -157,7 +170,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.2</span>
             </div>
         </div>
     </aside>
@@ -866,9 +879,9 @@
                 document.getElementById('user-avatar-initials').innerText = (data.user_name || 'U').substring(0, 1).toUpperCase();
                 document.getElementById('audit-auditor').value = data.user_name || 'Auditor ESD';
                 
-                const userLang = data.lang || 'es';
-                document.getElementById('lang-select').value = userLang;
-                document.getElementById('settings-lang-select').value = userLang;
+                const userLang = data.lang || localStorage.getItem('esd360_lang') || 'en';
+                if (document.getElementById('lang-select')) document.getElementById('lang-select').value = userLang;
+                if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = userLang;
                 if (data.version) document.getElementById('system-version-badge').innerText = 'v' + data.version;
                 
                 enforceRolePermissions();
@@ -876,10 +889,20 @@
                 loadSites();
                 loadDashboardMetrics();
             } else {
+                const landingLang = localStorage.getItem('esd360_lang') || 'en';
                 document.getElementById('login-overlay').style.display = 'flex';
+                if (document.getElementById('login-landing-lang-select')) {
+                    document.getElementById('login-landing-lang-select').value = landingLang;
+                }
+                await loadTranslations(landingLang);
             }
         } catch (e) {
+            const landingLang = localStorage.getItem('esd360_lang') || 'en';
             document.getElementById('login-overlay').style.display = 'flex';
+            if (document.getElementById('login-landing-lang-select')) {
+                document.getElementById('login-landing-lang-select').value = landingLang;
+            }
+            await loadTranslations(landingLang);
         }
     }
 
@@ -947,13 +970,17 @@
     }
 
     async function changeLanguage(lang) {
-        document.getElementById('lang-select').value = lang;
-        document.getElementById('settings-lang-select').value = lang;
-        await fetch('/api/set-lang', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lang })
-        });
+        localStorage.setItem('esd360_lang', lang);
+        if (document.getElementById('lang-select')) document.getElementById('lang-select').value = lang;
+        if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = lang;
+        if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = lang;
+        try {
+            await fetch('/api/set-lang', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lang })
+            });
+        } catch(ex) {}
         await loadTranslations(lang);
     }
 

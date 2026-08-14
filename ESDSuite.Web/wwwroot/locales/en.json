@@ -1,9 +1,21 @@
 {
   "login": {
-    "title": "ESD Management Suite - System Login",
+    "title": "Digital ESD Control System Management",
+    "subtitle": "Specialized platform for administration, monitoring, and auditing of electrostatic control programs. Simplifies compliance with the most demanding international requirements in the electronics industry.",
     "email": "Email Address",
     "password": "Password",
-    "submit": "Log In",
+    "submit": "🔒 Log In to esd360",
+    "heading": "Sign In",
+    "access_sub": "Access your account on the <b>esd360</b> platform",
+    "footer": "esd360 • Compliance ANSI/ESD S20.20 • IEC 61340-5-1 • ESD TR53",
+    "kpi1_title": "Normative Alignment S20.20, IEC & TR53",
+    "kpi1_desc": "Automated periodic verifications and inspections in Electrostatic Protected Areas (EPA).",
+    "kpi2_title": "Comprehensive Operational Visibility",
+    "kpi2_desc": "Real-time monitoring of compliance status at line, plant, or corporate level.",
+    "kpi3_title": "ESD Equipment & Metrology Management",
+    "kpi3_desc": "Centralized history of calibrations, preventive maintenance, and instrument traceability.",
+    "kpi4_title": "1-Click Certification & Reports",
+    "kpi4_desc": "Direct export of audit files and calibration certificates in PDF format.",
     "account_inactive": "Your user account is inactive.",
     "invalid_password": "The entered password is incorrect.",
     "user_not_found": "No user account found with this email."

@@ -142,13 +142,27 @@ public class SupabaseService
             return (false, null, "La contraseña ingresada es incorrecta.");
         }
 
-        string siteId = userObj["site_id"]?.ToString() ?? "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+        string siteId = userObj["site_id"]?.ToString() ?? "";
         string companyId = userObj["company_id"]?.ToString() ?? "";
 
         string siteName = "Queretaro Plant";
         string companyName = "BCS AIS";
 
-        if (!string.IsNullOrEmpty(siteId))
+        if (string.IsNullOrEmpty(siteId))
+        {
+            var defaultSites = await GetAsync("sites?select=id,name,company_id&limit=1");
+            if (defaultSites.Count > 0 && defaultSites[0] is JsonObject dsObj)
+            {
+                siteId = dsObj["id"]?.ToString() ?? "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+                siteName = dsObj["name"]?.ToString() ?? siteName;
+                if (string.IsNullOrEmpty(companyId)) companyId = dsObj["company_id"]?.ToString() ?? "";
+            }
+            else
+            {
+                siteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+            }
+        }
+        else
         {
             var sites = await GetAsync($"sites?id=eq.{siteId}&select=name,company_id");
             if (sites.Count > 0 && sites[0] is JsonObject sObj)

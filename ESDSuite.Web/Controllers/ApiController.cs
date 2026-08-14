@@ -43,10 +43,10 @@ public class ApiController : ControllerBase
             HttpContext.Session.SetString("user_email", session.Email);
             HttpContext.Session.SetString("user_name", session.FullName);
             HttpContext.Session.SetString("user_role", session.Role);
-            if (!string.IsNullOrEmpty(session.SiteId)) HttpContext.Session.SetString("site_id", session.SiteId);
-            if (!string.IsNullOrEmpty(session.CompanyId)) HttpContext.Session.SetString("company_id", session.CompanyId);
-            HttpContext.Session.SetString("site_name", session.SiteName);
-            HttpContext.Session.SetString("company_name", session.CompanyName);
+            HttpContext.Session.SetString("site_id", !string.IsNullOrEmpty(session.SiteId) ? session.SiteId : DefaultSiteId);
+            HttpContext.Session.SetString("company_id", session.CompanyId ?? "");
+            HttpContext.Session.SetString("site_name", session.SiteName ?? "");
+            HttpContext.Session.SetString("company_name", session.CompanyName ?? "");
             HttpContext.Session.SetString("is_logged_in", "true");
 
             return Ok(new { success = true, user = session });
