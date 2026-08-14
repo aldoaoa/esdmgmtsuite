@@ -1,9 +1,9 @@
 {
   "login": {
-    "title": "ESD Management Suite - Acceso al Sistema",
+    "title": "esd360 - Acceso al Sistema",
     "email": "Correo Electrónico",
     "password": "Contraseña",
-    "submit": "Iniciar Sesión",
+    "submit": "🔒 Iniciar Sesión en esd360",
     "account_inactive": "Tu cuenta de usuario está inactiva.",
     "invalid_password": "La contraseña ingresada es incorrecta.",
     "user_not_found": "No existe un usuario registrado con este correo."

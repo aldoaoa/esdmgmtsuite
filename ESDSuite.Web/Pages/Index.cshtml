@@ -1,7 +1,7 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "ESD Management Suite .NET";
+    ViewData["Title"] = "esd360 - Compliance Platform";
     Layout = null;
 }
 
@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🛡️ ESD Management Suite - ANSI/ESD S20.20 Compliance</title>
+    <title>esd360 - ANSI/ESD S20.20 & TR53 Compliance Platform</title>
     <link rel="stylesheet" href="~/css/site.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -22,33 +22,89 @@
 
 <div id="app-container">
 
-    <!-- LOGIN MODAL / OVERLAY -->
-    <div id="login-overlay" style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:rgba(15, 23, 42, 0.6); backdrop-filter:blur(6px);">
-        <div class="glass-panel" style="width: 400px; padding: 32px; border-radius: 14px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <div style="font-size: 36px; margin-bottom: 6px;">🛡️</div>
-                <h2 style="font-weight: 800; font-size: 22px; color:var(--text-primary);">ESD Suite SaaS</h2>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top:2px;">ANSI/ESD S20.20 / TR53 Control System</p>
+    <!-- LOGIN OVERLAY / SPLIT SCREEN LANDING HOME -->
+    <div id="login-overlay" style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:#F8FAFC; backdrop-filter:blur(10px); padding:20px;">
+        <div style="width:960px; max-width:95vw; background:#FFFFFF; border-radius:20px; box-shadow:0 25px 60px -15px rgba(15, 23, 42, 0.18); border:1px solid #E2E8F0; overflow:hidden; display:flex; flex-wrap:wrap;">
+            
+            <!-- LEFT COLUMN: LOGIN FORM -->
+            <div style="flex:1; min-width:320px; padding:44px 38px; display:flex; flex-direction:column; justify-content:center;">
+                <div style="margin-bottom:26px;">
+                    <img src="/images/esd360-logo.png" alt="esd360 Logo" style="height:52px; width:auto; object-fit:contain; display:block; margin-bottom:18px;" />
+                    <h2 style="font-family:var(--font-heading); font-weight:800; font-size:24px; color:#0F172A; margin:0 0 6px 0;">Iniciar Sesión</h2>
+                    <p style="font-size:13px; color:#64748B; margin:0;">Accede a tu cuenta de la plataforma <b>esd360</b></p>
+                </div>
+                
+                <form id="login-form">
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.email">Correo Electrónico</label>
+                        <input type="email" id="login-email" class="form-control" placeholder="usuario@empresa.com" required value="" style="height:44px; font-size:13.5px;" />
+                    </div>
+                    <div class="form-group" style="margin-bottom:20px;">
+                        <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.password">Contraseña</label>
+                        <input type="password" id="login-password" class="form-control" placeholder="••••••••" required value="" style="height:44px; font-size:13.5px;" />
+                    </div>
+                    <div id="login-error" style="color:var(--accent-rose); font-size:12.5px; font-weight:600; margin-bottom:14px; display:none;"></div>
+                    <button type="submit" class="btn-primary" style="width:100%; height:46px; font-size:14px; font-weight:700; border-radius:8px;" data-i18n="login.submit">🔒 Iniciar Sesión en esd360</button>
+                </form>
+
+                <div style="margin-top:32px; padding-top:20px; border-top:1px solid #F1F5F9; font-size:11.5px; color:#94A3B8; text-align:center;">
+                    <b>esd360 SaaS Platform</b> &bull; Compliance ANSI/ESD S20.20 & TR53
+                </div>
             </div>
-            <form id="login-form">
-                <div class="form-group">
-                    <label data-i18n="login.email">Correo Electrónico</label>
-                    <input type="email" id="login-email" class="form-control" placeholder="usuario@empresa.com" required value="admin@esd.com" />
+
+            <!-- RIGHT COLUMN: MARKETING BRAND HERO -->
+            <div style="flex:1.1; min-width:340px; background:linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%); padding:44px 38px; color:#FFFFFF; display:flex; flex-direction:column; justify-content:center; position:relative; overflow:hidden;">
+                <div style="position:absolute; top:-60px; right:-60px; width:220px; height:220px; background:rgba(99, 102, 241, 0.15); border-radius:50%; filter:blur(40px); pointer-events:none;"></div>
+                
+                <h3 style="font-family:var(--font-heading); font-size:25px; font-weight:800; line-height:1.25; margin:0 0 16px 0; color:#FFFFFF;">
+                    Control Electrostático 360° en Tiempo Real
+                </h3>
+                <p style="font-size:13.5px; line-height:1.65; color:#CBD5E1; margin:0 0 26px 0;">
+                    <b>esd360</b> es la solución SaaS integral diseñada para garantizar la trazabilidad total, digitalización de mediciones TR53 y auditorías de cumplimiento en plantas de manufactura de alta tecnología.
+                </p>
+
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    <div style="display:flex; align-items:flex-start; gap:12px;">
+                        <span style="font-size:20px;">🛡️</span>
+                        <div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Auditorías TR53 & S20.20 Automatizadas</div>
+                            <div style="font-size:12px; color:#94A3B8;">Captura instantánea de mediciones de superficie, ionizadores y tierras.</div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; align-items:flex-start; gap:12px;">
+                        <span style="font-size:20px;">🏭</span>
+                        <div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Estructura Multi-Tenant & Multi-Site</div>
+                            <div style="font-size:12px; color:#94A3B8;">Control aislado por corporativo, plantas y líneas de producción.</div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; align-items:flex-start; gap:12px;">
+                        <span style="font-size:20px;">🛠️</span>
+                        <div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Monitoreo de Calibración de Equipos</div>
+                            <div style="font-size:12px; color:#94A3B8;">Alertas automáticas de vencimiento para instrumental de medición.</div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; align-items:flex-start; gap:12px;">
+                        <span style="font-size:20px;">📊</span>
+                        <div>
+                            <div style="font-weight:700; font-size:13px; color:#F8FAFC;">Certificados Oficiales & Reportes PDF</div>
+                            <div style="font-size:12px; color:#94A3B8;">Generación inmediata de reportes listos para auditorías internacionales.</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label data-i18n="login.password">Contraseña</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="••••••••" required value="123456" />
-                </div>
-                <div id="login-error" style="color: var(--accent-rose); font-size:12px; margin-bottom:12px; display:none;"></div>
-                <button type="submit" class="btn-primary" style="width: 100%;" data-i18n="login.submit">🔒 Iniciar Sesión</button>
-            </form>
+            </div>
+
         </div>
     </div>
 
     <!-- SIDEBAR NAVIGATION -->
     <aside class="sidebar">
-        <div class="sidebar-brand">
-            <span class="logo-icon">🛡️</span> ESD Suite
+        <div class="sidebar-brand" style="padding:14px 18px; display:flex; align-items:center;">
+            <img src="/images/esd360-logo.png" alt="esd360" style="height:36px; width:auto; object-fit:contain;" />
         </div>
 
         <div class="sidebar-category">MONITOREO & MÉTRICAS</div>
@@ -98,10 +154,10 @@
             </div>
             <div style="padding:8px 10px; background:#F8FAFC; border:1px solid var(--border-color); border-radius:7px; display:flex; align-items:center; justify-content:space-between;">
                 <div>
-                    <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);">ESD Suite SaaS</div>
+                    <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.0.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.1.1</span>
             </div>
         </div>
     </aside>

@@ -17,7 +17,7 @@
     "logout": "Cerrar Sesión"
   },
   "login": {
-    "title": "ESD Management Suite - Acceso al Sistema",
+    "title": "esd360 - Acceso al Sistema",
     "account_access": "Acceso de Usuario",
     "email": "Correo Electrónico",
     "password": "Contraseña",
