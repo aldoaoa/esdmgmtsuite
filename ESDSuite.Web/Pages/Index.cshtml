@@ -173,7 +173,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.2</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.3</span>
             </div>
         </div>
     </aside>
@@ -311,21 +311,30 @@
                                     <input type="text" id="audit-id-elemento" class="form-control" placeholder="Ej: EQ-001" required onchange="lookupScannedAsset(this.value)" />
                                 </div>
                                 <div class="form-group">
-                                    <label data-i18n="audit.lbl_eq_type">Tipo de Equipo*</label>
-                                    <select id="audit-tipo-equipo" class="form-control" onchange="toggleAuditFormType(this.value)">
-                                        <option value="Mobiliario" data-i18n="audit.eq_type_furniture">Mobiliario / Mesa / Estantería</option>
-                                        <option value="Maquinaria" data-i18n="audit.eq_type_machinery">Maquinaria / Equipo de Proceso</option>
-                                        <option value="Ionizador" data-i18n="audit.eq_type_ionizer">Ionizador (Descarga & Balance)</option>
+                                    <label data-i18n="audit.lbl_location">Ubicación / Línea*</label>
+                                    <select id="audit-ubicacion-select" class="form-control" required>
+                                        <option value="">Cargando Líneas...</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label data-i18n="audit.lbl_location">Ubicación / Línea</label>
-                                    <input type="text" id="audit-ubicacion" class="form-control" placeholder="SMT-01" value="SMT-01" />
+                                    <label data-i18n="audit.lbl_element_type">Element Type*</label>
+                                    <select id="audit-tipo-equipo" class="form-control" required onchange="onElementTypeChange(this.value)">
+                                        <option value="Mobiliario ESD" data-i18n="audit.eq_type_furniture">Mobiliario ESD</option>
+                                        <option value="Maquinaria y equipo" data-i18n="audit.eq_type_machinery">Maquinaria y equipo</option>
+                                        <option value="Sistema de ionización" data-i18n="audit.eq_type_ionizer">Sistema de ionización</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
-                                    <label data-i18n="audit.lbl_auditor">Auditor Responsable</label>
-                                    <input type="text" id="audit-auditor" class="form-control" value="Auditor ESD" />
+                                    <label data-i18n="audit.lbl_element_subtype">Element Subtype*</label>
+                                    <select id="audit-subtipo-elemento" class="form-control" required>
+                                        <!-- Populated dynamically -->
+                                    </select>
                                 </div>
+                            </div>
+
+                            <div class="form-group" style="margin-top:8px;">
+                                <label data-i18n="audit.lbl_auditor">Auditor Responsable</label>
+                                <input type="text" id="audit-auditor" class="form-control" value="Auditor ESD" />
                             </div>
 
                             <!-- CAMPOS ESPECÍFICOS: IONIZADOR -->
@@ -1192,6 +1201,8 @@
 
     // --- LIGHTWEIGHT QR SCANNER LOGIC ---
     function initQRScanner() {
+        loadAuditLinesSelect();
+        populateElementSubtypes(document.getElementById('audit-tipo-equipo').value || "Mobiliario ESD");
         if (!window.Html5Qrcode) return;
         const statusEl = document.getElementById('cam-status');
         
@@ -1309,11 +1320,74 @@
         }
     }
 
-    // --- AUDIT FORM LOGIC ---
+    // --- AUDIT FORM LOGIC & ELEMENT SUBTYPES ---
+    const ELEMENT_SUBTYPES = {
+        "Mobiliario ESD": [
+            "Mesa o estación de trabajo (Worksurface)",
+            "Silla o banco ESD (Seating)",
+            "Rack o estantería (Shelving)",
+            "Carro de transporte (Cart / Mobile equipment)",
+            "Gavetero o rack de flujo (Flow rack / Bin shelf)"
+        ],
+        "Maquinaria y equipo": [
+            "Máquina de montaje superficial (Pick & Place / SMT)",
+            "Horno de reflujo / Soldadora por ola / Selectiva",
+            "Conveyor / Transportador de banda o rodillos",
+            "Equipo de prueba automática (ICT / FCT / AOI / AXI)",
+            "Ruteadora / Depaneladora / Prensa",
+            "Atornillador eléctrico / neumático",
+            "Cautín / Estación de retrabajo (Soldering tool)"
+        ],
+        "Sistema de ionización": [
+            "Ionizador de mesa (Benchtop)",
+            "Ionizador colgante (Overhead)",
+            "Barra ionizadora (Ionizing bar)",
+            "Pistola o boquilla de aire ionizado (Air gun / Nozzle)",
+            "Ionizador puntual para maquinaria (In-machine / Micro-nozzle)",
+            "Ionizador de ambiente / techo (Ceiling room system)"
+        ]
+    };
+
+    function populateElementSubtypes(category, preselectedSubtype) {
+        const subSel = document.getElementById('audit-subtipo-elemento');
+        if (!subSel) return;
+        subSel.innerHTML = '';
+        const list = ELEMENT_SUBTYPES[category] || ELEMENT_SUBTYPES["Mobiliario ESD"];
+        list.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item;
+            opt.textContent = item;
+            if (preselectedSubtype && preselectedSubtype === item) opt.selected = true;
+            subSel.appendChild(opt);
+        });
+    }
+
+    function onElementTypeChange(val) {
+        populateElementSubtypes(val);
+        toggleAuditFormType(val);
+    }
+
     function toggleAuditFormType(type) {
-        const isIon = type === 'Ionizador';
+        const isIon = type === 'Sistema de ionización' || type === 'Ionizador';
         document.getElementById('fields-ionizer').style.display = isIon ? 'block' : 'none';
         document.getElementById('fields-furniture-machinery').style.display = isIon ? 'none' : 'block';
+    }
+
+    async function loadAuditLinesSelect() {
+        const sel = document.getElementById('audit-ubicacion-select');
+        if (!sel) return;
+        try {
+            const siteId = sessionData.site_id || '';
+            const res = await fetch(`/api/lines?siteId=${siteId}`);
+            if (res.ok) {
+                const lines = await res.json();
+                sel.innerHTML = '<option value="">-- Seleccionar Línea --</option>';
+                lines.forEach(l => {
+                    const name = l.nombre_linea || l.name;
+                    sel.innerHTML += `<option value="${name}">${name}</option>`;
+                });
+            }
+        } catch(e) {}
     }
 
     function addExtraPoint(type) {
@@ -1337,20 +1411,27 @@
         e.preventDefault();
         const id_elemento = document.getElementById('audit-id-elemento').value.trim().toUpperCase();
         const tipo_equipo = document.getElementById('audit-tipo-equipo').value;
-        const ubicacion = document.getElementById('audit-ubicacion').value;
+        const subtipo_elemento = document.getElementById('audit-subtipo-elemento').value;
+        const ubicacion = document.getElementById('audit-ubicacion-select').value;
         const auditor = document.getElementById('audit-auditor').value;
         const comentarios = document.getElementById('audit-comentarios').value;
+
+        if (!ubicacion) {
+            alert('Por favor selecciona una línea de producción.');
+            return;
+        }
 
         const payload = {
             id_elemento,
             tipo_equipo,
+            subtipo_elemento,
             ubicacion,
             auditor,
             comentarios,
-            es_maquinaria: tipo_equipo === 'Maquinaria'
+            es_maquinaria: tipo_equipo === 'Maquinaria y equipo'
         };
 
-        if (tipo_equipo === 'Ionizador') {
+        if (tipo_equipo === 'Sistema de ionización' || tipo_equipo === 'Ionizador') {
             payload.tiempo_descarga = parseFloat(document.getElementById('ion-tiempo').value || 0);
             payload.voltaje_balance = parseInt(document.getElementById('ion-balance').value || 0);
         } else {

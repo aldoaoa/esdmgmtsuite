@@ -167,7 +167,7 @@ public class ApiController : ControllerBase
         });
     }
 
-    private async Task<string> GetOrCreateAssetIdAsync(string customId, string siteId, string category, string location)
+    private async Task<string> GetOrCreateAssetIdAsync(string customId, string siteId, string category, string location, string? subCategory = null)
     {
         string cleanCustomId = customId.Trim().ToUpper();
         var existingAssets = await _supabase.GetAssetsAsync(siteId);
@@ -180,12 +180,28 @@ public class ApiController : ControllerBase
             }
         }
 
+        string? companyId = HttpContext.Session.GetString("company_id");
+        if (string.IsNullOrEmpty(companyId) && !string.IsNullOrEmpty(siteId))
+        {
+            var sites = await _supabase.GetSitesAsync();
+            foreach (var s in sites)
+            {
+                if (s is JsonObject sObj && sObj["id"]?.ToString() == siteId)
+                {
+                    companyId = sObj["company_id"]?.ToString();
+                    break;
+                }
+            }
+        }
+
         // Insert new asset if not existing
         var newAsset = await _supabase.InsertAssetAsync(new
         {
             site_id = siteId,
+            company_id = companyId,
             custom_id = cleanCustomId,
             category = category,
+            sub_category = subCategory ?? category,
             classification = category,
             location = location.Trim().ToUpper(),
             status = "ACTIVE"
@@ -194,9 +210,8 @@ public class ApiController : ControllerBase
         return newAsset?["id"]?.ToString() ?? Guid.NewGuid().ToString();
     }
 
-    // --- UNIFIED AUDIT SUBMISSION (VENCIDOS.PY FORM PARITY WITH MEASUREMENTS TABLE) ---
     [HttpGet("audit/last-measurement/{id}")]
-    public async Task<IActionResult> GetLastMeasurement(string id)
+    public async Task<IActionResult> GetUltimaMedicion([FromRoute] string id)
     {
         var result = await _supabase.GetUltimaMedicionAsync(id);
         return Ok(new { found = result != null, data = result });
@@ -206,7 +221,8 @@ public class ApiController : ControllerBase
     public async Task<IActionResult> SubmitAuditForm([FromBody] JsonObject payload)
     {
         string idElemento = payload["id_elemento"]?.ToString() ?? "";
-        string tipoEquipo = payload["tipo_equipo"]?.ToString() ?? "Mobiliario";
+        string tipoEquipo = payload["tipo_equipo"]?.ToString() ?? "Mobiliario ESD";
+        string subtipoElemento = payload["subtipo_elemento"]?.ToString() ?? "";
         string ubicacion = payload["ubicacion"]?.ToString() ?? "N/A";
         string auditor = payload["auditor"]?.ToString() ?? HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
         string comentarios = payload["comentarios"]?.ToString() ?? "";
@@ -214,12 +230,14 @@ public class ApiController : ControllerBase
         string auditorId = HttpContext.Session.GetString("user_id") ?? payload["auditor_id"]?.ToString() ?? DefaultAuditorId;
         string fechaActual = DateTime.Now.ToString("o");
 
-        string assetId = await GetOrCreateAssetIdAsync(idElemento, siteId, tipoEquipo, ubicacion);
+        string assetId = await GetOrCreateAssetIdAsync(idElemento, siteId, tipoEquipo, ubicacion, subtipoElemento);
 
         string estatusEval = "PENDIENTE";
         JsonObject? resInsert = null;
 
-        if (tipoEquipo.Trim().ToLower() == "ionizador")
+        bool isIonizer = tipoEquipo.Trim().ToLower().Contains("ionizad") || tipoEquipo.Trim().ToLower() == "ionizador";
+
+        if (isIonizer)
         {
             double tiempoDescarga = payload["tiempo_descarga"]?.GetValue<double>() ?? 0;
             int voltajeBalance = payload["voltaje_balance"]?.GetValue<int>() ?? 0;
@@ -239,7 +257,8 @@ public class ApiController : ControllerBase
                 extra_data = new
                 {
                     id_elemento = idElemento,
-                    tipo_equipo = "Ionizador",
+                    tipo_equipo = tipoEquipo,
+                    subtipo_elemento = subtipoElemento,
                     ubicacion = ubicacion,
                     tiempo_descarga = tiempoDescarga,
                     voltaje_balance = voltajeBalance,
@@ -274,6 +293,7 @@ public class ApiController : ControllerBase
                 {
                     id_elemento = idElemento,
                     tipo_equipo = tipoEquipo,
+                    subtipo_elemento = subtipoElemento,
                     ubicacion = ubicacion,
                     mediciones_extra = medicionesExtra,
                     auditor = auditor
