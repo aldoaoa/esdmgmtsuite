@@ -225,6 +225,7 @@ public class ApiController : ControllerBase
         string subtipoElemento = payload["subtipo_elemento"]?.ToString() ?? "";
         string subtipoKey = payload["subtipo_key"]?.ToString() ?? "";
         string ubicacion = payload["ubicacion"]?.ToString() ?? "N/A";
+        string puntoContacto = payload["punto_contacto"]?.ToString() ?? "";
         string auditor = HttpContext.Session.GetString("user_name") 
             ?? HttpContext.Session.GetString("user_email") 
             ?? payload["auditor"]?.ToString() 
@@ -265,6 +266,7 @@ public class ApiController : ControllerBase
                     subtipo_elemento = subtipoElemento,
                     subtipo_key = subtipoKey,
                     ubicacion = ubicacion,
+                    punto_contacto = puntoContacto,
                     tiempo_descarga = tiempoDescarga,
                     voltaje_balance = voltajeBalance,
                     auditor = auditor
@@ -301,6 +303,7 @@ public class ApiController : ControllerBase
                     subtipo_elemento = subtipoElemento,
                     subtipo_key = subtipoKey,
                     ubicacion = ubicacion,
+                    punto_contacto = puntoContacto,
                     mediciones_extra = medicionesExtra,
                     auditor = auditor
                 },

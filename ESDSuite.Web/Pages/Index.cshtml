@@ -173,7 +173,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.4</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.5</span>
             </div>
         </div>
     </aside>
@@ -336,22 +336,26 @@
                             <!-- CAMPOS ESPECÍFICOS: IONIZADOR -->
                             <div id="fields-ionizer" style="display:none; background:var(--accent-blue-light); padding:14px; border-radius:8px; border:1px solid rgba(37,99,235,0.2); margin-top:10px;">
                                 <h5 style="margin-bottom:8px; color:var(--accent-blue); font-size:12.5px;" data-i18n="audit.ion_heading">⚡ Medición de Ionizador (Descarga &le; 10.0s, Balance &plusmn; 35V)</h5>
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                                     <div class="form-group">
                                         <label data-i18n="audit.ion_time">Tiempo de Descarga [seg]*</label>
-                                        <input type="number" step="0.1" id="ion-tiempo" class="form-control" placeholder="4.5" />
+                                        <input type="number" step="0.1" id="ion-tiempo" class="form-control" placeholder="Ej: 4.5" data-i18n-placeholder="audit.ph_ion_time" />
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="audit.ion_balance">Voltaje de Balance [V]*</label>
-                                        <input type="number" step="1" id="ion-balance" class="form-control" placeholder="12" />
+                                        <input type="number" step="1" id="ion-balance" class="form-control" placeholder="Ej: 12" data-i18n-placeholder="audit.ph_ion_balance" />
                                     </div>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="audit.lbl_contact_point">Punto de Medición / Contacto</label>
+                                    <input type="text" id="ion-punto-contacto" class="form-control" placeholder="Punto de prueba (Ej: Flujo de aire a 30cm, Centro de rejilla)" data-i18n-placeholder="audit.ph_ion_point" />
                                 </div>
                             </div>
 
                             <!-- CAMPOS ESPECÍFICOS: MOBILIARIO Y MAQUINARIA -->
                             <div id="fields-furniture-machinery" style="background:#F8FAFC; padding:14px; border-radius:8px; border:1px solid var(--border-color); margin-top:10px;">
                                 <h5 style="margin-bottom:8px; color:var(--text-primary); font-size:12.5px;" data-i18n="audit.std_heading">🔌 Medición Estándar (Resistencia &le; 1.0e9 &Omega;, Campo &le; 100V)</h5>
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                                     <div class="form-group">
                                         <label data-i18n="audit.lbl_res">Resistencia [Ohms]*</label>
                                         <input type="text" id="mob-resistencia" class="form-control" placeholder="Ej: 1.5e6" data-i18n-placeholder="audit.ph_res" />
@@ -360,6 +364,10 @@
                                         <label data-i18n="audit.lbl_volts">Voltaje Campo [V]*</label>
                                         <input type="number" step="1" id="mob-campo" class="form-control" placeholder="Ej: 15" data-i18n-placeholder="audit.ph_volts" />
                                     </div>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="audit.lbl_contact_point">Punto de Medición / Contacto</label>
+                                    <input type="text" id="mob-punto-contacto" class="form-control" placeholder="Punto de contacto en máquina/elemento (Ej: Chasis, Rodillo, Boquilla)" data-i18n-placeholder="audit.ph_extra_point" />
                                 </div>
 
                                 <!-- MEDICIONES ADICIONALES DINÁMICAS -->
@@ -1300,8 +1308,8 @@
             const m = data.data;
             cardStatus.className = (m.estatus === 'PASA' || m.status_result === 'PASS') ? 'badge-pass' : 'badge-fail';
             cardStatus.innerText = m.estatus || m.status_result || 'ACTIVE';
-            cardLoc.innerText = m.ubicacion || m.linea_ubicacion || 'SMT-01';
-            cardClass.innerText = m.tipo_equipo || m.category || 'Mobiliario';
+            cardLoc.innerText = m.ubicacion || m.linea_ubicacion || m.location || 'N/A';
+            cardClass.innerText = m.tipo_equipo || m.category || 'Mobiliario ESD';
 
             const resTxt = m.resistencia ? `${m.resistencia.toExponential(2)} Ω` : (m.resistance_value ? `${m.resistance_value.toExponential(2)} Ω` : 'N/D');
             const voltTxt = m.voltaje_campo !== undefined ? `${m.voltaje_campo} V` : (m.static_field_value !== undefined ? `${m.static_field_value} V` : 'N/D');
@@ -1311,23 +1319,46 @@
             const lblField = t('audit.card_field', 'Campo');
             const lblStatus = t('audit.card_status', 'Estatus');
 
-            cardHist.innerHTML = `
-                <div>📅 <b>${lblDate}:</b> ${m.fecha_medicion || m.measured_at || 'N/A'}</div>
-                <div>⚡ <b>${lblRes}:</b> ${resTxt} | 🧲 <b>${lblField}:</b> ${voltTxt}</div>
-                <div>📊 <b>${lblStatus}:</b> <b>${m.estatus || m.status_result || 'PASA'}</b></div>
-            `;
-            if (m.tipo_equipo) {
-                document.getElementById('audit-tipo-equipo').value = m.tipo_equipo;
-                toggleAuditFormType(m.tipo_equipo);
+            if (m.is_asset_only) {
+                cardHist.innerHTML = `<div>📦 <b>${t('audit.card_registered_asset', 'Activo Registrado en Catálogo')}</b> | 📍 <b>${m.location || 'N/A'}</b></div>`;
+            } else {
+                const ptTxt = m.punto_contacto ? ` | 📍 <i>${m.punto_contacto}</i>` : '';
+                cardHist.innerHTML = `
+                    <div>📅 <b>${lblDate}:</b> ${m.fecha_medicion || m.measured_at || 'N/A'}${ptTxt}</div>
+                    <div>⚡ <b>${lblRes}:</b> ${resTxt} | 🧲 <b>${lblField}:</b> ${voltTxt}</div>
+                    <div>📊 <b>${lblStatus}:</b> <b>${m.estatus || m.status_result || 'PASA'}</b></div>
+                `;
             }
-            if (m.subtipo_elemento || m.sub_category) {
-                populateElementSubtypes(m.tipo_equipo, m.subtipo_elemento || m.sub_category);
+            if (m.tipo_equipo || m.category) {
+                const eqCat = m.tipo_equipo || m.category;
+                document.getElementById('audit-tipo-equipo').value = eqCat;
+                toggleAuditFormType(eqCat);
+            }
+            if (m.subtipo_elemento || m.sub_category || m.subtipo_key) {
+                populateElementSubtypes(m.tipo_equipo || m.category, m.subtipo_key || m.subtipo_elemento || m.sub_category);
+            }
+            if (m.ubicacion || m.location) {
+                const u = m.ubicacion || m.location;
+                const selU = document.getElementById('audit-ubicacion-select');
+                if (selU) {
+                    for (let opt of selU.options) {
+                        if (opt.value === u || opt.value.toUpperCase() === u.toUpperCase()) {
+                            opt.selected = true; break;
+                        }
+                    }
+                }
+            }
+            if (m.punto_contacto) {
+                const mobPt = document.getElementById('mob-punto-contacto');
+                const ionPt = document.getElementById('ion-punto-contacto');
+                if (mobPt) mobPt.value = m.punto_contacto;
+                if (ionPt) ionPt.value = m.punto_contacto;
             }
         } else {
             cardStatus.className = 'badge-pass';
             cardStatus.innerText = t('audit.card_new_asset', 'NUEVO ACTIVO');
             cardLoc.innerText = 'N/A';
-            cardClass.innerText = 'Mobiliario';
+            cardClass.innerText = 'Mobiliario ESD';
             cardHist.innerHTML = `<i>ℹ️ ${t('audit.card_no_history', 'No hay mediciones anteriores para este activo. Captura la primera auditoría abajo.')}</i>`;
         }
     }
@@ -1399,7 +1430,7 @@
     }
 
     function addExtraPoint(type) {
-        extraPoints.push({ tipo: type, valor: type === 'resistencia' ? '1.0e6' : 0, comentario: '' });
+        extraPoints.push({ tipo: type, valor: '', comentario: '' });
         renderExtraPoints();
     }
 
@@ -1408,10 +1439,13 @@
         if (!container) return;
         container.innerHTML = '';
         const phPoint = t('audit.ph_extra_point', 'Punto de contacto en máquina/elemento (Ej: Chasis, Rodillo, Boquilla)');
+        const phRes = t('audit.ph_res', 'Ej: 1.5e6');
+        const phVolt = t('audit.ph_volts', 'Ej: 15');
         extraPoints.forEach((p, idx) => {
-            container.innerHTML += `<div style="display:grid; grid-template-columns:110px 1fr 36px; gap:8px; margin-bottom:8px; align-items:center;">
-                <input type="${p.tipo === 'resistencia' ? 'text' : 'number'}" class="form-control" value="${p.valor}" onchange="extraPoints[${idx}].valor = this.value" placeholder="${p.tipo === 'resistencia' ? 'Ohms' : 'Volts'}" />
-                <input type="text" class="form-control" value="${p.comentario}" onchange="extraPoints[${idx}].comentario = this.value" placeholder="${phPoint}" title="${phPoint}" />
+            const phVal = p.tipo === 'resistencia' ? `Ohms (${phRes})` : `Volts (${phVolt})`;
+            container.innerHTML += `<div style="display:grid; grid-template-columns:120px 1fr 36px; gap:8px; margin-bottom:8px; align-items:center;">
+                <input type="${p.tipo === 'resistencia' ? 'text' : 'number'}" class="form-control" value="${p.valor || ''}" oninput="extraPoints[${idx}].valor = this.value" placeholder="${phVal}" />
+                <input type="text" class="form-control" value="${p.comentario || ''}" oninput="extraPoints[${idx}].comentario = this.value" placeholder="${phPoint}" title="${phPoint}" />
                 <button type="button" class="btn-primary" style="background:var(--accent-rose); padding:4px 8px; font-size:12px; height:38px;" onclick="extraPoints.splice(${idx}, 1); renderExtraPoints();">❌</button>
             </div>`;
         });
@@ -1433,6 +1467,9 @@
         }
 
         const group = getCategoryGroup(tipo_equipo);
+        const punto_contacto = (group === 'ionizer') 
+            ? (document.getElementById('ion-punto-contacto')?.value.trim() || '') 
+            : (document.getElementById('mob-punto-contacto')?.value.trim() || '');
 
         const payload = {
             id_elemento,
@@ -1440,6 +1477,7 @@
             subtipo_elemento: subtipo_label,
             subtipo_key,
             ubicacion,
+            punto_contacto,
             auditor,
             comentarios,
             es_maquinaria: group === 'machinery'

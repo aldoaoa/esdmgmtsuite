@@ -202,28 +202,68 @@ public class SupabaseService
     {
         string cleanId = idElemento.Trim().ToUpper();
 
-        var assets = await GetAsync($"assets?custom_id=eq.{cleanId}&select=id,custom_id,category,location,status");
+        // 1. Direct search in measurements by extra_data->>id_elemento
+        var mDirect = await GetAsync($"measurements?extra_data->>id_elemento=ilike.{cleanId}&order=measured_at.desc&limit=1");
+        if (mDirect.Count > 0 && mDirect[0] is JsonObject directObj)
+        {
+            if (directObj["extra_data"] is JsonObject ed)
+            {
+                directObj["tipo_equipo"] = ed["tipo_equipo"]?.ToString() ?? directObj["category"]?.ToString();
+                directObj["subtipo_elemento"] = ed["subtipo_elemento"]?.ToString();
+                directObj["subtipo_key"] = ed["subtipo_key"]?.ToString();
+                directObj["ubicacion"] = ed["ubicacion"]?.ToString() ?? directObj["location"]?.ToString();
+                directObj["punto_contacto"] = ed["punto_contacto"]?.ToString();
+            }
+            directObj["id_elemento"] = cleanId;
+            return directObj;
+        }
+
+        // 2. Search in assets table and then get latest measurement
+        var assets = await GetAsync($"assets?custom_id=ilike.{cleanId}&select=id,custom_id,category,sub_category,location,status");
         if (assets.Count > 0 && assets[0] is JsonObject asset)
         {
             string assetId = asset["id"]?.ToString() ?? "";
             var measurements = await GetAsync($"measurements?asset_id=eq.{assetId}&order=measured_at.desc&limit=1");
             if (measurements.Count > 0 && measurements[0] is JsonObject m)
             {
+                if (m["extra_data"] is JsonObject ed)
+                {
+                    m["tipo_equipo"] = ed["tipo_equipo"]?.ToString() ?? asset["category"]?.ToString();
+                    m["subtipo_elemento"] = ed["subtipo_elemento"]?.ToString() ?? asset["sub_category"]?.ToString();
+                    m["subtipo_key"] = ed["subtipo_key"]?.ToString();
+                    m["ubicacion"] = ed["ubicacion"]?.ToString() ?? asset["location"]?.ToString();
+                    m["punto_contacto"] = ed["punto_contacto"]?.ToString();
+                }
                 m["id_elemento"] = cleanId;
                 m["category"] = asset["category"]?.ToString();
+                m["sub_category"] = asset["sub_category"]?.ToString();
                 m["location"] = asset["location"]?.ToString();
                 return m;
             }
+            else
+            {
+                return new JsonObject
+                {
+                    ["id_elemento"] = cleanId,
+                    ["category"] = asset["category"]?.ToString(),
+                    ["sub_category"] = asset["sub_category"]?.ToString(),
+                    ["tipo_equipo"] = asset["category"]?.ToString(),
+                    ["ubicacion"] = asset["location"]?.ToString(),
+                    ["status_result"] = asset["status"]?.ToString() ?? "ACTIVE",
+                    ["is_asset_only"] = true
+                };
+            }
         }
 
-        var maq = await GetAsync($"mediciones_maquinaria?id_maquinaria=eq.{cleanId}&order=fecha_medicion.desc&limit=1");
-        if (maq.Count > 0) return maq[0] as JsonObject;
+        // 3. Fallback legacy tables
+        var maq = await GetAsync($"mediciones_maquinaria?id_maquinaria=ilike.{cleanId}&order=fecha_medicion.desc&limit=1");
+        if (maq.Count > 0 && maq[0] is JsonObject maqObj) return maqObj;
 
-        var inv = await GetAsync($"inventario_esd?id_elemento=eq.{cleanId}&select=*");
-        if (inv.Count > 0) return inv[0] as JsonObject;
+        var inv = await GetAsync($"inventario_esd?id_elemento=ilike.{cleanId}&select=*");
+        if (inv.Count > 0 && inv[0] is JsonObject invObj) return invObj;
 
-        var val = await GetAsync($"validacion_esd?id_elemento=eq.{cleanId}&order=fecha_medicion.desc&limit=1");
-        if (val.Count > 0) return val[0] as JsonObject;
+        var val = await GetAsync($"validacion_esd?id_elemento=ilike.{cleanId}&order=fecha_medicion.desc&limit=1");
+        if (val.Count > 0 && val[0] is JsonObject valObj) return valObj;
 
         return null;
     }
