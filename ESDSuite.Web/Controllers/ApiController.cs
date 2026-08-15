@@ -548,6 +548,7 @@ public class ApiController : ControllerBase
     [HttpGet("routes/lines")]
     public async Task<IActionResult> GetLines([FromQuery] string? siteId)
     {
+        await BackfillLinesCompanyIdAsync();
         var data = await _supabase.GetCatalogoLineasAsync(siteId);
         return Ok(data);
     }
@@ -562,6 +563,30 @@ public class ApiController : ControllerBase
         if (string.IsNullOrWhiteSpace(nombreLinea)) return BadRequest(new { success = false, message = "El nombre de la área/línea es obligatorio." });
 
         payload["site_id"] = siteId;
+
+        // Resolve company_id automatically from payload, session, or site mapping
+        string? companyId = payload["company_id"]?.ToString();
+        if (string.IsNullOrEmpty(companyId))
+        {
+            companyId = HttpContext.Session.GetString("company_id");
+            if (string.IsNullOrEmpty(companyId) && !string.IsNullOrEmpty(siteId))
+            {
+                var sites = await _supabase.GetSitesAsync();
+                foreach (var s in sites)
+                {
+                    if (s is JsonObject sObj && sObj["id"]?.ToString() == siteId)
+                    {
+                        companyId = sObj["company_id"]?.ToString();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(companyId))
+        {
+            payload["company_id"] = companyId;
+        }
 
         // Duplicate check in site
         var existingLines = await _supabase.GetCatalogoLineasAsync(siteId);
@@ -579,6 +604,59 @@ public class ApiController : ControllerBase
 
         var result = await _supabase.InsertCatalogoLineaAsync(payload);
         return Ok(new { success = result != null && result["id"] != null, data = result });
+    }
+
+    private async Task BackfillLinesCompanyIdAsync()
+    {
+        try
+        {
+            var allLines = await _supabase.GetCatalogoLineasAsync(null);
+            bool hasNullCompany = false;
+            foreach (var l in allLines)
+            {
+                if (l is JsonObject lObj && string.IsNullOrEmpty(lObj["company_id"]?.ToString()))
+                {
+                    hasNullCompany = true;
+                    break;
+                }
+            }
+
+            if (!hasNullCompany) return;
+
+            var sites = await _supabase.GetSitesAsync();
+            var siteCompanyMap = new Dictionary<string, string>();
+            foreach (var s in sites)
+            {
+                if (s is JsonObject sObj)
+                {
+                    string id = sObj["id"]?.ToString() ?? "";
+                    string compId = sObj["company_id"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(compId))
+                    {
+                        siteCompanyMap[id] = compId;
+                    }
+                }
+            }
+
+            foreach (var l in allLines)
+            {
+                if (l is JsonObject lObj)
+                {
+                    string lineId = lObj["id"]?.ToString() ?? "";
+                    string lSiteId = lObj["site_id"]?.ToString() ?? "";
+                    string lCompId = lObj["company_id"]?.ToString() ?? "";
+
+                    if (string.IsNullOrEmpty(lCompId) && !string.IsNullOrEmpty(lSiteId) && siteCompanyMap.TryGetValue(lSiteId, out var targetCompId))
+                    {
+                        await _supabase.UpdateCatalogoLineaAsync(lineId, new { company_id = targetCompId });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error backfilling catalogo_lineas company_id: {ex.Message}");
+        }
     }
 
     // --- EMPLOYEES & TRAINING EXAMS ---

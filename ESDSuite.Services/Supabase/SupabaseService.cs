@@ -343,6 +343,11 @@ public class SupabaseService
         return await InsertAsync("catalogo_lineas", data);
     }
 
+    public async Task<bool> UpdateCatalogoLineaAsync(string id, object data)
+    {
+        return await UpdateAsync("catalogo_lineas", $"id=eq.{id}", data);
+    }
+
     // --- EMPLOYEES & TRAINING EXAMS ---
     public async Task<JsonArray> GetEmpleadosBatasAsync(string siteId)
     {
