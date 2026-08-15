@@ -1223,7 +1223,7 @@
                 if (!sessionData.can_change_site) {
                     const activeName = sessionData.site_name || (allSites.length > 0 ? allSites[0].name : 'Mi Planta');
                     const activeId = sessionData.site_id || (allSites.length > 0 ? allSites[0].id : '');
-                    sel.innerHTML = `<option value="${activeId}" selected>🏭 ${activeName}</option>`;
+                    sel.innerHTML = `<option value="${activeId}" selected>${activeName}</option>`;
                     sel.disabled = true;
                     sel.title = "Tu rol no permite cambiar de site. Estás asignado exclusivamente a tu planta.";
                 } else {
@@ -1231,7 +1231,7 @@
                     allSites.forEach(s => {
                         const opt = document.createElement('option');
                         opt.value = s.id;
-                        opt.innerText = `🏭 ${s.name}`;
+                        opt.innerText = `${s.name}`;
                         if (s.id === sessionData.site_id) opt.selected = true;
                         sel.appendChild(opt);
                     });
@@ -1242,7 +1242,7 @@
         } catch (ex) {
             console.log('Error loading sites:', ex);
             if (sel) {
-                sel.innerHTML = `<option value="${sessionData.site_id || ''}" selected>🏭 ${sessionData.site_name || 'Mi Planta'}</option>`;
+                sel.innerHTML = `<option value="${sessionData.site_id || ''}" selected>${sessionData.site_name || 'Mi Planta'}</option>`;
                 sel.disabled = true;
             }
         }
