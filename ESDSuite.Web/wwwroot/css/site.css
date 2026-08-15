@@ -769,16 +769,37 @@ h1, h2, h3, h4, h5, h6 {
     }
 
     .site-badge {
-        padding: 4px 8px;
-        font-size: 11.5px;
-        max-width: 140px;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        gap: 0px !important;
+        padding: 3px 8px !important;
+        font-size: 10px !important;
+        max-width: 165px !important;
+        border-radius: 6px !important;
+        background: #F1F5F9 !important;
+    }
+
+    .site-badge span {
+        font-size: 9px !important;
+        font-weight: 700 !important;
+        line-height: 1.1 !important;
+        color: var(--text-muted) !important;
+        display: block !important;
     }
 
     .site-badge select {
-        max-width: 90px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        max-width: 150px !important;
+        width: 100% !important;
+        text-overflow: ellipsis !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+        padding: 0 !important;
+        margin-top: -1px !important;
     }
 
     .user-profile {
@@ -868,18 +889,23 @@ h1, h2, h3, h4, h5, h6 {
         font-size: 11.5px;
     }
 
-    /* Split-Screen Login Overlay Responsiveness */
+    /* Split-Screen Login Overlay Responsiveness & Touch Scroll */
     #login-overlay {
-        padding: 8px !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        padding: 12px 10px 40px 10px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     #login-overlay > div {
         flex-direction: column !important;
         width: 100% !important;
         max-width: 100% !important;
-        max-height: 94vh !important;
-        overflow-y: auto !important;
-        border-radius: 14px !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border-radius: 16px !important;
+        margin: 10px 0 30px 0 !important;
     }
 
     #login-overlay > div > div:first-child {
