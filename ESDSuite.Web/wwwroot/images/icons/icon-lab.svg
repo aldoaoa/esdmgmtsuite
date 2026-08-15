@@ -1,32 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="agyGrad" x1="0%" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#38BDF8" />
       <stop offset="50%" stop-color="#818CF8" />
       <stop offset="100%" stop-color="#C084FC" />
     </linearGradient>
+    <linearGradient id="agyLiquid" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#A855F7" />
+    </linearGradient>
   </defs>
-  <!-- IC Package Body -->
-  <rect x="18" y="18" width="28" height="28" rx="6" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" />
-  <!-- Central Die / Core -->
-  <rect x="25" y="25" width="14" height="14" rx="3" fill="#1E1B4B" stroke="#38BDF8" stroke-width="2" />
-  <!-- Microchip Pins (Top, Bottom, Left, Right) -->
-  <line x1="24" y1="10" x2="24" y2="18" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="32" y1="10" x2="32" y2="18" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="40" y1="10" x2="40" y2="18" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-
-  <line x1="24" y1="46" x2="24" y2="54" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="32" y1="46" x2="32" y2="54" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="40" y1="46" x2="40" y2="54" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-
-  <line x1="10" y1="24" x2="18" y2="24" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="10" y1="32" x2="18" y2="32" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="10" y1="40" x2="18" y2="40" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-
-  <line x1="46" y1="24" x2="54" y2="24" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="46" y1="32" x2="54" y2="32" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-  <line x1="46" y1="40" x2="54" y2="40" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
-
-  <!-- Test Spark / Pulse -->
-  <circle cx="32" cy="32" r="3" fill="#38BDF8" />
+  
+  <!-- Outer Flask Outline (Conical Erlenmeyer Flask) -->
+  <path d="M26 10 H38 V22 L51 46 C53.5 50.5 50.2 56 45 56 H19 C13.8 56 10.5 50.5 13 46 L26 22 V10 Z" 
+        fill="url(#agyGrad)" fill-opacity="0.15" stroke="#1E1B4B" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" />
+  
+  <!-- Flask Top Lip Ring -->
+  <rect x="23" y="6" width="18" height="5" rx="2.5" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="2.5" />
+  
+  <!-- Liquid Wave Fill inside Flask -->
+  <path d="M16 43 C20 40 26 44 32 41 C38 38 44 42 48 43 L50 48 C51.5 51.5 49 55 45 55 H19 C15 55 12.5 51.5 14 48 Z" 
+        fill="url(#agyLiquid)" stroke="#1E1B4B" stroke-width="2" stroke-linejoin="round" />
+  
+  <!-- Central ESD Lightning Spark (HBM/CDM Discharge) -->
+  <path d="M34 16 L25 32 H33 L30 46 L43 28 H34 L37 16 Z" 
+        fill="#FFFFFF" stroke="#1E1B4B" stroke-width="2.5" stroke-linejoin="round" />
+  
+  <!-- Test Bubbles / Ions Floating -->
+  <circle cx="22" cy="48" r="2.5" fill="#FFFFFF" opacity="0.9" />
+  <circle cx="42" cy="49" r="2" fill="#FFFFFF" opacity="0.9" />
+  <circle cx="38" cy="38" r="2.5" fill="#38BDF8" />
+  <circle cx="21" cy="36" r="1.5" fill="#C084FC" />
 </svg>
