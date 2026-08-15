@@ -273,8 +273,65 @@ public class SupabaseService
         return await InsertAsync("measurements", data);
     }
 
+    public async Task<JsonArray> GetMeasurementsForSiteAsync(string siteId)
+    {
+        if (string.IsNullOrEmpty(siteId))
+        {
+            return await GetAsync("measurements?select=*&order=measured_at.desc&limit=500");
+        }
+        return await GetAsync($"measurements?site_id=eq.{siteId}&select=*&order=measured_at.desc&limit=500");
+    }
+
+    public async Task<JsonArray> GetAssetHistoryAsync(string identifier)
+    {
+        string cleanId = identifier.Trim();
+        var results = new List<JsonObject>();
+        var seenIds = new HashSet<string>();
+
+        // 1. Query by extra_data->>id_elemento
+        var mDirect = await GetAsync($"measurements?extra_data->>id_elemento=ilike.{cleanId}&order=measured_at.desc");
+        foreach (var node in mDirect)
+        {
+            if (node is JsonObject mObj)
+            {
+                string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                if (seenIds.Add(mId)) results.Add(mObj);
+            }
+        }
+
+        // 2. Query by asset_id (if identifier is matched via assets)
+        var assets = await GetAsync($"assets?custom_id=ilike.{cleanId}&select=id,custom_id,category,sub_category,location");
+        if (assets.Count > 0 && assets[0] is JsonObject aObj)
+        {
+            string assetId = aObj["id"]?.ToString() ?? "";
+            if (!string.IsNullOrEmpty(assetId))
+            {
+                var mAsset = await GetAsync($"measurements?asset_id=eq.{assetId}&order=measured_at.desc");
+                foreach (var node in mAsset)
+                {
+                    if (node is JsonObject mObj)
+                    {
+                        string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                        if (seenIds.Add(mId)) results.Add(mObj);
+                    }
+                }
+            }
+        }
+
+        var array = new JsonArray();
+        foreach (var r in results.OrderByDescending(x => x["measured_at"]?.ToString()))
+        {
+            array.Add(r);
+        }
+        return array;
+    }
+
     public async Task<JsonArray> GetAssetsAsync(string siteId)
     {
+        if (string.IsNullOrEmpty(siteId))
+        {
+            return await GetAsync("assets?select=*");
+        }
         return await GetAsync($"assets?site_id=eq.{siteId}&select=*");
     }
 

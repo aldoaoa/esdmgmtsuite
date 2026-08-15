@@ -513,6 +513,159 @@ public class ApiController : ControllerBase
         return Ok(new { success = true, html, folio });
     }
 
+    // --- ASSET DIRECTORY (INVENTORY & MEASUREMENT HISTORY) ---
+    [HttpGet("inventory")]
+    public async Task<IActionResult> GetInventoryDirectory([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? category = null, [FromQuery] string? status = null)
+    {
+        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        
+        var assets = await _supabase.GetAssetsAsync(activeSiteId);
+        var measurements = await _supabase.GetMeasurementsForSiteAsync(activeSiteId);
+        
+        var assetMap = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Populate from assets table
+        foreach (var node in assets)
+        {
+            if (node is JsonObject aObj)
+            {
+                string customId = aObj["custom_id"]?.ToString().Trim() ?? "";
+                if (string.IsNullOrEmpty(customId)) continue;
+
+                assetMap[customId] = new JsonObject
+                {
+                    ["id"] = aObj["id"]?.ToString(),
+                    ["asset_id"] = customId,
+                    ["custom_id"] = customId,
+                    ["category"] = aObj["category"]?.ToString() ?? "Mobiliario ESD",
+                    ["sub_category"] = aObj["sub_category"]?.ToString() ?? aObj["category"]?.ToString() ?? "Mobiliario ESD",
+                    ["location"] = aObj["location"]?.ToString() ?? "N/A",
+                    ["status"] = aObj["status"]?.ToString() ?? "ACTIVE",
+                    ["last_verification"] = null,
+                    ["next_verification"] = null,
+                    ["auditor"] = "Auditor ESD",
+                    ["punto_contacto"] = "",
+                    ["resistance_value"] = null,
+                    ["static_field_value"] = null,
+                    ["extra_points"] = new JsonArray(),
+                    ["total_audits"] = 0
+                };
+            }
+        }
+
+        // 2. Merge measurements and index assets created directly in audits
+        foreach (var node in measurements)
+        {
+            if (node is not JsonObject mObj) continue;
+
+            string idElem = "";
+            if (mObj["extra_data"] is JsonObject ed)
+            {
+                idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
+            }
+
+            if (string.IsNullOrEmpty(idElem) && mObj["asset_id"] != null)
+            {
+                string aId = mObj["asset_id"]?.ToString() ?? "";
+                var matched = assetMap.Values.FirstOrDefault(x => x["id"]?.ToString() == aId);
+                if (matched != null) idElem = matched["custom_id"]?.ToString() ?? "";
+            }
+
+            if (string.IsNullOrEmpty(idElem)) continue;
+
+            if (!assetMap.TryGetValue(idElem, out var entry))
+            {
+                entry = new JsonObject
+                {
+                    ["id"] = mObj["asset_id"]?.ToString() ?? Guid.NewGuid().ToString(),
+                    ["asset_id"] = idElem,
+                    ["custom_id"] = idElem,
+                    ["category"] = "Mobiliario ESD",
+                    ["sub_category"] = "Mobiliario ESD",
+                    ["location"] = "N/A",
+                    ["status"] = "ACTIVE",
+                    ["last_verification"] = null,
+                    ["next_verification"] = null,
+                    ["auditor"] = "Auditor ESD",
+                    ["punto_contacto"] = "",
+                    ["resistance_value"] = null,
+                    ["static_field_value"] = null,
+                    ["extra_points"] = new JsonArray(),
+                    ["total_audits"] = 0
+                };
+                assetMap[idElem] = entry;
+            }
+
+            int count = entry["total_audits"]?.GetValue<int>() ?? 0;
+            entry["total_audits"] = count + 1;
+
+            string measuredAt = mObj["measured_at"]?.ToString() ?? "";
+            string existingLast = entry["last_verification"]?.ToString() ?? "";
+
+            if (string.IsNullOrEmpty(existingLast) || string.Compare(measuredAt, existingLast) > 0)
+            {
+                entry["last_verification"] = measuredAt;
+                
+                if (DateTime.TryParse(measuredAt, out var dt))
+                {
+                    entry["next_verification"] = dt.AddDays(30).ToString("yyyy-MM-dd");
+                }
+
+                entry["status"] = mObj["status_result"]?.ToString() ?? "PASS";
+                
+                if (mObj["resistance_value"] != null) entry["resistance_value"] = mObj["resistance_value"]?.GetValue<double>();
+                if (mObj["static_field_value"] != null) entry["static_field_value"] = mObj["static_field_value"]?.GetValue<double>();
+
+                if (mObj["extra_data"] is JsonObject edObj)
+                {
+                    if (edObj["tipo_equipo"] != null) entry["category"] = edObj["tipo_equipo"]?.ToString();
+                    if (edObj["subtipo_elemento"] != null) entry["sub_category"] = edObj["subtipo_elemento"]?.ToString();
+                    if (edObj["subtipo_key"] != null) entry["subtipo_key"] = edObj["subtipo_key"]?.ToString();
+                    if (edObj["ubicacion"] != null) entry["location"] = edObj["ubicacion"]?.ToString();
+                    if (edObj["punto_contacto"] != null) entry["punto_contacto"] = edObj["punto_contacto"]?.ToString();
+                    if (edObj["auditor"] != null) entry["auditor"] = edObj["auditor"]?.ToString();
+                    if (edObj["tiempo_descarga"] != null) entry["tiempo_descarga"] = edObj["tiempo_descarga"]?.GetValue<double>();
+                    if (edObj["voltaje_balance"] != null) entry["voltaje_balance"] = edObj["voltaje_balance"]?.GetValue<int>();
+                    if (edObj["mediciones_extra"] is JsonArray extraArr) entry["extra_points"] = extraArr.DeepClone();
+                }
+            }
+        }
+
+        var resultList = assetMap.Values.ToList();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string sLower = search.Trim().ToLower();
+            resultList = resultList.Where(x => 
+                (x["asset_id"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["sub_category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["location"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["punto_contacto"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["auditor"]?.ToString().ToLower().Contains(sLower) ?? false)
+            ).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(category) && category != "all")
+        {
+            resultList = resultList.Where(x => x["category"]?.ToString().Equals(category, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && status != "all")
+        {
+            resultList = resultList.Where(x => x["status"]?.ToString().Equals(status, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+        }
+
+        return Ok(resultList.OrderByDescending(x => x["last_verification"]?.ToString() ?? ""));
+    }
+
+    [HttpGet("inventory/history/{id}")]
+    public async Task<IActionResult> GetAssetAuditHistory([FromRoute] string id)
+    {
+        var history = await _supabase.GetAssetHistoryAsync(id);
+        return Ok(history);
+    }
+
     // --- SENSITIVITY LAB ---
     [HttpGet("lab/catalog")]
     public async Task<IActionResult> GetLabCatalog()

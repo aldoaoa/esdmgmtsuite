@@ -60,8 +60,12 @@
                     <button type="submit" class="btn-primary" style="width:100%; height:46px; font-size:14px; font-weight:700; border-radius:8px;" data-i18n="login.submit">🔒 Log In to esd360</button>
                 </form>
 
-                <div style="margin-top:32px; padding-top:20px; border-top:1px solid #F1F5F9; font-size:11.5px; color:#94A3B8; text-align:center;" data-i18n="login.footer">
-                    esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53
+                <div style="margin-top:32px; padding-top:20px; border-top:1px solid #F1F5F9; font-size:11.5px; color:#94A3B8; text-align:center; display:flex; flex-direction:column; gap:6px; align-items:center;">
+                    <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
+                    <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
+                        <span>Version:</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.6</span>
+                    </div>
                 </div>
             </div>
 
@@ -173,7 +177,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.5</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.6</span>
             </div>
         </div>
     </aside>
@@ -534,24 +538,98 @@
                 </div>
             </div>
 
-            <!-- MODULE 5: INVENTORY -->
+            <!-- MODULE 5: INVENTORY / ASSET DIRECTORY -->
             <div id="mod-inventory" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 style="margin-bottom:14px;" data-i18n="inventory.heading">📦 Directorio General de Activos ESD</h3>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                        <div>
+                            <h3 style="margin:0 0 4px 0;" data-i18n="inventory.heading">📦 Directorio de Activos Registrados por Site</h3>
+                            <p style="margin:0; font-size:12.5px; color:var(--text-muted);" data-i18n="inventory.subtitle">Catálogo centralizado de activos de protección electrostática y trazabilidad de mediciones</p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="inv-count-badge" class="badge-pass" style="font-size:11.5px; padding:4px 10px; font-weight:700;">0 Activos</span>
+                        </div>
+                    </div>
+
+                    <!-- SEARCH & FILTER TOOLBAR -->
+                    <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:12px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                        <div style="flex:1; min-width:220px; position:relative;">
+                            <input type="text" id="inventory-search-input" class="form-control" placeholder="Buscar por ID, Línea, Categoría, Subtipo, Auditor..." data-i18n-placeholder="inventory.ph_search" style="padding-left:34px;" onkeyup="if(event.key==='Enter') loadInventory();" />
+                            <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none;">🔍</span>
+                        </div>
+                        <div style="min-width:170px;">
+                            <select id="inventory-category-filter" class="form-control" onchange="loadInventory()">
+                                <option value="all" data-i18n="inventory.all_categories">-- Todas las Categorías --</option>
+                                <option value="Mobiliario ESD" data-i18n="audit.cat_furniture">Mobiliario ESD</option>
+                                <option value="Maquinaria y equipo" data-i18n="audit.cat_machinery">Maquinaria y equipo</option>
+                                <option value="Sistema de ionización" data-i18n="audit.cat_ionizer">Sistema de ionización</option>
+                            </select>
+                        </div>
+                        <div style="min-width:150px;">
+                            <select id="inventory-status-filter" class="form-control" onchange="loadInventory()">
+                                <option value="all" data-i18n="inventory.all_statuses">-- Todos los Estatus --</option>
+                                <option value="PASS" data-i18n="audit.res_pass">PASA / PASS</option>
+                                <option value="FAIL" data-i18n="audit.res_fail">FALLA / FAIL</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn-primary" style="padding:8px 14px; font-size:12.5px;" onclick="loadInventory()" data-i18n="inventory.btn_search">🔍 Buscar</button>
+                        <button type="button" class="tab-btn" style="padding:8px 12px; font-size:12.5px;" onclick="resetInventoryFilters()" data-i18n="inventory.btn_reset">🔄 Limpiar</button>
+                    </div>
+
+                    <!-- ASSETS DATA TABLE -->
+                    <div class="table-responsive" style="max-height:600px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                        <table class="data-table" style="margin:0; width:100%;">
+                            <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
                                 <tr>
-                                    <th data-i18n="inventory.col_category">Categoría</th>
-                                    <th data-i18n="inventory.col_location">Ubicación</th>
-                                    <th data-i18n="inventory.col_status">Estatus</th>
-                                    <th data-i18n="inventory.col_last_test">Última Prueba</th>
+                                    <th style="min-width:110px;" data-i18n="inventory.col_asset_id">ID Activo</th>
+                                    <th style="min-width:180px;" data-i18n="inventory.col_category_subtype">Categoría &amp; Subtipo</th>
+                                    <th style="min-width:140px;" data-i18n="inventory.col_location">Línea / Ubicación</th>
+                                    <th style="min-width:90px;" data-i18n="inventory.col_status">Estatus</th>
+                                    <th style="min-width:120px;" data-i18n="inventory.col_last_test">Última Verificación</th>
+                                    <th style="min-width:120px;" data-i18n="inventory.col_next_test">Próxima Verificación</th>
+                                    <th style="min-width:240px;" data-i18n="inventory.col_measurements">Valores de Medición</th>
+                                    <th style="min-width:110px; text-align:center;" data-i18n="inventory.col_actions">Historial</th>
                                 </tr>
                             </thead>
                             <tbody id="inventory-table-body">
-                                <tr><td colspan="4" style="text-align:center;">Cargando activos...</td></tr>
+                                <tr><td colspan="8" style="text-align:center; padding:24px;" data-i18n="inventory.loading">Cargando activos...</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL: ASSET AUDIT HISTORY -->
+            <div id="modal-asset-history" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; justify-content:center; align-items:center; padding:16px;">
+                <div class="glass-panel" style="background:#FFFFFF; max-width:850px; width:100%; max-height:90vh; display:flex; flex-direction:column; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border-color);">
+                        <div>
+                            <h3 id="modal-hist-asset-id" style="margin:0 0 4px 0; font-size:18px; color:var(--text-primary);">📜 Historial de Mediciones</h3>
+                            <div id="modal-hist-subtitle" style="font-size:12px; color:var(--text-muted);">Cargando...</div>
+                        </div>
+                        <button type="button" class="btn-primary" style="background:transparent; color:var(--text-muted); font-size:18px; padding:4px 8px; border:none; cursor:pointer;" onclick="closeAssetHistoryModal()">✕</button>
+                    </div>
+
+                    <div class="table-responsive" style="flex:1; overflow-y:auto; margin-bottom:14px; border:1px solid var(--border-color); border-radius:6px;">
+                        <table class="data-table" style="margin:0; width:100%;">
+                            <thead style="position:sticky; top:0; background:#F8FAFC;">
+                                <tr>
+                                    <th style="min-width:120px;" data-i18n="audit.card_date">Fecha</th>
+                                    <th style="min-width:80px;" data-i18n="audit.card_status">Estatus</th>
+                                    <th style="min-width:120px;" data-i18n="dashboard.col_auditor">Auditor</th>
+                                    <th style="min-width:200px;" data-i18n="inventory.col_measurements">Medición Principal</th>
+                                    <th style="min-width:180px;" data-i18n="audit.extra_points_heading">Puntos Extras</th>
+                                    <th style="min-width:140px;" data-i18n="audit.lbl_obs">Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-history-tbody">
+                                <tr><td colspan="6" style="text-align:center; padding:20px;">Cargando historial...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end;">
+                        <button type="button" class="tab-btn" style="padding:8px 18px;" onclick="closeAssetHistoryModal()" data-i18n="inventory.modal_close">Cerrar</button>
                     </div>
                 </div>
             </div>
@@ -1642,22 +1720,215 @@
     }
 
     async function loadInventory() {
-        const res = await fetch('/api/dashboard-metrics');
-        const data = await res.json();
         const tbody = document.getElementById('inventory-table-body');
-        tbody.innerHTML = '';
-        if (data.assetsData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Sin activos en este Site.</td></tr>';
-            return;
+        const countBadge = document.getElementById('inv-count-badge');
+        if (!tbody) return;
+        
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px;">${t('inventory.loading', 'Cargando activos...')}</td></tr>`;
+
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const search = (document.getElementById('inventory-search-input')?.value || '').trim();
+            const category = document.getElementById('inventory-category-filter')?.value || 'all';
+            const status = document.getElementById('inventory-status-filter')?.value || 'all';
+
+            const query = new URLSearchParams({ siteId, search, category, status });
+            const res = await fetch(`/api/inventory?${query.toString()}`);
+            if (!res.ok) throw new Error('Error al cargar inventario');
+            const data = await res.json();
+
+            tbody.innerHTML = '';
+            if (countBadge) countBadge.innerText = `${data.length} ${t('sidebar.inventory', 'Activos')}`;
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">ℹ️ ${t('inventory.no_assets', 'No se encontraron activos para los criterios seleccionados.')}</td></tr>`;
+                return;
+            }
+
+            data.forEach(a => {
+                const assetId = a.custom_id || a.asset_id || a.id || 'N/A';
+                const cat = a.category || 'Mobiliario ESD';
+                const subCat = a.sub_category || a.category || '';
+                const loc = a.location || 'N/A';
+                const statusStr = (a.status === 'PASS' || a.status === 'PASA' || a.status === 'ACTIVE') ? 'PASS' : 'FAIL';
+                const badgeCls = statusStr === 'PASS' ? 'badge-pass' : 'badge-fail';
+                const lastDate = a.last_verification ? a.last_verification.split('T')[0] : 'N/D';
+                const nextDate = a.next_verification || (a.last_verification ? calculateNextDate(a.last_verification) : 'N/D');
+
+                // Format Measurement Values
+                let measHtml = '';
+                if (a.resistance_value !== null && a.resistance_value !== undefined) {
+                    const resFmt = Number(a.resistance_value).toExponential(2);
+                    const voltFmt = a.static_field_value !== null && a.static_field_value !== undefined ? `${a.static_field_value}V` : '0V';
+                    measHtml = `<span style="font-family:monospace; font-weight:600;">⚡ ${resFmt}Ω | 🧲 ${voltFmt}</span>`;
+                } else if (a.tiempo_descarga !== null && a.tiempo_descarga !== undefined) {
+                    const tFmt = `${a.tiempo_descarga}s`;
+                    const bFmt = `${a.voltaje_balance || 0}V`;
+                    measHtml = `<span style="font-family:monospace; font-weight:600;">⚡ ${tFmt} | 🧲 ${bFmt}</span>`;
+                } else {
+                    measHtml = `<span style="color:var(--text-muted); font-size:11.5px;">Sin mediciones registradas</span>`;
+                }
+
+                if (a.punto_contacto) {
+                    measHtml += `<div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">📍 <i>${a.punto_contacto}</i></div>`;
+                }
+
+                if (a.extra_points && a.extra_points.length > 0) {
+                    measHtml += `<span class="badge-pass" style="background:#FEF3C7; color:#B45309; border-color:#FDE68A; font-size:10px; padding:1px 6px; margin-left:4px; font-weight:700;">+${a.extra_points.length} pts</span>`;
+                }
+
+                const catLabel = cat;
+                const subCatLabel = (subCat && subCat !== cat) ? `<div style="font-size:11px; color:var(--text-muted);">${subCat}</div>` : '';
+
+                tbody.innerHTML += `
+                    <tr style="cursor:pointer;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')">
+                        <td>
+                            <strong style="color:var(--accent-blue); font-size:13px;">${assetId}</strong>
+                        </td>
+                        <td>
+                            <div style="font-weight:600;">${catLabel}</div>
+                            ${subCatLabel}
+                        </td>
+                        <td>
+                            <span style="font-weight:600; color:var(--text-primary);">${loc}</span>
+                        </td>
+                        <td>
+                            <span class="${badgeCls}">${statusStr}</span>
+                        </td>
+                        <td>
+                            <span style="font-size:12px; color:var(--text-secondary);">${lastDate}</span>
+                        </td>
+                        <td>
+                            <span style="font-size:12px; font-weight:600; color:${nextDate === 'N/D' ? 'var(--text-muted)' : 'var(--accent-blue)'};">${nextDate}</span>
+                        </td>
+                        <td>
+                            <div>${measHtml}</div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation();">
+                            <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11.5px; font-weight:600;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')">
+                                ${t('inventory.btn_view_history', '📜 Ver Historial')}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--accent-rose); padding:20px;">❌ Error al cargar activos: ${err.message}</td></tr>`;
         }
-        data.assetsData.forEach(a => {
-            tbody.innerHTML += `<tr>
-                <td><b>${a.category || 'General'}</b></td>
-                <td>${a.location || 'Línea 1'}</td>
-                <td><span class="badge-pass">${a.status || 'PASSED'}</span></td>
-                <td>${a.last_tested || '2026-08-10'}</td>
-            </tr>`;
-        });
+    }
+
+    function calculateNextDate(dateStr) {
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return 'N/D';
+            d.setDate(d.getDate() + 30);
+            return d.toISOString().split('T')[0];
+        } catch(e) {
+            return 'N/D';
+        }
+    }
+
+    function escapeJsString(str) {
+        if (!str) return '';
+        return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function resetInventoryFilters() {
+        const sInp = document.getElementById('inventory-search-input');
+        const cSel = document.getElementById('inventory-category-filter');
+        const stSel = document.getElementById('inventory-status-filter');
+        if (sInp) sInp.value = '';
+        if (cSel) cSel.value = 'all';
+        if (stSel) stSel.value = 'all';
+        loadInventory();
+    }
+
+    async function openAssetHistoryModal(assetId, category, location) {
+        const modal = document.getElementById('modal-asset-history');
+        const title = document.getElementById('modal-hist-asset-id');
+        const sub = document.getElementById('modal-hist-subtitle');
+        const tbody = document.getElementById('modal-history-tbody');
+        if (!modal || !tbody) return;
+
+        title.innerText = `🔍 ${t('inventory.modal_history_title', 'Historial de Mediciones')}: ${assetId}`;
+        sub.innerText = `📦 ${category || 'Mobiliario ESD'} | 📍 ${location || 'N/A'}`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px;">${t('inventory.loading', 'Cargando historial...')}</td></tr>`;
+        modal.style.display = 'flex';
+
+        try {
+            const res = await fetch(`/api/inventory/history/${encodeURIComponent(assetId)}`);
+            const data = await res.json();
+
+            tbody.innerHTML = '';
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:28px; color:var(--text-muted);">ℹ️ ${t('inventory.modal_no_history', 'No se encontraron registros de auditoría para este activo.')}</td></tr>`;
+                return;
+            }
+
+            data.forEach(m => {
+                const dateStr = m.measured_at ? m.measured_at.replace('T', ' ').substring(0, 19) : (m.fecha_medicion || 'N/A');
+                const st = (m.status_result === 'PASS' || m.estatus === 'PASA') ? 'PASS' : 'FAIL';
+                const badge = st === 'PASS' ? 'badge-pass' : 'badge-fail';
+                
+                let auditorName = 'Auditor ESD';
+                let ptContacto = '';
+                let extraPts = [];
+
+                if (m.extra_data) {
+                    auditorName = m.extra_data.auditor || auditorName;
+                    ptContacto = m.extra_data.punto_contacto || '';
+                    extraPts = m.extra_data.mediciones_extra || [];
+                }
+
+                // Primary measurement
+                let primMeas = '';
+                if (m.resistance_value !== null && m.resistance_value !== undefined) {
+                    primMeas = `<div style="font-family:monospace; font-weight:700;">⚡ ${Number(m.resistance_value).toExponential(2)} Ω | 🧲 ${m.static_field_value || 0} V</div>`;
+                } else if (m.extra_data && m.extra_data.tiempo_descarga !== undefined) {
+                    primMeas = `<div style="font-family:monospace; font-weight:700;">⚡ ${m.extra_data.tiempo_descarga}s | 🧲 ${m.extra_data.voltaje_balance || 0} V</div>`;
+                } else if (m.resistencia) {
+                    primMeas = `<div style="font-family:monospace; font-weight:700;">⚡ ${Number(m.resistencia).toExponential(2)} Ω | 🧲 ${m.voltaje_campo || 0} V</div>`;
+                } else {
+                    primMeas = `<span style="color:var(--text-muted);">N/D</span>`;
+                }
+
+                if (ptContacto) {
+                    primMeas += `<div style="font-size:11px; color:var(--accent-blue); margin-top:2px;">📍 <b>Pto:</b> ${ptContacto}</div>`;
+                }
+
+                // Extra points
+                let extraHtml = '-';
+                if (extraPts && extraPts.length > 0) {
+                    extraHtml = '<div style="display:flex; flex-direction:column; gap:3px;">';
+                    extraPts.forEach(ep => {
+                        const valTxt = ep.tipo === 'resistencia' ? `${ep.valor} Ω` : `${ep.valor} V`;
+                        const desc = ep.comentario ? ` (${ep.comentario})` : '';
+                        extraHtml += `<span style="font-size:11px; font-family:monospace; background:#F1F5F9; padding:2px 6px; border-radius:4px;">🔹 ${valTxt}${desc}</span>`;
+                    });
+                    extraHtml += '</div>';
+                }
+
+                const obs = m.observaciones || m.comentarios || '-';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><span style="font-size:12px; font-weight:600;">${dateStr}</span></td>
+                        <td><span class="${badge}">${st}</span></td>
+                        <td><span style="font-size:12px;">${auditorName}</span></td>
+                        <td>${primMeas}</td>
+                        <td>${extraHtml}</td>
+                        <td><span style="font-size:11.5px; color:var(--text-secondary);">${obs}</span></td>
+                    </tr>
+                `;
+            });
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--accent-rose); padding:20px;">❌ Error al consultar historial: ${e.message}</td></tr>`;
+        }
+    }
+
+    function closeAssetHistoryModal() {
+        const modal = document.getElementById('modal-asset-history');
+        if (modal) modal.style.display = 'none';
     }
 
     async function loadLab() {
