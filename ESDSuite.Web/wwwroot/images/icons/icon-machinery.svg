@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <!-- Top Robotic Arm Axis -->
+  <rect x="18" y="10" width="28" height="8" rx="3" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" />
+  <!-- Vertical Gantry Plunger / Spindle -->
+  <rect x="29" y="18" width="6" height="14" rx="1" fill="#FFFFFF" stroke="#1E1B4B" stroke-width="2.5" />
+  <!-- Pick & Place Vacuum Nozzle Tip -->
+  <polygon points="26,32 38,32 34,38 30,38" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="2.5" stroke-linejoin="round" />
+  <!-- SMT Electronic Chip Being Placed -->
+  <rect x="22" y="40" width="20" height="10" rx="2" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="2.5" />
+  <!-- Conveyor Rails (Bottom) -->
+  <line x1="8" y1="54" x2="56" y2="54" stroke="#1E1B4B" stroke-width="4" stroke-linecap="round" />
+  <circle cx="16" cy="54" r="2.5" fill="#38BDF8" />
+  <circle cx="48" cy="54" r="2.5" fill="#C084FC" />
+</svg>

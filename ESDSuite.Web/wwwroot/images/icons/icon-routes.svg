@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <!-- Connecting S-Curve Route Line -->
+  <path d="M16 44 C26 44 22 20 32 20 C42 20 38 44 48 44" stroke="#1E1B4B" stroke-width="4" stroke-linecap="round" fill="none" />
+  <path d="M16 44 C26 44 22 20 32 20 C42 20 38 44 48 44" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" fill="none" />
+  <!-- Node 1 -->
+  <circle cx="16" cy="44" r="8" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" />
+  <circle cx="16" cy="44" r="3" fill="#FFFFFF" />
+  <!-- Node 2 -->
+  <circle cx="32" cy="20" r="8" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" />
+  <circle cx="32" cy="20" r="3" fill="#FFFFFF" />
+  <!-- Node 3 -->
+  <circle cx="48" cy="44" r="8" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" />
+  <circle cx="48" cy="44" r="3" fill="#FFFFFF" />
+  <!-- Directional Arrow Heads -->
+  <path d="M22 30 L26 26 L28 32" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <path d="M38 32 L40 38 L44 34" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

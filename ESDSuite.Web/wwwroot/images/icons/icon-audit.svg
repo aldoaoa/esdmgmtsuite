@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <!-- Board Body -->
+  <rect x="14" y="12" width="36" height="44" rx="6" fill="url(#agyGrad)" fill-opacity="0.2" stroke="#1E1B4B" stroke-width="3" />
+  <!-- Top Clip -->
+  <path d="M24 12 V9 C24 7.34 25.34 6 27 6 H37 C38.66 6 40 7.34 40 9 V12" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" stroke-linejoin="round" />
+  <!-- Checkmark 1 -->
+  <path d="M20 22 L24 26 L32 18" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="36" y1="22" x2="44" y2="22" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" />
+  <!-- Checkmark 2 -->
+  <path d="M20 33 L24 37 L32 29" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="36" y1="33" x2="44" y2="33" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" />
+  <!-- Checkmark 3 -->
+  <path d="M20 44 L24 48 L32 40" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="36" y1="44" x2="44" y2="44" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" />
+  <!-- Dynamic upward curve arrows from checklist -->
+  <path d="M42 28 C47 28 48 24 53 23" stroke="url(#agyGrad)" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M43 38 C48 38 49 34 54 33" stroke="url(#agyGrad)" stroke-width="2.5" stroke-linecap="round" />
+</svg>

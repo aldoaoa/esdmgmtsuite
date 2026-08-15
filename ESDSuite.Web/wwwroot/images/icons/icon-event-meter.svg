@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <!-- Meter Circle Frame -->
+  <circle cx="32" cy="32" r="26" fill="url(#agyGrad)" fill-opacity="0.18" stroke="#1E1B4B" stroke-width="3" />
+  <!-- Pulse Wave Rings -->
+  <path d="M12 32 A20 20 0 0 1 52 32" stroke="url(#agyGrad)" stroke-width="2.5" stroke-dasharray="3 3" />
+  <!-- Prominent Central Lightning Bolt -->
+  <path d="M34 10 L18 33 H32 L28 54 L48 27 H33 L38 10 Z" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" stroke-linejoin="round" />
+  <!-- High Voltage Spark Nodes -->
+  <circle cx="16" cy="18" r="2.5" fill="#38BDF8" />
+  <circle cx="48" cy="46" r="2.5" fill="#C084FC" />
+</svg>

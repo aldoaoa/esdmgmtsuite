@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <!-- Modern Industrial Sawtooth Factory Profile -->
+  <path d="M10 52 V32 L22 20 V32 L34 20 V32 L46 20 V52 Z" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" stroke-linejoin="round" />
+  <!-- Factory Windows / Cleanroom Grid -->
+  <rect x="16" y="38" width="6" height="8" rx="1" fill="#FFFFFF" stroke="#1E1B4B" stroke-width="1.8" />
+  <rect x="28" y="38" width="6" height="8" rx="1" fill="#FFFFFF" stroke="#1E1B4B" stroke-width="1.8" />
+  <rect x="40" y="38" width="6" height="8" rx="1" fill="#FFFFFF" stroke="#1E1B4B" stroke-width="1.8" />
+  <!-- Ground Baseline -->
+  <line x1="6" y1="52" x2="58" y2="52" stroke="#1E1B4B" stroke-width="3.5" stroke-linecap="round" />
+  <!-- Corporate Site Location Pin / Beacon (Top Right) -->
+  <circle cx="48" cy="16" r="6" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="2.5" />
+  <circle cx="48" cy="16" r="2" fill="#FFFFFF" />
+  <path d="M48 22 L48 26" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" />
+</svg>

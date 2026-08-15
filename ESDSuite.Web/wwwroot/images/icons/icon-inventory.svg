@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="agyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <!-- Background Tab 1 -->
+  <path d="M12 24 L22 14 H44 C46.2 14 48 15.8 48 18 V46 L12 46 Z" fill="url(#agyGrad)" fill-opacity="0.35" stroke="#1E1B4B" stroke-width="2.5" />
+  <!-- Middle Tab 2 -->
+  <path d="M16 28 L26 18 H48 C50.2 18 52 19.8 52 22 V50 L16 50 Z" fill="url(#agyGrad)" fill-opacity="0.65" stroke="#1E1B4B" stroke-width="2.5" />
+  <!-- Foreground Folder 3 -->
+  <path d="M10 26 H22 L27 31 H50 C52.2 31 54 32.8 54 35 V52 C54 54.2 52.2 56 50 56 H14 C11.8 56 10 54.2 10 52 Z" fill="url(#agyGrad)" stroke="#1E1B4B" stroke-width="3" stroke-linejoin="round" />
+  <!-- Folder lines -->
+  <line x1="18" y1="42" x2="36" y2="42" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="18" y1="48" x2="30" y2="48" stroke="#1E1B4B" stroke-width="2.5" stroke-linecap="round" />
+  <!-- Upward Dynamic Arrow from top folder -->
+  <path d="M38 20 C42 16 48 12 54 10" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" />
+  <path d="M38 20 C42 16 48 12 54 10" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round" />
+  <path d="M47 10 H54 V17" stroke="#1E1B4B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
