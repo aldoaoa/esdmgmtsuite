@@ -223,8 +223,12 @@ public class ApiController : ControllerBase
         string idElemento = payload["id_elemento"]?.ToString() ?? "";
         string tipoEquipo = payload["tipo_equipo"]?.ToString() ?? "Mobiliario ESD";
         string subtipoElemento = payload["subtipo_elemento"]?.ToString() ?? "";
+        string subtipoKey = payload["subtipo_key"]?.ToString() ?? "";
         string ubicacion = payload["ubicacion"]?.ToString() ?? "N/A";
-        string auditor = payload["auditor"]?.ToString() ?? HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
+        string auditor = HttpContext.Session.GetString("user_name") 
+            ?? HttpContext.Session.GetString("user_email") 
+            ?? payload["auditor"]?.ToString() 
+            ?? "Auditor ESD";
         string comentarios = payload["comentarios"]?.ToString() ?? "";
         string siteId = HttpContext.Session.GetString("site_id") ?? payload["site_id"]?.ToString() ?? DefaultSiteId;
         string auditorId = HttpContext.Session.GetString("user_id") ?? payload["auditor_id"]?.ToString() ?? DefaultAuditorId;
@@ -235,7 +239,7 @@ public class ApiController : ControllerBase
         string estatusEval = "PENDIENTE";
         JsonObject? resInsert = null;
 
-        bool isIonizer = tipoEquipo.Trim().ToLower().Contains("ionizad") || tipoEquipo.Trim().ToLower() == "ionizador";
+        bool isIonizer = tipoEquipo.Trim().ToLower().Contains("ionizad") || tipoEquipo.Trim().ToLower() == "ionizador" || subtipoKey.Contains("ioniz") || subtipoKey == "benchtop" || subtipoKey == "overhead" || subtipoKey == "ceiling";
 
         if (isIonizer)
         {
@@ -259,6 +263,7 @@ public class ApiController : ControllerBase
                     id_elemento = idElemento,
                     tipo_equipo = tipoEquipo,
                     subtipo_elemento = subtipoElemento,
+                    subtipo_key = subtipoKey,
                     ubicacion = ubicacion,
                     tiempo_descarga = tiempoDescarga,
                     voltaje_balance = voltajeBalance,
@@ -294,6 +299,7 @@ public class ApiController : ControllerBase
                     id_elemento = idElemento,
                     tipo_equipo = tipoEquipo,
                     subtipo_elemento = subtipoElemento,
+                    subtipo_key = subtipoKey,
                     ubicacion = ubicacion,
                     mediciones_extra = medicionesExtra,
                     auditor = auditor
