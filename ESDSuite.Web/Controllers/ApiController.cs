@@ -721,8 +721,15 @@ public class ApiController : ControllerBase
     [HttpGet("inventory/history/{id}")]
     public async Task<IActionResult> GetAssetAuditHistory([FromRoute] string id)
     {
-        var history = await _supabase.GetAssetHistoryAsync(id);
-        return Ok(history);
+        try
+        {
+            var history = await _supabase.GetAssetHistoryAsync(id);
+            return Ok(history);
+        }
+        catch
+        {
+            return Ok(new JsonArray());
+        }
     }
 
     // --- SENSITIVITY LAB ---

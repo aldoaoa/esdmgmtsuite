@@ -315,66 +315,77 @@ public class SupabaseService
 
     public async Task<JsonArray> GetAssetHistoryAsync(string identifier)
     {
-        string cleanId = identifier.Trim().ToUpper();
-        var results = new List<JsonObject>();
-        var seenIds = new HashSet<string>();
-
-        // 1. Get all assets to resolve asset_id if available
-        var assets = await GetAsync("assets?select=id,custom_id,category,sub_category,location");
-        string matchedAssetId = "";
-        foreach (var a in assets)
+        try
         {
-            if (a is JsonObject aObj && aObj["custom_id"]?.ToString().Trim().Equals(cleanId, StringComparison.OrdinalIgnoreCase) == true)
+            string cleanId = identifier.Trim().ToUpper();
+            var results = new List<JsonObject>();
+            var seenIds = new HashSet<string>();
+
+            // 1. Get all assets to resolve asset_id if available
+            var assets = await GetAsync("assets?select=id,custom_id,category,sub_category,location");
+            string matchedAssetId = "";
+            foreach (var a in assets)
             {
-                matchedAssetId = aObj["id"]?.ToString() ?? "";
-                break;
-            }
-        }
-
-        // 2. Fetch all measurements safely
-        var measurements = await GetAsync("measurements?select=*&order=measured_at.desc&limit=500");
-        foreach (var node in measurements)
-        {
-            if (node is not JsonObject mObj) continue;
-
-            string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
-            if (seenIds.Contains(mId)) continue;
-
-            bool isMatch = false;
-
-            // Match by extra_data.id_elemento
-            if (mObj["extra_data"] is JsonObject ed)
-            {
-                string idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
-                if (idElem.Equals(cleanId, StringComparison.OrdinalIgnoreCase))
+                if (a is JsonObject aObj && aObj["custom_id"]?.ToString().Trim().Equals(cleanId, StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    isMatch = true;
+                    matchedAssetId = aObj["id"]?.ToString() ?? "";
+                    break;
                 }
             }
 
-            // Match by asset_id
-            if (!isMatch && !string.IsNullOrEmpty(matchedAssetId))
+            // 2. Fetch all measurements safely
+            var measurements = await GetAsync("measurements?select=*&order=measured_at.desc&limit=500");
+            foreach (var node in measurements)
             {
-                string aId = mObj["asset_id"]?.ToString() ?? "";
-                if (aId.Equals(matchedAssetId, StringComparison.OrdinalIgnoreCase))
+                if (node is not JsonObject mObj) continue;
+
+                string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                if (seenIds.Contains(mId)) continue;
+
+                bool isMatch = false;
+
+                // Match by extra_data.id_elemento
+                if (mObj["extra_data"] is JsonObject ed)
                 {
-                    isMatch = true;
+                    string idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
+                    if (idElem.Equals(cleanId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        isMatch = true;
+                    }
+                }
+
+                // Match by asset_id
+                if (!isMatch && !string.IsNullOrEmpty(matchedAssetId))
+                {
+                    string aId = mObj["asset_id"]?.ToString() ?? "";
+                    if (aId.Equals(matchedAssetId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        isMatch = true;
+                    }
+                }
+
+                if (isMatch)
+                {
+                    seenIds.Add(mId);
+                    results.Add(mObj);
                 }
             }
 
-            if (isMatch)
+            var array = new JsonArray();
+            foreach (var r in results.OrderByDescending(x => x["measured_at"]?.ToString()))
             {
-                seenIds.Add(mId);
-                results.Add(mObj);
+                if (r.DeepClone() is JsonObject cloned)
+                {
+                    array.Add(cloned);
+                }
             }
+            return array;
         }
-
-        var array = new JsonArray();
-        foreach (var r in results.OrderByDescending(x => x["measured_at"]?.ToString()))
+        catch (Exception ex)
         {
-            array.Add(r);
+            Console.WriteLine($"GetAssetHistoryAsync Exception for {identifier}: {ex.Message}");
+            return new JsonArray();
         }
-        return array;
     }
 
     public async Task<JsonArray> GetAssetsAsync(string siteId)
