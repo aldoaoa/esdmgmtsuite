@@ -153,17 +153,76 @@ public class ApiController : ControllerBase
         string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
         
         var assets = await _supabase.GetAssetsAsync(targetSite);
+        var measurements = await _supabase.GetMeasurementsForSiteAsync(targetSite);
+        
+        var assetMap = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var node in assets)
+        {
+            if (node is JsonObject aObj)
+            {
+                string customId = aObj["custom_id"]?.ToString().Trim() ?? "";
+                if (!string.IsNullOrEmpty(customId))
+                {
+                    assetMap[customId] = aObj;
+                }
+            }
+        }
+
+        foreach (var node in measurements)
+        {
+            if (node is not JsonObject mObj) continue;
+
+            string idElem = "";
+            if (mObj["extra_data"] is JsonObject ed)
+            {
+                idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
+            }
+
+            if (string.IsNullOrEmpty(idElem) && mObj["asset_id"] != null)
+            {
+                string aId = mObj["asset_id"]?.ToString() ?? "";
+                var matched = assetMap.Values.FirstOrDefault(x => x["id"]?.ToString() == aId);
+                if (matched != null) idElem = matched["custom_id"]?.ToString() ?? "";
+            }
+
+            if (!string.IsNullOrEmpty(idElem) && !assetMap.ContainsKey(idElem))
+            {
+                string cat = "Mobiliario ESD";
+                string loc = "N/A";
+                if (mObj["extra_data"] is JsonObject edObj)
+                {
+                    cat = edObj["tipo_equipo"]?.ToString() ?? cat;
+                    loc = edObj["ubicacion"]?.ToString() ?? loc;
+                }
+                assetMap[idElem] = new JsonObject
+                {
+                    ["id"] = mObj["asset_id"]?.ToString() ?? Guid.NewGuid().ToString(),
+                    ["custom_id"] = idElem,
+                    ["category"] = cat,
+                    ["location"] = loc,
+                    ["status"] = mObj["status_result"]?.ToString() ?? "ACTIVE"
+                };
+            }
+        }
+
         var floors = await _supabase.GetFloorValidationLogsAsync(targetSite);
         var grounding = await _supabase.GetGroundingLogsAsync(targetSite);
         var entrance = await _supabase.GetEntranceCheckersLogsAsync(targetSite);
 
+        var unifiedAssets = new JsonArray();
+        foreach (var a in assetMap.Values)
+        {
+            unifiedAssets.Add(a.DeepClone());
+        }
+
         return Ok(new
         {
-            totalAssets = assets.Count,
+            totalAssets = assetMap.Count,
             totalFloors = floors.Count,
             totalGrounding = grounding.Count,
             totalEntrance = entrance.Count,
-            assetsData = assets
+            assetsData = unifiedAssets
         });
     }
 

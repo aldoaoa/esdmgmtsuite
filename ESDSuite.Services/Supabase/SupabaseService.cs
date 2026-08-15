@@ -202,68 +202,99 @@ public class SupabaseService
     {
         string cleanId = idElemento.Trim().ToUpper();
 
-        // 1. Direct search in measurements by extra_data->>id_elemento
-        var mDirect = await GetAsync($"measurements?extra_data->>id_elemento=ilike.{cleanId}&order=measured_at.desc&limit=1");
-        if (mDirect.Count > 0 && mDirect[0] is JsonObject directObj)
+        // 1. Fetch recent measurements and match in memory
+        var measurements = await GetAsync("measurements?select=*&order=measured_at.desc&limit=300");
+        foreach (var node in measurements)
         {
+            if (node is not JsonObject directObj) continue;
+
+            bool isMatch = false;
             if (directObj["extra_data"] is JsonObject ed)
             {
-                directObj["tipo_equipo"] = ed["tipo_equipo"]?.ToString() ?? directObj["category"]?.ToString();
-                directObj["subtipo_elemento"] = ed["subtipo_elemento"]?.ToString();
-                directObj["subtipo_key"] = ed["subtipo_key"]?.ToString();
-                directObj["ubicacion"] = ed["ubicacion"]?.ToString() ?? directObj["location"]?.ToString();
-                directObj["punto_contacto"] = ed["punto_contacto"]?.ToString();
+                string idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
+                if (idElem.Equals(cleanId, StringComparison.OrdinalIgnoreCase))
+                {
+                    isMatch = true;
+                    directObj["tipo_equipo"] = ed["tipo_equipo"]?.ToString() ?? directObj["category"]?.ToString();
+                    directObj["subtipo_elemento"] = ed["subtipo_elemento"]?.ToString();
+                    directObj["subtipo_key"] = ed["subtipo_key"]?.ToString();
+                    directObj["ubicacion"] = ed["ubicacion"]?.ToString() ?? directObj["location"]?.ToString();
+                    directObj["punto_contacto"] = ed["punto_contacto"]?.ToString();
+                }
             }
-            directObj["id_elemento"] = cleanId;
-            return directObj;
+
+            if (isMatch)
+            {
+                directObj["id_elemento"] = cleanId;
+                return directObj;
+            }
         }
 
-        // 2. Search in assets table and then get latest measurement
-        var assets = await GetAsync($"assets?custom_id=ilike.{cleanId}&select=id,custom_id,category,sub_category,location,status");
-        if (assets.Count > 0 && assets[0] is JsonObject asset)
+        // 2. Search in assets table and match measurement by asset_id
+        var assets = await GetAsync("assets?select=id,custom_id,category,sub_category,location,status");
+        JsonObject? matchedAsset = null;
+        foreach (var a in assets)
         {
-            string assetId = asset["id"]?.ToString() ?? "";
-            var measurements = await GetAsync($"measurements?asset_id=eq.{assetId}&order=measured_at.desc&limit=1");
-            if (measurements.Count > 0 && measurements[0] is JsonObject m)
+            if (a is JsonObject aObj && aObj["custom_id"]?.ToString().Trim().Equals(cleanId, StringComparison.OrdinalIgnoreCase) == true)
             {
-                if (m["extra_data"] is JsonObject ed)
+                matchedAsset = aObj;
+                break;
+            }
+        }
+
+        if (matchedAsset != null)
+        {
+            string assetId = matchedAsset["id"]?.ToString() ?? "";
+            foreach (var node in measurements)
+            {
+                if (node is JsonObject m && m["asset_id"]?.ToString() == assetId)
                 {
-                    m["tipo_equipo"] = ed["tipo_equipo"]?.ToString() ?? asset["category"]?.ToString();
-                    m["subtipo_elemento"] = ed["subtipo_elemento"]?.ToString() ?? asset["sub_category"]?.ToString();
-                    m["subtipo_key"] = ed["subtipo_key"]?.ToString();
-                    m["ubicacion"] = ed["ubicacion"]?.ToString() ?? asset["location"]?.ToString();
-                    m["punto_contacto"] = ed["punto_contacto"]?.ToString();
+                    if (m["extra_data"] is JsonObject ed)
+                    {
+                        m["tipo_equipo"] = ed["tipo_equipo"]?.ToString() ?? matchedAsset["category"]?.ToString();
+                        m["subtipo_elemento"] = ed["subtipo_elemento"]?.ToString() ?? matchedAsset["sub_category"]?.ToString();
+                        m["subtipo_key"] = ed["subtipo_key"]?.ToString();
+                        m["ubicacion"] = ed["ubicacion"]?.ToString() ?? matchedAsset["location"]?.ToString();
+                        m["punto_contacto"] = ed["punto_contacto"]?.ToString();
+                    }
+                    m["id_elemento"] = cleanId;
+                    m["category"] = matchedAsset["category"]?.ToString();
+                    m["sub_category"] = matchedAsset["sub_category"]?.ToString();
+                    m["location"] = matchedAsset["location"]?.ToString();
+                    return m;
                 }
-                m["id_elemento"] = cleanId;
-                m["category"] = asset["category"]?.ToString();
-                m["sub_category"] = asset["sub_category"]?.ToString();
-                m["location"] = asset["location"]?.ToString();
-                return m;
             }
-            else
+
+            return new JsonObject
             {
-                return new JsonObject
-                {
-                    ["id_elemento"] = cleanId,
-                    ["category"] = asset["category"]?.ToString(),
-                    ["sub_category"] = asset["sub_category"]?.ToString(),
-                    ["tipo_equipo"] = asset["category"]?.ToString(),
-                    ["ubicacion"] = asset["location"]?.ToString(),
-                    ["status_result"] = asset["status"]?.ToString() ?? "ACTIVE",
-                    ["is_asset_only"] = true
-                };
-            }
+                ["id_elemento"] = cleanId,
+                ["category"] = matchedAsset["category"]?.ToString(),
+                ["sub_category"] = matchedAsset["sub_category"]?.ToString(),
+                ["tipo_equipo"] = matchedAsset["category"]?.ToString(),
+                ["ubicacion"] = matchedAsset["location"]?.ToString(),
+                ["status_result"] = matchedAsset["status"]?.ToString() ?? "ACTIVE",
+                ["is_asset_only"] = true
+            };
         }
 
         // 3. Fallback legacy tables
-        var maq = await GetAsync($"mediciones_maquinaria?id_maquinaria=ilike.{cleanId}&order=fecha_medicion.desc&limit=1");
-        if (maq.Count > 0 && maq[0] is JsonObject maqObj) return maqObj;
+        var maq = await GetAsync("mediciones_maquinaria?order=fecha_medicion.desc&limit=50");
+        foreach (var m in maq)
+        {
+            if (m is JsonObject maqObj && maqObj["id_maquinaria"]?.ToString().Trim().Equals(cleanId, StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return maqObj;
+            }
+        }
 
-        var inv = await GetAsync($"inventario_esd?id_elemento=ilike.{cleanId}&select=*");
-        if (inv.Count > 0 && inv[0] is JsonObject invObj) return invObj;
-
-        var val = await GetAsync($"validacion_esd?id_elemento=ilike.{cleanId}&order=fecha_medicion.desc&limit=1");
-        if (val.Count > 0 && val[0] is JsonObject valObj) return valObj;
+        var inv = await GetAsync("inventario_esd?select=*");
+        foreach (var i in inv)
+        {
+            if (i is JsonObject invObj && invObj["id_elemento"]?.ToString().Trim().Equals(cleanId, StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return invObj;
+            }
+        }
 
         return null;
     }
@@ -284,37 +315,57 @@ public class SupabaseService
 
     public async Task<JsonArray> GetAssetHistoryAsync(string identifier)
     {
-        string cleanId = identifier.Trim();
+        string cleanId = identifier.Trim().ToUpper();
         var results = new List<JsonObject>();
         var seenIds = new HashSet<string>();
 
-        // 1. Query by extra_data->>id_elemento
-        var mDirect = await GetAsync($"measurements?extra_data->>id_elemento=ilike.{cleanId}&order=measured_at.desc");
-        foreach (var node in mDirect)
+        // 1. Get all assets to resolve asset_id if available
+        var assets = await GetAsync("assets?select=id,custom_id,category,sub_category,location");
+        string matchedAssetId = "";
+        foreach (var a in assets)
         {
-            if (node is JsonObject mObj)
+            if (a is JsonObject aObj && aObj["custom_id"]?.ToString().Trim().Equals(cleanId, StringComparison.OrdinalIgnoreCase) == true)
             {
-                string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
-                if (seenIds.Add(mId)) results.Add(mObj);
+                matchedAssetId = aObj["id"]?.ToString() ?? "";
+                break;
             }
         }
 
-        // 2. Query by asset_id (if identifier is matched via assets)
-        var assets = await GetAsync($"assets?custom_id=ilike.{cleanId}&select=id,custom_id,category,sub_category,location");
-        if (assets.Count > 0 && assets[0] is JsonObject aObj)
+        // 2. Fetch all measurements safely
+        var measurements = await GetAsync("measurements?select=*&order=measured_at.desc&limit=500");
+        foreach (var node in measurements)
         {
-            string assetId = aObj["id"]?.ToString() ?? "";
-            if (!string.IsNullOrEmpty(assetId))
+            if (node is not JsonObject mObj) continue;
+
+            string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
+            if (seenIds.Contains(mId)) continue;
+
+            bool isMatch = false;
+
+            // Match by extra_data.id_elemento
+            if (mObj["extra_data"] is JsonObject ed)
             {
-                var mAsset = await GetAsync($"measurements?asset_id=eq.{assetId}&order=measured_at.desc");
-                foreach (var node in mAsset)
+                string idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
+                if (idElem.Equals(cleanId, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (node is JsonObject mObj)
-                    {
-                        string mId = mObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
-                        if (seenIds.Add(mId)) results.Add(mObj);
-                    }
+                    isMatch = true;
                 }
+            }
+
+            // Match by asset_id
+            if (!isMatch && !string.IsNullOrEmpty(matchedAssetId))
+            {
+                string aId = mObj["asset_id"]?.ToString() ?? "";
+                if (aId.Equals(matchedAssetId, StringComparison.OrdinalIgnoreCase))
+                {
+                    isMatch = true;
+                }
+            }
+
+            if (isMatch)
+            {
+                seenIds.Add(mId);
+                results.Add(mObj);
             }
         }
 
