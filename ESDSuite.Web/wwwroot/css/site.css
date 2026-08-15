@@ -646,3 +646,262 @@ h1, h2, h3, h4, h5, h6 {
     from { opacity: 0; transform: translateY(-10px) scale(0.96); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ==========================================================================
+   RESPONSIVE DESIGN SYSTEM (MOBILE, TABLET & DESKTOP BEST PRACTICES)
+   ========================================================================== */
+
+/* HAMBURGER TOGGLE BUTTON & BACKDROP */
+.mobile-menu-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #F1F5F9;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mobile-menu-btn:hover, .mobile-menu-btn:focus {
+    background: var(--accent-blue-light);
+    color: var(--accent-blue);
+    border-color: rgba(37, 99, 235, 0.3);
+}
+
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease-in-out;
+}
+
+.sidebar-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* RESPONSIVE TABLE WRAPPER */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+}
+
+/* RESPONSIVE BREAKPOINT: LAPTOP & TABLET (<= 1024px) */
+@media (max-width: 1024px) {
+    .mobile-menu-btn {
+        display: flex;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        max-width: 85vw;
+        z-index: 999;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 25px rgba(15, 23, 42, 0.18);
+        overflow-y: auto;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .view-container {
+        padding: 18px 18px;
+    }
+
+    .top-header {
+        padding: 0 18px;
+    }
+
+    .header-title h2 {
+        font-size: 16.5px;
+    }
+
+    .header-title p {
+        font-size: 11.5px;
+    }
+
+    /* Stack 2-Column Split Forms & Grid Panels on Tablet/Mobile */
+    div[style*="grid-template-columns:1fr 1fr"],
+    div[style*="grid-template-columns: 1fr 1fr"],
+    div[style*="grid-template-columns:1fr 2fr"],
+    div[style*="grid-template-columns: 1fr 2fr"],
+    div[style*="grid-template-columns: 1fr 1fr 1fr"],
+    div[style*="grid-template-columns:1fr 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* RESPONSIVE BREAKPOINT: MOBILE PHONES (<= 768px) */
+@media (max-width: 768px) {
+    .top-header {
+        height: 58px;
+        padding: 0 12px;
+    }
+
+    .header-title h2 {
+        font-size: 15px;
+    }
+
+    .header-title p {
+        display: none; /* Hide header caption subtitle on small mobile screens to save vertical space */
+    }
+
+    .header-actions {
+        gap: 8px;
+    }
+
+    .site-badge {
+        padding: 4px 8px;
+        font-size: 11.5px;
+        max-width: 140px;
+    }
+
+    .site-badge select {
+        max-width: 90px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .user-profile {
+        padding-left: 6px;
+    }
+
+    .user-profile div:last-child {
+        display: none; /* Hide full user name & role text on phone headers */
+    }
+
+    .avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+
+    .view-container {
+        padding: 12px 10px;
+    }
+
+    .glass-panel {
+        padding: 14px 12px;
+        border-radius: 10px;
+        margin-bottom: 14px;
+    }
+
+    .glass-card {
+        padding: 12px 14px;
+        border-radius: 8px;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .metric-card {
+        padding: 10px 12px;
+    }
+
+    .metric-card h4 {
+        font-size: 11px;
+    }
+
+    .metric-card .value {
+        font-size: 20px;
+    }
+
+    .metric-icon {
+        font-size: 18px;
+        width: 32px;
+        height: 32px;
+    }
+
+    /* Form Controls & Touch Targets */
+    .form-control,
+    .btn-primary,
+    .tab-btn,
+    select.form-control,
+    input.form-control {
+        min-height: 44px;
+        font-size: 13.5px;
+    }
+
+    /* Tab Headers Horizontal Scroll on Phone */
+    .tabs-header {
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 6px;
+        gap: 6px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs-header .tab-btn {
+        flex: 0 0 auto;
+        font-size: 11.5px;
+        padding: 6px 12px;
+        min-height: 36px;
+    }
+
+    /* Data Tables Compact Padding */
+    .data-table th,
+    .data-table td {
+        padding: 8px 10px;
+        font-size: 11.5px;
+    }
+
+    /* Split-Screen Login Overlay Responsiveness */
+    #login-overlay {
+        padding: 8px !important;
+    }
+
+    #login-overlay > div {
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 94vh !important;
+        overflow-y: auto !important;
+        border-radius: 14px !important;
+    }
+
+    #login-overlay > div > div:first-child {
+        padding: 24px 18px !important;
+        min-width: 100% !important;
+    }
+
+    #login-overlay > div > div:last-child {
+        padding: 24px 18px !important;
+        min-width: 100% !important;
+    }
+
+    /* Discrete Language Selector on Mobile Login */
+    #login-overlay div[style*="position:absolute; top:18px; right:20px"] {
+        top: 10px !important;
+        right: 12px !important;
+    }
+
+    /* Modal windows max width */
+    .modal-content,
+    .glass-card[style*="max-width"] {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}

@@ -114,8 +114,11 @@
         </div>
     </div>
 
+    <!-- MOBILE SIDEBAR BACKDROP -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
     <!-- SIDEBAR NAVIGATION -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="app-sidebar">
         <div class="sidebar-brand" style="padding:16px 14px; display:flex; align-items:center; justify-content:center; text-align:center;">
             <img src="/images/esd360-logo.png" alt="esd360" style="height:46px; max-width:85%; width:auto; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 2px 4px rgba(15, 23, 42, 0.08));" />
         </div>
@@ -170,7 +173,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.2.8</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.0</span>
             </div>
         </div>
     </aside>
@@ -180,9 +183,14 @@
 
         <!-- TOP HEADER -->
         <header class="top-header">
-            <div class="header-title">
-                <h2 id="header-module-title" data-i18n="dashboard.title">Dashboard Overview</h2>
-                <p id="header-module-caption" style="font-size:12px; color:var(--text-muted); margin-top:2px;" data-i18n="dashboard.subtitle">Global status of ANSI/ESD S20.20 normative compliance</p>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button type="button" id="sidebar-toggle-btn" class="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Toggle Navigation">
+                    <span>☰</span>
+                </button>
+                <div class="header-title">
+                    <h2 id="header-module-title" data-i18n="dashboard.title">Dashboard Overview</h2>
+                    <p id="header-module-caption" style="font-size:12px; color:var(--text-muted); margin-top:2px;" data-i18n="dashboard.subtitle">Global status of ANSI/ESD S20.20 normative compliance</p>
+                </div>
             </div>
             <div class="header-actions">
                 <div id="site-selector-container" class="site-badge">
@@ -1128,8 +1136,27 @@
         location.reload();
     }
 
+    function toggleMobileSidebar() {
+        const sidebar = document.getElementById('app-sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (sidebar && backdrop) {
+            sidebar.classList.toggle('open');
+            backdrop.classList.toggle('open');
+        }
+    }
+
+    function closeMobileSidebar() {
+        const sidebar = document.getElementById('app-sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (sidebar && backdrop) {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('open');
+        }
+    }
+
     function switchModule(modName) {
         currentModule = modName;
+        closeMobileSidebar();
         document.querySelectorAll('.module-view').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
 
@@ -1141,12 +1168,14 @@
 
         const hTitle = document.getElementById('header-module-title');
         const hSub = document.getElementById('header-module-caption');
-        if (hTitle && hSub) {
+        if (hTitle) {
             hTitle.setAttribute('data-i18n', modName + '.title');
-            hSub.setAttribute('data-i18n', modName + '.subtitle');
             const titleVal = t(modName + '.title', null);
-            const subVal = t(modName + '.subtitle', null);
             if (titleVal !== null) hTitle.innerHTML = titleVal;
+        }
+        if (hSub) {
+            hSub.setAttribute('data-i18n', modName + '.subtitle');
+            const subVal = t(modName + '.subtitle', null);
             if (subVal !== null) hSub.innerHTML = subVal;
         }
 
