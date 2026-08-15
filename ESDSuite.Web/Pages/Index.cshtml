@@ -64,7 +64,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.8</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.9</span>
                     </div>
                 </div>
             </div>
@@ -82,7 +82,7 @@
 
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div style="display:flex; align-items:flex-start; gap:12px;">
-                        <span style="font-size:20px; line-height:1.2;">🛡️</span>
+                        <img src="/images/icons/icon-audit.png" class="ui-icon-3d-lg" style="width:28px; height:28px;" alt="" />
                         <div>
                             <div style="font-weight:700; font-size:13px; color:#F8FAFC; margin-bottom:2px;" data-i18n="login.kpi1_title">ANSI/ESD S20.20 & IEC 61340-5-1 Compliance</div>
                             <div style="font-size:11.5px; color:#94A3B8; line-height:1.4;" data-i18n="login.kpi1_desc">Periodic verification and TR53 inspection automation in EPA areas.</div>
@@ -90,7 +90,7 @@
                     </div>
 
                     <div style="display:flex; align-items:flex-start; gap:12px;">
-                        <span style="font-size:20px; line-height:1.2;">⚡</span>
+                        <img src="/images/icons/icon-event-meter.png" class="ui-icon-3d-lg" style="width:28px; height:28px;" alt="" />
                         <div>
                             <div style="font-weight:700; font-size:13px; color:#F8FAFC; margin-bottom:2px;" data-i18n="login.kpi2_title">Metrology & Calibration Traceability</div>
                             <div style="font-size:11.5px; color:#94A3B8; line-height:1.4;" data-i18n="login.kpi2_desc">Expiration alerts and centralized control of instruments, grounds, and ionizers.</div>
@@ -98,7 +98,7 @@
                     </div>
 
                     <div style="display:flex; align-items:flex-start; gap:12px;">
-                        <span style="font-size:20px; line-height:1.2;">📋</span>
+                        <img src="/images/icons/icon-schedule.png" class="ui-icon-3d-lg" style="width:28px; height:28px;" alt="" />
                         <div>
                             <div style="font-weight:700; font-size:13px; color:#F8FAFC; margin-bottom:2px;" data-i18n="login.kpi3_title">1-Click Auditable Reports</div>
                             <div style="font-size:11.5px; color:#94A3B8; line-height:1.4;" data-i18n="login.kpi3_desc">Immediate generation of digital files ready for customer audits.</div>
@@ -106,7 +106,7 @@
                     </div>
 
                     <div style="display:flex; align-items:flex-start; gap:12px;">
-                        <span style="font-size:20px; line-height:1.2;">🏭</span>
+                        <img src="/images/icons/icon-companies.png" class="ui-icon-3d-lg" style="width:28px; height:28px;" alt="" />
                         <div>
                             <div style="font-weight:700; font-size:13px; color:#F8FAFC; margin-bottom:2px;" data-i18n="login.kpi4_title">Multi-Plant & Line Visibility</div>
                             <div style="font-size:11.5px; color:#94A3B8; line-height:1.4;" data-i18n="login.kpi4_desc">Compliance status monitoring at production line and corporate level.</div>
@@ -129,55 +129,55 @@
 
         <div class="sidebar-category" data-i18n="sidebar.cat_monitoring">MONITOREO & MÉTRICAS</div>
         <div id="nav-dashboard" class="nav-item active" onclick="switchModule('dashboard')">
-            <span class="icon">📊</span> <span data-i18n="nav.dashboard">Dashboard Overview</span>
+            <span class="icon"><img src="/images/icons/icon-dashboard.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.dashboard">Dashboard Overview</span>
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_verification">VERIFICACIÓN Y PISO</div>
         <div id="nav-audit" class="nav-item" onclick="switchModule('audit')">
-            <span class="icon">🔍</span> <span data-i18n="nav.audit">Auditoría en Piso (TR53)</span>
+            <span class="icon"><img src="/images/icons/icon-audit.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.audit">Auditoría en Piso (TR53)</span>
         </div>
         <div id="nav-eventmeter" class="nav-item" onclick="switchModule('eventmeter')">
-            <span class="icon">⚡</span> <span data-i18n="nav.eventmeter">Event Meter (Eventos ESD)</span>
+            <span class="icon"><img src="/images/icons/icon-event-meter.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.eventmeter">Event Meter (Eventos ESD)</span>
         </div>
         <div id="nav-infra" class="nav-item" onclick="switchModule('infra')">
-            <span class="icon">⚡</span> <span data-i18n="nav.infra">Infraestructura EPA</span>
+            <span class="icon"><img src="/images/icons/icon-infra.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.infra">Infraestructura EPA</span>
         </div>
         <div id="nav-schedule" class="nav-item" onclick="switchModule('schedule')">
-            <span class="icon">📅</span> <span data-i18n="nav.schedule">Cronograma & Reportes</span>
+            <span class="icon"><img src="/images/icons/icon-schedule.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.schedule">Cronograma & Reportes</span>
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_assets">ACTIVOS & CAPACITACIÓN</div>
         <div id="nav-inventory" class="nav-item" onclick="switchModule('inventory')">
-            <span class="icon">📦</span> <span data-i18n="nav.inventory">Directorio de Activos</span>
+            <span class="icon"><img src="/images/icons/icon-inventory.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.inventory">Directorio de Activos</span>
         </div>
         <div id="nav-lab" class="nav-item" onclick="switchModule('lab')">
-            <span class="icon">🔬</span> <span data-i18n="nav.lab">Laboratorio ESD (HBM/CDM)</span>
+            <span class="icon"><img src="/images/icons/icon-lab.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.lab">Laboratorio ESD (HBM/CDM)</span>
         </div>
         <div id="nav-routes" class="nav-item" onclick="switchModule('routes')">
-            <span class="icon">🗺️</span> <span data-i18n="nav.routes">Rutas de Productos</span>
+            <span class="icon"><img src="/images/icons/icon-routes.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.routes">Rutas de Productos</span>
         </div>
         <div id="nav-employees" class="nav-item" onclick="switchModule('employees')">
-            <span class="icon">👥</span> <span data-i18n="nav.employees">Personal & Batas</span>
+            <span class="icon"><img src="/images/icons/icon-personnel.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.employees">Personal & Batas</span>
         </div>
         <div id="nav-training" class="nav-item" onclick="switchModule('training')">
-            <span class="icon">🎓</span> <span data-i18n="nav.training">Exámenes & Certificación</span>
+            <span class="icon"><img src="/images/icons/icon-training.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.training">Exámenes & Certificación</span>
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_config">CONFIGURACIÓN</div>
         <div id="nav-settings" class="nav-item" onclick="switchModule('settings')">
-            <span class="icon">⚙️</span> <span data-i18n="nav.settings">Ajustes & Multi-Tenant</span>
+            <span class="icon"><img src="/images/icons/icon-settings.png" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.settings">Ajustes & Multi-Tenant</span>
         </div>
 
         <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border-color); display:flex; flex-direction:column; gap:8px;">
             <div class="nav-item" onclick="logout()" style="color: var(--accent-rose);">
-                <span class="icon">🚪</span> <span data-i18n="auth.logout">Cerrar Sesión</span>
+                <span class="icon" style="font-size:16px;">🚪</span> <span data-i18n="auth.logout">Cerrar Sesión</span>
             </div>
             <div style="padding:8px 10px; background:#F8FAFC; border:1px solid var(--border-color); border-radius:7px; display:flex; align-items:center; justify-content:space-between;">
                 <div>
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.8</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.3.9</span>
             </div>
         </div>
     </aside>
@@ -198,7 +198,8 @@
             </div>
             <div class="header-actions">
                 <div id="site-selector-container" class="site-badge">
-                    <span data-i18n="header.site_lbl">🏭 Site:</span>
+                    <img src="/images/icons/icon-companies.png" class="ui-icon-3d-sm" alt="" />
+                    <span data-i18n="header.site_lbl">Site:</span>
                     <select id="active-site-select" onchange="changeActiveSite(this.value)" style="background:transparent; border:none; color:inherit; font-weight:700; cursor:pointer;">
                         <option value="">Cargando Sites...</option>
                     </select>
@@ -224,33 +225,36 @@
                             <h4 data-i18n="dashboard.kpi_total_assets">Total Activos ESD</h4>
                             <div class="value" id="dash-total-assets">0</div>
                         </div>
-                        <div class="metric-icon icon-cyan">📦</div>
+                        <div class="metric-icon" style="background:transparent; padding:0;"><img src="/images/icons/icon-inventory.png" class="ui-icon-3d-lg" alt="" /></div>
                     </div>
                     <div class="glass-card metric-card">
                         <div class="metric-info">
                             <h4 data-i18n="dashboard.kpi_floor_verifications">Verificaciones Piso</h4>
                             <div class="value" id="dash-total-floors">0</div>
                         </div>
-                        <div class="metric-icon icon-emerald">🧹</div>
+                        <div class="metric-icon" style="background:transparent; padding:0;"><img src="/images/icons/icon-infra.png" class="ui-icon-3d-lg" alt="" /></div>
                     </div>
                     <div class="glass-card metric-card">
                         <div class="metric-info">
                             <h4 data-i18n="dashboard.kpi_grounding">Tierras Auditadas</h4>
                             <div class="value" id="dash-total-grounding">0</div>
                         </div>
-                        <div class="metric-icon icon-amber">⚡</div>
+                        <div class="metric-icon" style="background:transparent; padding:0;"><img src="/images/icons/icon-event-meter.png" class="ui-icon-3d-lg" alt="" /></div>
                     </div>
                     <div class="glass-card metric-card">
                         <div class="metric-info">
                             <h4 data-i18n="dashboard.kpi_entrance">Checadores Entrada</h4>
                             <div class="value" id="dash-total-entrance">0</div>
                         </div>
-                        <div class="metric-icon icon-rose">🚪</div>
+                        <div class="metric-icon" style="background:transparent; padding:0;"><img src="/images/icons/icon-personnel.png" class="ui-icon-3d-lg" alt="" /></div>
                     </div>
                 </div>
 
                 <div class="glass-panel">
-                    <h3 style="margin-bottom: 14px; font-weight:700;" data-i18n="dashboard.chart_title">📊 Cumplimiento Operativo por Categoría de Activo</h3>
+                    <h3 style="margin-bottom: 14px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-dashboard.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="dashboard.chart_title">Cumplimiento Operativo por Categoría de Activo</span>
+                    </h3>
                     <div style="height: 300px; position:relative; width:100%;">
                         <canvas id="dashboardChart"></canvas>
                     </div>
@@ -263,7 +267,10 @@
 
                     <!-- LEFT COLUMN: LIGHTWEIGHT CAMERA QR SCANNER & MANUAL SEARCH -->
                     <div class="glass-panel">
-                        <h3 style="margin-bottom: 4px;" data-i18n="audit.lbl_scan">📸 Escanear Código QR del Activo</h3>
+                        <h3 style="margin-bottom: 4px; display:flex; align-items:center; gap:8px;">
+                            <img src="/images/icons/icon-qr.png" class="ui-icon-3d" alt="" />
+                            <span data-i18n="audit.lbl_scan">Escanear Código QR del Activo</span>
+                        </h3>
                         <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;" data-i18n="audit.scan_sub">Lente principal activado por defecto. Cambio rápido entre cámaras.</p>
 
                         <div id="qr-reader-wrapper" style="width:100%; border-radius:10px; overflow:hidden; border:2px solid var(--accent-blue); background:#F8FAFC; min-height:240px; position:relative;">
@@ -289,7 +296,10 @@
 
                     <!-- RIGHT COLUMN: AUDIT FORM & HISTORICAL VALIDATION METRICS -->
                     <div class="glass-panel">
-                        <h3 style="margin-bottom: 10px;" data-i18n="audit.new_record">✍️ Registrar Nueva Auditoría</h3>
+                        <h3 style="margin-bottom: 10px; display:flex; align-items:center; gap:8px;">
+                            <img src="/images/icons/icon-audit.png" class="ui-icon-3d" alt="" />
+                            <span data-i18n="audit.new_record">Registrar Nueva Auditoría</span>
+                        </h3>
                         
                         <!-- SCANNED ASSET HISTORY CARD -->
                         <div id="scanned-asset-card" class="glass-card" style="margin-bottom: 16px; display:none; background:#F8FAFC;">
@@ -339,7 +349,10 @@
 
                             <!-- CAMPOS ESPECÍFICOS: IONIZADOR -->
                             <div id="fields-ionizer" style="display:none; background:var(--accent-blue-light); padding:14px; border-radius:8px; border:1px solid rgba(37,99,235,0.2); margin-top:10px;">
-                                <h5 style="margin-bottom:8px; color:var(--accent-blue); font-size:12.5px;" data-i18n="audit.ion_heading">⚡ Medición de Ionizador (Descarga &le; 10.0s, Balance &plusmn; 35V)</h5>
+                                <h5 style="margin-bottom:8px; color:var(--accent-blue); font-size:12.5px; display:flex; align-items:center; gap:6px;">
+                                    <img src="/images/icons/icon-ionizer.png" class="ui-icon-3d-sm" alt="" />
+                                    <span data-i18n="audit.ion_heading">Medición de Ionizador (Descarga &le; 10.0s, Balance &plusmn; 35V)</span>
+                                </h5>
                                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                                     <div class="form-group">
                                         <label data-i18n="audit.ion_time">Tiempo de Descarga [seg]*</label>
@@ -358,7 +371,10 @@
 
                             <!-- CAMPOS ESPECÍFICOS: MOBILIARIO Y MAQUINARIA -->
                             <div id="fields-furniture-machinery" style="background:#F8FAFC; padding:14px; border-radius:8px; border:1px solid var(--border-color); margin-top:10px;">
-                                <h5 style="margin-bottom:8px; color:var(--text-primary); font-size:12.5px;" data-i18n="audit.std_heading">🔌 Medición Estándar (Resistencia &le; 1.0e9 &Omega;, Campo &le; 100V)</h5>
+                                <h5 style="margin-bottom:8px; color:var(--text-primary); font-size:12.5px; display:flex; align-items:center; gap:6px;">
+                                    <img src="/images/icons/icon-furniture.png" class="ui-icon-3d-sm" alt="" />
+                                    <span data-i18n="audit.std_heading">Medición Estándar (Resistencia &le; 1.0e9 &Omega;, Campo &le; 100V)</span>
+                                </h5>
                                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                                     <div class="form-group">
                                         <label data-i18n="audit.lbl_res">Resistencia [Ohms]*</label>
@@ -401,7 +417,10 @@
             <!-- MODULE: EVENT METER -->
             <div id="mod-eventmeter" class="module-view" style="display:none;">
                 <div class="glass-panel" style="max-width: 820px; margin: 0 auto;">
-                    <h3 data-i18n="eventmeter.heading">⚡ Detección de Eventos ESD (Event Meter)</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-event-meter.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="eventmeter.heading">Detección de Eventos ESD (Event Meter)</span>
+                    </h3>
                     <p style="font-size:12px; color:var(--text-muted); margin-bottom: 20px;" data-i18n="eventmeter.subheading">Monitoreo de descargas en operaciones críticas (Límite: Voltaje Máximo &le; 100V)</p>
 
                     <form id="form-event-meter">
@@ -447,7 +466,10 @@
                         <button type="submit" class="btn-primary" style="width:100%; margin-top:16px;" data-i18n="eventmeter.btn_save">💾 Guardar Evento</button>
                     </form>
 
-                    <h4 style="margin-top:28px;" data-i18n="lab.lbl_em_history">⚡ Histórico de Event Meter</h4>
+                    <h4 style="margin-top:28px; display:flex; align-items:center; gap:6px;">
+                        <img src="/images/icons/icon-event-meter.png" class="ui-icon-3d-sm" alt="" />
+                        <span data-i18n="lab.lbl_em_history">Histórico de Event Meter</span>
+                    </h4>
                     <div id="event-meter-history-table" style="margin-top:12px;"></div>
                 </div>
             </div>
@@ -455,17 +477,20 @@
             <!-- MODULE 3: INFRAESTRUCTURA EPA -->
             <div id="mod-infra" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 data-i18n="infra.heading">⚡ Verificación de Infraestructura EPA & Puntos de Tierra</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-infra.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="infra.heading">Verificación de Infraestructura EPA & Puntos de Tierra</span>
+                    </h3>
                     <div class="tabs-header" style="margin-top:14px;">
-                        <button class="tab-btn active" onclick="switchInfraTab('ground')" data-i18n="infra.tab_ground">⚡ Tierras y Conexiones</button>
-                        <button class="tab-btn" onclick="switchInfraTab('floor')" data-i18n="infra.tab_floor">🔲 Piso ESD</button>
-                        <button class="tab-btn" onclick="switchInfraTab('iso')" data-i18n="infra.tab_iso">⚡ Conductores Aislados</button>
-                        <button class="tab-btn" onclick="switchInfraTab('checkers')" data-i18n="infra.tab_checkers">🥾 Checadores de Ingreso</button>
+                        <button class="tab-btn active" onclick="switchInfraTab('ground')" data-i18n="infra.tab_ground">Tierras y Conexiones</button>
+                        <button class="tab-btn" onclick="switchInfraTab('floor')" data-i18n="infra.tab_floor">Piso ESD</button>
+                        <button class="tab-btn" onclick="switchInfraTab('iso')" data-i18n="infra.tab_iso">Conductores Aislados</button>
+                        <button class="tab-btn" onclick="switchInfraTab('checkers')" data-i18n="infra.tab_checkers">Checadores de Ingreso</button>
                     </div>
 
                     <!-- TAB TIERRAS -->
                     <div id="infra-tab-ground" class="tab-content active">
-                        <h4 data-i18n="infra.tab_ground">⚡ Captura de Tierras y Conexiones</h4>
+                        <h4 data-i18n="infra.tab_ground">Captura de Tierras y Conexiones</h4>
                         <form id="form-infra-ground" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                             <div class="form-group"><label data-i18n="infra.gr_type">Tipo de Punto de Tierra</label><select id="gnd-type" class="form-control"><option value="Main Ground" data-i18n="infra.opt_main_ground">Tierra Principal (Main Ground)</option><option value="Wrist Strap Jack" data-i18n="infra.opt_wrist_jack">Jack de Pulsera (Wrist Strap Jack)</option><option value="Mat Ground" data-i18n="infra.opt_mat_ground">Tierra de Tapete ESD (Mat Ground)</option><option value="Auxiliary Ground" data-i18n="infra.opt_aux_ground">Tierra Auxiliar</option></select></div>
                             <div class="form-group"><label data-i18n="infra.gr_loc">Ubicación / Línea</label><input id="gnd-loc" class="form-control" placeholder="SMT-01" required /></div>
@@ -479,7 +504,7 @@
 
                     <!-- TAB PISO -->
                     <div id="infra-tab-floor" class="tab-content">
-                        <h4 data-i18n="infra.fl_heading">🔲 Calificación de Pisos ESD (Resistencia PTP y RTG &le; 1.0e9 &Omega;)</h4>
+                        <h4 data-i18n="infra.fl_heading">Calificación de Pisos ESD (Resistencia PTP y RTG &le; 1.0e9 &Omega;)</h4>
                         <form id="form-infra-floor" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                             <div class="form-group"><label data-i18n="infra.fl_room">Cuarto / Área Cleanroom</label><input id="fl-room" class="form-control" placeholder="Room 1" required /></div>
                             <div class="form-group"><label data-i18n="infra.fl_point">Número de Punto</label><input id="fl-point" type="number" class="form-control" value="1" required /></div>
@@ -493,7 +518,7 @@
 
                     <!-- TAB CONDUCTORES AISLADOS -->
                     <div id="infra-tab-iso" class="tab-content">
-                        <h4 data-i18n="infra.iso_heading">⚡ Identificación de Conductores Aislados (Campo Estático &le; 100V)</h4>
+                        <h4 data-i18n="infra.iso_heading">Identificación de Conductores Aislados (Campo Estático &le; 100V)</h4>
                         <form id="form-infra-iso" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                             <div class="form-group"><label data-i18n="infra.gr_loc">Ubicación / Línea</label><input id="iso-loc" class="form-control" placeholder="SMT-02" required /></div>
                             <div class="form-group"><label data-i18n="infra.iso_op">Operación / Estación ID</label><input id="iso-op" class="form-control" placeholder="ROUTER-01" required /></div>
@@ -505,7 +530,7 @@
 
                     <!-- TAB CHECADORES -->
                     <div id="infra-tab-checkers" class="tab-content">
-                        <h4 data-i18n="infra.chk_heading">🥾 Calibración y Verificación de Checadores de Calzado & Pulsera</h4>
+                        <h4 data-i18n="infra.chk_heading">Calibración y Verificación de Checadores de Calzado & Pulsera</h4>
                         <form id="form-infra-checkers" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                             <div class="form-group" style="grid-column: span 2;"><label data-i18n="infra.chk_id">ID del Checador de Entrada*</label><input id="chk-id" class="form-control" placeholder="CHECADOR-01" required /></div>
                             <div class="form-group"><label>Ref Megóhmetro Izq (Ohms)</label><input id="chk-ref-l" class="form-control" value="1.0e8" /></div>
@@ -521,11 +546,14 @@
             <!-- MODULE 4: CRONOGRAMA & REPORTES -->
             <div id="mod-schedule" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 data-i18n="schedule.heading">📅 Generador de Reporte Oficial de Auditoría de Línea</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-schedule.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="schedule.heading">Generador de Reporte Oficial de Auditoría de Línea</span>
+                    </h3>
                     <p style="font-size:12px; color:var(--text-muted); margin-bottom:18px;">Emisión de Certificados de Línea Folio <b>BCS-LV-XXX-YY</b> según norma ANSI/ESD S20.20</p>
                     
                     <div class="glass-card" style="margin-bottom:20px;">
-                        <h4 data-i18n="schedule.heading">📄 Emisión de Reporte Oficial de Línea</h4>
+                        <h4 data-i18n="schedule.heading">Emisión de Reporte Oficial de Línea</h4>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
                             <div class="form-group"><label data-i18n="schedule.lbl_line">Línea / Ubicación a Certificar</label><input id="rep-linea" class="form-control" value="SMT 1" /></div>
                             <div class="form-group"><label data-i18n="schedule.lbl_auditor">Auditor / Coordinador Responsable</label><input id="rep-auditor" class="form-control" value="Aldo Orozco" /></div>
@@ -543,7 +571,10 @@
                 <div class="glass-panel">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
                         <div>
-                            <h3 style="margin:0 0 4px 0;" data-i18n="inventory.heading">📦 Directorio de Activos Registrados por Site</h3>
+                            <h3 style="margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+                                <img src="/images/icons/icon-inventory.png" class="ui-icon-3d" alt="" />
+                                <span data-i18n="inventory.heading">Directorio de Activos Registrados por Site</span>
+                            </h3>
                             <p style="margin:0; font-size:12.5px; color:var(--text-muted);" data-i18n="inventory.subtitle">Catálogo centralizado de activos de protección electrostática y trazabilidad de mediciones</p>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
@@ -637,7 +668,10 @@
             <!-- MODULE 6: LAB -->
             <div id="mod-lab" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 data-i18n="lab.heading">🔬 Catálogo de Productos y Calificación ESD en Laboratorio</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-lab.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="lab.heading">Catálogo de Productos y Calificación ESD en Laboratorio</span>
+                    </h3>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:16px;">
                         <div class="glass-card">
                             <h4 data-i18n="lab.lbl_part_num">➕ Registrar Producto Sensible</h4>
@@ -658,7 +692,7 @@
                             </form>
                         </div>
                         <div>
-                            <h4 data-i18n="lab.catalog_title">📦 Catálogo de Productos Calificados</h4>
+                            <h4 data-i18n="lab.catalog_title">Catálogo de Productos Calificados</h4>
                             <div id="lab-catalog-list" style="margin-top:12px; max-height:380px; overflow-y:auto;"></div>
                         </div>
                     </div>
@@ -668,7 +702,10 @@
             <!-- MODULE 7: PRODUCT ROUTES -->
             <div id="mod-routes" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 data-i18n="routes.heading">🗺️ Secuencia de Enrutamiento y Proceso por Producto</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-routes.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="routes.heading">Secuencia de Enrutamiento y Proceso por Producto</span>
+                    </h3>
                     <div id="routes-container" style="margin-top:16px;"></div>
                 </div>
             </div>
@@ -676,7 +713,10 @@
             <!-- MODULE 8: EMPLOYEES -->
             <div id="mod-employees" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 style="margin-bottom:14px;" data-i18n="employees.heading">👥 Registro de Personal Capacitado & Ropa ESD (Batas)</h3>
+                    <h3 style="margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-personnel.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="employees.heading">Registro de Personal Capacitado & Ropa ESD (Batas)</span>
+                    </h3>
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
@@ -699,7 +739,10 @@
             <!-- MODULE 9: TRAINING & EXAMS -->
             <div id="mod-training" class="module-view" style="display:none;">
                 <div class="glass-panel" style="max-width: 720px; margin: 0 auto;">
-                    <h3 data-i18n="training.heading">🎓 Examen de Certificación Normativa ANSI/ESD TR53</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-training.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="training.heading">Examen de Certificación Normativa ANSI/ESD TR53</span>
+                    </h3>
                     <form id="exam-form" style="margin-top:16px;">
                         <div class="form-group"><label data-i18n="training.lbl_emp_num">Número de Empleado*</label><input id="exam-num" class="form-control" required /></div>
                         <div class="form-group"><label data-i18n="training.lbl_emp_name">Nombre Completo del Operador*</label><input id="exam-name" class="form-control" required /></div>
@@ -739,19 +782,25 @@
             <!-- MODULE 10: SETTINGS & MULTI-TENANT HIERARCHY TREE VIEW & USER ROLES -->
             <div id="mod-settings" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 data-i18n="settings.title">⚙️ Ajustes del Sistema, Idioma & Jerarquía Multi-Tenant</h3>
+                    <h3 style="display:flex; align-items:center; gap:8px;">
+                        <img src="/images/icons/icon-settings.png" class="ui-icon-3d" alt="" />
+                        <span data-i18n="settings.title">Ajustes del Sistema, Idioma & Jerarquía Multi-Tenant</span>
+                    </h3>
                     <div class="tabs-header" style="margin-top:14px;">
-                        <button class="tab-btn active" onclick="switchSettingsTab('tree')" data-i18n="settings.tab_tree">📁 Estructura & Jerarquía Multi-Tenant</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">👥 Usuarios, Alta & Permisos de Rol</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">🌐 Idioma / Language</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">🛠️ Equipos de Medición</button>
+                        <button class="tab-btn active" onclick="switchSettingsTab('tree')" data-i18n="settings.tab_tree">Estructura & Jerarquía Multi-Tenant</button>
+                        <button class="tab-btn" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">Usuarios, Alta & Permisos de Rol</button>
+                        <button class="tab-btn" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
+                        <button class="tab-btn" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
                     </div>
 
                     <!-- TAB 1: WINDOWS EXPLORER TREE VIEW HIERARCHY -->
                     <div id="set-tab-tree" class="tab-content active">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                             <div>
-                                <h4 style="font-size:15px; font-weight:700;" data-i18n="settings.tree_title">📁 Organizaciones</h4>
+                                <h4 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                                    <img src="/images/icons/icon-companies.png" class="ui-icon-3d-sm" alt="" />
+                                    <span data-i18n="settings.tree_title">Organizaciones</span>
+                                </h4>
                                 <p style="font-size:12px; color:var(--text-muted);" data-i18n="settings.tree_sub">Despliega la estructura: Empresa (Nivel 1) &rarr; Site / Planta (Nivel 2) &rarr; Áreas / Ubicaciones (Nivel 3).</p>
                             </div>
                             <div style="display:flex; gap:8px;">
@@ -787,11 +836,11 @@
                                     <div class="form-group">
                                         <label data-i18n="settings.col_role">Rol & Nivel de Permisos*</label>
                                         <select id="u-role" class="form-control" required>
-                                            <option value="SuperAdmin">👑 SuperAdmin (Acceso Total Global)</option>
-                                            <option value="CompanyAdmin">🏢 CompanyAdmin (Admin de Empresa & Sites)</option>
-                                            <option value="SiteAdmin">🏭 SiteAdmin (Admin de Planta)</option>
-                                            <option value="Auditor" selected>🔍 Auditor (Registro Auditorías TR53)</option>
-                                            <option value="Viewer">👁️ Viewer (Solo Lectura)</option>
+                                            <option value="SuperAdmin">SuperAdmin (Acceso Total Global)</option>
+                                            <option value="CompanyAdmin">CompanyAdmin (Admin de Empresa & Sites)</option>
+                                            <option value="SiteAdmin">SiteAdmin (Admin de Planta)</option>
+                                            <option value="Auditor" selected>Auditor (Registro Auditorías TR53)</option>
+                                            <option value="Viewer">Viewer (Solo Lectura)</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -812,7 +861,10 @@
 
                             <!-- RIGHT: USERS LIST TABLE WITH ROLE BADGES -->
                             <div>
-                                <h4 style="margin-bottom:10px;" data-i18n="settings.users_title">👥 Padrón de Usuarios Registrados</h4>
+                                <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                    <img src="/images/icons/icon-personnel.png" class="ui-icon-3d-sm" alt="" />
+                                    <span data-i18n="settings.users_title">Padrón de Usuarios Registrados</span>
+                                </h4>
                                 <div class="table-responsive">
                                     <table class="data-table">
                                         <thead>
@@ -1850,8 +1902,8 @@
         const tbody = document.getElementById('modal-history-tbody');
         if (!modal || !tbody) return;
 
-        title.innerText = `🔍 ${t('inventory.modal_history_title', 'Historial de Mediciones')}: ${assetId}`;
-        sub.innerText = `📦 ${category || 'Mobiliario ESD'} | 📍 ${location || 'N/A'}`;
+        title.innerHTML = `<img src="/images/icons/icon-inventory.png" class="ui-icon-3d" alt="" /> ${t('inventory.modal_history_title', 'Historial de Mediciones')}: <b>${assetId}</b>`;
+        sub.innerHTML = `<img src="/images/icons/icon-furniture.png" class="ui-icon-3d-sm" alt="" /> ${category || 'Mobiliario ESD'} &bull; <img src="/images/icons/icon-routes.png" class="ui-icon-3d-sm" alt="" /> ${location || 'N/A'}`;
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px;">${t('inventory.loading', 'Cargando historial...')}</td></tr>`;
         modal.style.display = 'flex';
 
@@ -2202,7 +2254,7 @@
                 
                 html += `<div class="tree-node">
                     <div class="tree-header" onclick="toggleTreeNode('${compId}')">
-                        <span>🏢 <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
+                        <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-companies.png" class="ui-icon-3d-sm" alt="" /> <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
                         <div style="display:flex; align-items:center; gap:8px;">
                             ${canCreateSite ? `<button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}', '${compId}')">➕ Site</button>` : ''}
                             <span style="font-size:11px;">▶️</span>
@@ -2221,7 +2273,7 @@
 
                         html += `<div style="margin:4px 0;">
                             <div class="tree-subnode" onclick="toggleTreeNode('${siteId}')">
-                                <span>🏭 <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
+                                <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-companies.png" class="ui-icon-3d-sm" style="width:15px; height:15px;" alt="" /> <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     ${canCreateArea ? `<button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}', '${compId}', '${siteId}')">➕ Área / Línea</button>` : ''}
                                     <span style="font-size:10px;">▶️</span>
@@ -2231,7 +2283,7 @@
 
                         if (locs.length === 0) {
                             html += `<div class="tree-leaf" style="justify-content:space-between;">
-                                <span>📍 <i>Sin áreas registradas en este site.</i></span>
+                                <span><img src="/images/icons/icon-routes.png" class="ui-icon-3d-sm" alt="" /> <i>Sin áreas registradas en este site.</i></span>
                             </div>`;
                         } else {
                             const areaGroupMap = {};
@@ -2255,7 +2307,7 @@
 
                                 html += `<div class="area-card-box">
                                     <div class="area-header">
-                                        <span>📍 <b>${areaName}</b> ${subOps.length > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${subOps.length} Sub-operaciones)</span>` : ''}</span>
+                                        <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-routes.png" class="ui-icon-3d-sm" alt="" /> <b>${areaName}</b> ${subOps.length > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${subOps.length} Sub-operaciones)</span>` : ''}</span>
                                         ${canCreateArea ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>` : ''}
                                     </div>`;
 
@@ -2263,7 +2315,7 @@
                                     html += `<div class="sub-ops-container">`;
                                     subOps.forEach(sub => {
                                         html += `<div class="sub-op-item">
-                                            <span>⚙️ <b>${sub}</b></span>
+                                            <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-machinery.png" class="ui-icon-3d-sm" alt="" /> <b>${sub}</b></span>
                                             <span style="font-size:10.5px; color:var(--text-muted); font-weight:600;">Operación</span>
                                         </div>`;
                                     });
