@@ -772,7 +772,7 @@ public class ApiController : ControllerBase
                         ["location"] = m.AreaName,
                         ["point_number"] = int.TryParse(pt.Code, out int pn) ? pn : 1,
                         ["point_id"] = pt.Label ?? $"Punto {pt.Code}",
-                        ["ptp_resistance"] = ohms < 1000 ? $"{ohms:F1}" : ohms.ToString("E2"),
+                        ["ptp_resistance"] = FormatScientific(ohms),
                         ["resistance_ohms"] = ohms,
                         ["temp_hum"] = "23.5°C / 45%",
                         ["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL",
@@ -1682,7 +1682,7 @@ public class ApiController : ControllerBase
                 ["location"] = areaName,
                 ["point_number"] = int.TryParse(p.Code, out int pNum) ? pNum : 1,
                 ["point_id"] = p.Label ?? $"Punto {p.Code}",
-                ["ptp_resistance"] = ohms < 1000 ? $"{ohms:F1}" : ohms.ToString("E2"),
+                ["ptp_resistance"] = FormatScientific(ohms),
                 ["resistance_ohms"] = ohms,
                 ["temp_hum"] = "23.5°C / 45%",
                 ["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL",
@@ -1752,7 +1752,7 @@ public class ApiController : ControllerBase
                     ["location"] = areaName,
                     ["point_number"] = int.TryParse(p.Code, out int pNum) ? pNum : 1,
                     ["point_id"] = p.Label ?? $"Punto {p.Code}",
-                    ["ptp_resistance"] = ohms.ToString("E2"),
+                    ["ptp_resistance"] = FormatScientific(ohms),
                     ["resistance_ohms"] = ohms,
                     ["temp_hum"] = $"{dto.Temperature}°C / {dto.Humidity}%",
                     ["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL",
@@ -1766,5 +1766,14 @@ public class ApiController : ControllerBase
         await _mapStorage.SaveMapAsync(map);
 
         return Ok(new { success = true, map });
+    }
+
+    private static string FormatScientific(double ohms)
+    {
+        if (ohms < 1000) return ohms.ToString("0.###");
+        int exp = (int)Math.Floor(Math.Log10(ohms));
+        double mantissa = ohms / Math.Pow(10, exp);
+        double roundedMantissa = Math.Round(mantissa, 2);
+        return $"{roundedMantissa:0.##}e{exp}";
     }
 }

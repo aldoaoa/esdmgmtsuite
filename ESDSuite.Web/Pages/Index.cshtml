@@ -2546,11 +2546,12 @@
                         const statusBadge = (f.status_result === 'PASS')
                             ? `<span class="badge-pass" style="font-size:11px; padding:3px 8px;">PASS</span>`
                             : `<span class="badge-fail" style="font-size:11px; padding:3px 8px;">FAIL</span>`;
+                        const resFormatted = formatResistanceScientific(f.ptp_resistance || f.resistance_ohms);
                         html += `<tr>
                             <td style="font-size:12px;"><b>${dateStr}</b></td>
                             <td style="font-size:12px;">${f.room_name || f.location || '-'}</td>
                             <td style="text-align:center; font-weight:700;">${f.point_number || 1}</td>
-                            <td style="font-size:12.5px; font-weight:800;">${f.ptp_resistance || f.resistance_ohms || '-'} Ω</td>
+                            <td style="font-size:12.5px; font-weight:800;">${resFormatted} Ω</td>
                             <td style="font-size:11.5px; color:var(--text-muted);">${f.temp_hum || '-'}</td>
                             <td style="text-align:center;">${statusBadge}</td>
                         </tr>`;
@@ -4053,7 +4054,7 @@
             if (pt.lastResistanceOhms != null && !isNaN(pt.lastResistanceOhms)) {
                 measured++;
                 const ohms = parseFloat(pt.lastResistanceOhms);
-                resText = ohms < 1000 ? `${ohms.toFixed(1)} Ω` : ohms.toExponential(2).toUpperCase() + ' Ω';
+                resText = formatResistanceScientific(ohms) + ' Ω';
 
                 if (ohms <= 1.0e8) {
                     pin.classList.add('pin-pass');
@@ -4078,6 +4079,19 @@
         document.getElementById('v-fail-pts').innerText = fail;
     }
 
+    function formatResistanceScientific(val) {
+        if (val == null || val === '' || val === '-') return '-';
+        const num = typeof val === 'number' ? val : parseFloat(val.toString().replace(/,/g, ''));
+        if (isNaN(num)) return val.toString();
+        if (num < 1000) {
+            return parseFloat(num.toFixed(3)).toString();
+        }
+        const exp = Math.floor(Math.log10(num));
+        const mantissa = num / Math.pow(10, exp);
+        const cleanMantissa = parseFloat(mantissa.toFixed(2));
+        return `${cleanMantissa}e${exp}`;
+    }
+
     function openPointMeasurementModal(pointIdx) {
         if (!currentViewerMap || !currentViewerMap.points || !currentViewerMap.points[pointIdx]) return;
         activePointEditIdx = pointIdx;
@@ -4085,7 +4099,7 @@
         const pt = currentViewerMap.points[pointIdx];
         document.getElementById('pt-modal-title').innerText = `📍 ${pt.label || 'Punto ' + pt.code} (Punto #${pt.code || (pointIdx + 1)})`;
         const resInput = document.getElementById('pt-modal-resistance');
-        resInput.value = pt.lastResistanceOhms != null ? pt.lastResistanceOhms.toExponential(2) : '4.5e7';
+        resInput.value = pt.lastResistanceOhms != null ? formatResistanceScientific(pt.lastResistanceOhms) : '4.5e7';
 
         updatePointModalBadge(resInput.value);
         document.getElementById('modal-point-measurement').style.display = 'flex';
