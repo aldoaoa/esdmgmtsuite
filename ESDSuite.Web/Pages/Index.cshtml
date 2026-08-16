@@ -2438,6 +2438,9 @@
         document.querySelectorAll('#mod-infra .tab-content').forEach(c => c.classList.remove('active'));
         event.currentTarget.classList.add('active');
         document.getElementById('infra-tab-' + tabName).classList.add('active');
+        if (tabName === 'floor') {
+            loadFloorMapsForViewer();
+        }
     }
 
     async function loadInfraLinesSelect() {
@@ -3944,8 +3947,10 @@
                 alert(`✅ Plano "${mapName}" con ${editorPointsList.length} puntos guardado exitosamente.`);
                 await loadMapsEditor();
                 if (data.map && data.map.id) {
+                    localStorage.setItem('activeFloorMapId', data.map.id);
                     loadMapForEditing(data.map.id);
                 }
+                await loadFloorMapsForViewer();
             } else {
                 alert(data.message || '❌ Error al guardar el plano.');
             }
@@ -3972,9 +3977,16 @@
                     sel.innerHTML += `<option value="${m.id}">${m.mapName || m.areaName} (${m.areaName})</option>`;
                 });
 
-                if (allMapsList.length > 0 && !currentViewerMap) {
-                    sel.value = allMapsList[0].id;
-                    onFloorMapViewerSelected(allMapsList[0].id);
+                const savedActiveId = localStorage.getItem('activeFloorMapId');
+                const targetId = (savedActiveId && allMapsList.some(m => m.id === savedActiveId))
+                    ? savedActiveId
+                    : (allMapsList.length > 0 ? allMapsList[0].id : null);
+
+                if (targetId) {
+                    sel.value = targetId;
+                    onFloorMapViewerSelected(targetId);
+                } else {
+                    onFloorMapViewerSelected(null);
                 }
             }
         } catch(e) {
@@ -3987,9 +3999,11 @@
         if (!mapId) {
             if (card) card.style.display = 'none';
             currentViewerMap = null;
+            localStorage.removeItem('activeFloorMapId');
             return;
         }
 
+        localStorage.setItem('activeFloorMapId', mapId);
         currentViewerMap = allMapsList.find(m => m.id === mapId);
         if (!currentViewerMap) return;
 

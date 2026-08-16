@@ -1612,8 +1612,8 @@ public class ApiController : ControllerBase
             return StatusCode(403, new { success = false, message = "No tienes permisos para configurar mapas de planta." });
         }
 
-        string mapId = payload["id"]?.ToString() ?? Guid.NewGuid().ToString();
-        string siteId = payload["siteId"]?.ToString() ?? CurrentUserSiteId;
+        string mapId = !string.IsNullOrWhiteSpace(payload["id"]?.ToString()) ? payload["id"]!.ToString() : Guid.NewGuid().ToString();
+        string siteId = !string.IsNullOrWhiteSpace(payload["siteId"]?.ToString()) ? payload["siteId"]!.ToString() : CurrentUserSiteId;
         string areaName = payload["areaName"]?.ToString() ?? "Área General";
         string mapName = payload["mapName"]?.ToString() ?? $"Plano {areaName}";
         string imageBase64 = payload["imageBase64"]?.ToString() ?? "";

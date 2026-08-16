@@ -48,19 +48,78 @@ public class FloorMapStorageService
                 {
                     string json = File.ReadAllText(_storageFilePath);
                     list = JsonSerializer.Deserialize<List<FloorMapConfig>>(json) ?? new List<FloorMapConfig>();
-                    // If file has older 5-point map, merge with full 8-point layout
-                    if (list.Count > 0 && (list[0].Points == null || list[0].Points.Count < 8))
+                    if (list.Count == 0)
                     {
-                        var defaults = GetDefaultMaps();
-                        list[0].Points = defaults[0].Points;
-                        string updatedJson = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
-                        File.WriteAllText(_storageFilePath, updatedJson);
+                        list = GetDefaultMaps();
+                        string jsonDefault = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(_storageFilePath, jsonDefault);
                     }
                 }
                 catch
                 {
                     list = GetDefaultMaps();
                 }
+            }
+        }
+
+        // Try syncing/merging from Supabase if available
+        if (_supabase != null)
+        {
+            try
+            {
+                var sbMaps = await _supabase.GetFloorMapsFromSupabaseAsync(siteId);
+                if (sbMaps != null && sbMaps.Count > 0)
+                {
+                    foreach (var node in sbMaps)
+                    {
+                        if (node is JsonObject obj)
+                        {
+                            string id = obj["id"]?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(id)) continue;
+
+                            var existing = list.FirstOrDefault(m => m.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+                            var pointsList = new List<FloorMapPoint>();
+                            if (obj["points"] is JsonArray pa)
+                            {
+                                foreach (var pNode in pa)
+                                {
+                                    if (pNode is JsonObject pObj)
+                                    {
+                                        pointsList.Add(new FloorMapPoint
+                                        {
+                                            Id = pObj["id"]?.ToString() ?? Guid.NewGuid().ToString(),
+                                            Code = pObj["code"]?.ToString() ?? "1",
+                                            Label = pObj["label"]?.ToString() ?? "Punto",
+                                            XPercent = pObj["xPercent"]?.GetValue<double>() ?? 0,
+                                            YPercent = pObj["yPercent"]?.GetValue<double>() ?? 0,
+                                            LastResistanceOhms = pObj["lastResistanceOhms"] != null ? pObj["lastResistanceOhms"]!.GetValue<double>() : null
+                                        });
+                                    }
+                                }
+                            }
+
+                            if (existing == null)
+                            {
+                                list.Add(new FloorMapConfig
+                                {
+                                    Id = id,
+                                    SiteId = obj["site_id"]?.ToString() ?? "",
+                                    AreaName = obj["area_name"]?.ToString() ?? "",
+                                    AreaId = obj["area_name"]?.ToString() ?? "",
+                                    MapName = obj["map_name"]?.ToString() ?? "",
+                                    ImageUrl = obj["image_url"]?.ToString() ?? "",
+                                    TotalAreaValue = obj["total_area_value"]?.GetValue<double>() ?? 500.0,
+                                    AreaUnit = obj["area_unit"]?.ToString() ?? "m2",
+                                    Points = pointsList
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Supabase floor_maps fetch note: {ex.Message}");
             }
         }
 
@@ -80,6 +139,11 @@ public class FloorMapStorageService
 
     public async Task<FloorMapConfig> SaveMapAsync(FloorMapConfig map)
     {
+        if (string.IsNullOrWhiteSpace(map.Id))
+        {
+            map.Id = Guid.NewGuid().ToString();
+        }
+
         var maps = await GetMapsAsync();
         int existingIndex = maps.FindIndex(m => m.Id.Equals(map.Id, StringComparison.OrdinalIgnoreCase));
 
@@ -91,7 +155,6 @@ public class FloorMapStorageService
         }
         else
         {
-            if (string.IsNullOrEmpty(map.Id)) map.Id = Guid.NewGuid().ToString();
             map.CreatedAt = DateTime.UtcNow;
             maps.Add(map);
         }
