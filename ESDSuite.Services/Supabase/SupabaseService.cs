@@ -481,6 +481,52 @@ public class SupabaseService
         return await InsertAsync("entrance_checkers_logs", data);
     }
 
+    // --- SUPABASE STORAGE & FLOOR MAPS ---
+    public async Task<string?> UploadStorageFileAsync(string bucket, string fileName, byte[] bytes, string contentType)
+    {
+        try
+        {
+            string url = $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{fileName}";
+            var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new ByteArrayContent(bytes)
+            };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            request.Headers.Add("apikey", _config.Key);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+            request.Headers.Add("x-upsert", "true");
+
+            var response = await _http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                return $"{_config.Url.TrimEnd('/')}/storage/v1/object/public/{bucket}/{fileName}";
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Supabase Storage upload note ({response.StatusCode}): {err}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Supabase Storage exception: {ex.Message}");
+        }
+        return null;
+    }
+
+    public async Task<JsonArray> GetFloorMapsFromSupabaseAsync(string? siteId = null)
+    {
+        string query = string.IsNullOrEmpty(siteId)
+            ? "floor_maps?select=*&order=created_at.desc"
+            : $"floor_maps?site_id=eq.{siteId}&select=*&order=created_at.desc";
+        return await GetAsync(query);
+    }
+
+    public async Task<JsonObject?> SaveFloorMapToSupabaseAsync(object mapData)
+    {
+        return await InsertAsync("floor_maps", mapData);
+    }
+
     // --- SCHEDULE & REPORTS ---
     public async Task<JsonObject?> InsertLogReportesLineaAsync(object data)
     {

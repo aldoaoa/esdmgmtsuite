@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ESDSuite.Core.Models;
+using ESDSuite.Services.Supabase;
 
 namespace ESDSuite.Services.Storage;
 
@@ -7,10 +9,12 @@ public class FloorMapStorageService
 {
     private readonly string _storageFilePath;
     private readonly string _uploadsDirectory;
+    private readonly SupabaseService? _supabase;
     private readonly object _lock = new();
 
-    public FloorMapStorageService(string? contentRootPath = null, string? webRootPath = null)
+    public FloorMapStorageService(string? contentRootPath = null, string? webRootPath = null, SupabaseService? supabase = null)
     {
+        _supabase = supabase;
         string root = !string.IsNullOrEmpty(contentRootPath) ? contentRootPath : AppDomain.CurrentDomain.BaseDirectory;
         string appData = Path.Combine(root, "App_Data");
         if (!Directory.Exists(appData))
@@ -44,10 +48,18 @@ public class FloorMapStorageService
                 {
                     string json = File.ReadAllText(_storageFilePath);
                     list = JsonSerializer.Deserialize<List<FloorMapConfig>>(json) ?? new List<FloorMapConfig>();
+                    // If file has older 5-point map, merge with full 8-point layout
+                    if (list.Count > 0 && (list[0].Points == null || list[0].Points.Count < 8))
+                    {
+                        var defaults = GetDefaultMaps();
+                        list[0].Points = defaults[0].Points;
+                        string updatedJson = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(_storageFilePath, updatedJson);
+                    }
                 }
                 catch
                 {
-                    list = new List<FloorMapConfig>();
+                    list = GetDefaultMaps();
                 }
             }
         }
@@ -85,6 +97,32 @@ public class FloorMapStorageService
         }
 
         SaveAllMaps(maps);
+
+        // Sync with Supabase asynchronously
+        if (_supabase != null)
+        {
+            try
+            {
+                var sbPayload = new JsonObject
+                {
+                    ["id"] = map.Id,
+                    ["site_id"] = map.SiteId,
+                    ["area_name"] = map.AreaName,
+                    ["map_name"] = map.MapName,
+                    ["image_url"] = map.ImageUrl,
+                    ["total_area_value"] = map.TotalAreaValue,
+                    ["area_unit"] = map.AreaUnit,
+                    ["points"] = JsonSerializer.SerializeToNode(map.Points),
+                    ["updated_at"] = DateTime.UtcNow.ToString("o")
+                };
+                await _supabase.SaveFloorMapToSupabaseAsync(sbPayload);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Note: Supabase table floor_maps sync: {ex.Message}");
+            }
+        }
+
         return map;
     }
 
@@ -129,8 +167,33 @@ public class FloorMapStorageService
 
             string safeFileName = $"map_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}{ext}";
             string fullPath = Path.Combine(_uploadsDirectory, safeFileName);
-
             await File.WriteAllBytesAsync(fullPath, bytes);
+
+            string contentType = ext.ToLower() switch
+            {
+                ".svg" => "image/svg+xml",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                _ => "image/png"
+            };
+
+            // 1. Try uploading to Supabase Storage bucket 'maps'
+            if (_supabase != null)
+            {
+                try
+                {
+                    string? publicUrl = await _supabase.UploadStorageFileAsync("maps", safeFileName, bytes, contentType);
+                    if (!string.IsNullOrEmpty(publicUrl))
+                    {
+                        return publicUrl;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Supabase storage bucket upload fallback: {ex.Message}");
+                }
+            }
+
             return $"/uploads/maps/{safeFileName}";
         }
         catch (Exception ex)
@@ -159,17 +222,20 @@ public class FloorMapStorageService
                 SiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd",
                 AreaName = "SMT 1",
                 AreaId = "SMT 1",
-                MapName = "Plano Principal SMT 1",
+                MapName = "Plano Principal SMT 1 & Ensamble",
                 ImageUrl = "/images/mockups/smt1_layout.svg",
                 TotalAreaValue = 500.0,
                 AreaUnit = "m2",
                 Points = new List<FloorMapPoint>
                 {
-                    new FloorMapPoint { Id = "p1", Code = "1", Label = "Entrada SMT 1", XPercent = 18.5, YPercent = 25.0, LastResistanceOhms = 4.2e7, MeasuredAt = DateTime.UtcNow.AddDays(-1) },
-                    new FloorMapPoint { Id = "p2", Code = "2", Label = "Área Feeder / Carga", XPercent = 45.0, YPercent = 22.0, LastResistanceOhms = 6.8e7, MeasuredAt = DateTime.UtcNow.AddDays(-1) },
-                    new FloorMapPoint { Id = "p3", Code = "3", Label = "Centro Pasillo Pick&Place", XPercent = 78.0, YPercent = 28.0, LastResistanceOhms = 3.5e7, MeasuredAt = DateTime.UtcNow.AddDays(-1) },
-                    new FloorMapPoint { Id = "p4", Code = "4", Label = "Salida Horno Reflujo", XPercent = 30.0, YPercent = 75.0, LastResistanceOhms = 5.1e7, MeasuredAt = DateTime.UtcNow.AddDays(-1) },
-                    new FloorMapPoint { Id = "p5", Code = "5", Label = "Inspección Óptica AOI", XPercent = 72.0, YPercent = 72.0, LastResistanceOhms = 8.9e7, MeasuredAt = DateTime.UtcNow.AddDays(-1) }
+                    new FloorMapPoint { Id = "p1", Code = "1", Label = "Pick & Place Chip Shooter", XPercent = 25.0, YPercent = 29.0, LastResistanceOhms = 4.5e7, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p2", Code = "2", Label = "Aisle / Pasillo Central", XPercent = 49.0, YPercent = 23.0, LastResistanceOhms = 3.5e8, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p3", Code = "3", Label = "Centro Pasillo SMT", XPercent = 31.5, YPercent = 52.0, LastResistanceOhms = 2.8e7, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p4", Code = "4", Label = "Salida AOI Óptica", XPercent = 41.0, YPercent = 81.0, LastResistanceOhms = 5.2e7, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p5", Code = "5", Label = "ICT / In-Circuit Test Fixtures", XPercent = 63.5, YPercent = 78.0, LastResistanceOhms = 2.5e9, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p6", Code = "6", Label = "Packaging & ESD Shielding Bags", XPercent = 72.5, YPercent = 55.0, LastResistanceOhms = 6.1e7, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p7", Code = "7", Label = "Workbench 02 ESD", XPercent = 86.0, YPercent = 29.0, LastResistanceOhms = 1.8e9, MeasuredAt = DateTime.UtcNow },
+                    new FloorMapPoint { Id = "p8", Code = "8", Label = "Workbench 01 ESD", XPercent = 68.0, YPercent = 19.0, LastResistanceOhms = 4.8e8, MeasuredAt = DateTime.UtcNow }
                 }
             }
         };

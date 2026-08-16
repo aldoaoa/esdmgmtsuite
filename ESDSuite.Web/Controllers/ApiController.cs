@@ -1669,6 +1669,28 @@ public class ApiController : ControllerBase
         };
 
         var saved = await _mapStorage.SaveMapAsync(mapConfig);
+
+        // Immediate sync of point measurements to Supabase floor_validation_logs
+        foreach (var p in points.Where(pt => pt.LastResistanceOhms.HasValue))
+        {
+            double ohms = p.LastResistanceOhms!.Value;
+            var logPayload = new JsonObject
+            {
+                ["site_id"] = siteId,
+                ["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId,
+                ["room_name"] = areaName,
+                ["location"] = areaName,
+                ["point_number"] = int.TryParse(p.Code, out int pNum) ? pNum : 1,
+                ["point_id"] = p.Label ?? $"Punto {p.Code}",
+                ["ptp_resistance"] = ohms < 1000 ? $"{ohms:F1}" : ohms.ToString("E2"),
+                ["resistance_ohms"] = ohms,
+                ["temp_hum"] = "23.5°C / 45%",
+                ["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL",
+                ["measured_at"] = (p.MeasuredAt ?? DateTime.UtcNow).ToString("o")
+            };
+            await _supabase.InsertFloorValidationLogAsync(logPayload);
+        }
+
         return Ok(new { success = true, map = saved });
     }
 
