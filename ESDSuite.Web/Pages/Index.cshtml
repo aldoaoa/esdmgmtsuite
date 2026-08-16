@@ -669,9 +669,9 @@
                                 </div>
                                 <!-- LEGEND -->
                                 <div style="display:flex; align-items:center; gap:12px; font-size:11px; font-weight:700; flex-wrap:wrap;">
-                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10B981;"></span> &le; 1e8 &Omega; (Verde)</span>
-                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#F59E0B;"></span> 1.01e8 - 0.99e9 &Omega; (Naranja)</span>
-                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#EF4444;"></span> &gt; 1e9 &Omega; (Rojo)</span>
+                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10B981;"></span> &le; 1e8 &Omega; (<span data-i18n="maps.legend_pass">Verde</span>)</span>
+                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#F59E0B;"></span> 1.01e8 - 0.99e9 &Omega; (<span data-i18n="maps.legend_warning">Naranja</span>)</span>
+                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#EF4444;"></span> &gt; 1e9 &Omega; (<span data-i18n="maps.legend_fail">Rojo</span>)</span>
                                 </div>
                             </div>
 
@@ -702,17 +702,17 @@
                         <div id="modal-point-measurement" class="modal-overlay" style="display:none; z-index:1050;">
                             <div class="glass-card" style="max-width:380px; width:90%; background:#FFFFFF; padding:20px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                    <h4 id="pt-modal-title" style="margin:0; font-size:14px; font-weight:800; color:var(--accent-blue);">📍 Punto de Medición</h4>
+                                    <h4 id="pt-modal-title" style="margin:0; font-size:14px; font-weight:800; color:var(--accent-blue);" data-i18n="maps.modal_pt_title">📍 Punto de Medición</h4>
                                     <button type="button" class="tab-btn" style="padding:2px 6px; font-size:11px;" onclick="closePointMeasurementModal()">✕</button>
                                 </div>
                                 <div class="form-group">
                                     <label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*:</label>
                                     <input type="text" id="pt-modal-resistance" class="form-control" placeholder="Ej: 4.5e7 o 45000000" autofocus oninput="updatePointModalBadge(this.value)" />
-                                    <small style="color:var(--text-muted); font-size:10.5px;">Soporta notación científica (ej: 1.0e7, 3.8e8, 1.2e9)</small>
+                                    <small style="color:var(--text-muted); font-size:10.5px;" data-i18n="maps.scientific_note">Soporta notación científica (ej: 1.0e7, 3.8e8, 1.2e9)</small>
                                 </div>
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
                                     <span id="pt-modal-badge" class="badge-pass">--</span>
-                                    <button type="button" class="btn-primary" onclick="applyPointMeasurement()">Aplicar</button>
+                                    <button type="button" class="btn-primary" onclick="applyPointMeasurement()" data-i18n="maps.btn_apply">Aplicar</button>
                                 </div>
                             </div>
                         </div>
@@ -1352,14 +1352,14 @@
                                             <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
                                                 <tr>
                                                     <th style="width:60px;">#</th>
-                                                    <th>Etiqueta / Nombre</th>
+                                                    <th data-i18n="maps.col_pt_label">Etiqueta / Nombre</th>
                                                     <th style="width:90px; text-align:center;">X (%)</th>
                                                     <th style="width:90px; text-align:center;">Y (%)</th>
-                                                    <th style="width:70px; text-align:center;">Acción</th>
+                                                    <th style="width:70px; text-align:center;" data-i18n="maps.col_action">Acción</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="editor-points-tbody">
-                                                <tr><td colspan="5" style="text-align:center; color:var(--text-muted); font-size:12px;">Sin puntos en el mapa. Haz clic en el plano para agregar.</td></tr>
+                                                <tr><td colspan="5" style="text-align:center; color:var(--text-muted); font-size:12px;" data-i18n="maps.no_points_hint">Sin puntos en el mapa. Haz clic en el plano para agregar.</td></tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -3723,7 +3723,10 @@
         }
 
         renderEditorPoints();
-        alert(`⚡ Generación normativa completada: ${targetPoints} puntos de prueba distribuidos según ${Math.round(areaM2)} m² (5 pts / 500 m²). Puedes arrastrarlos para ajustar.`);
+        const msg = t('maps.auto_gen_toast', '⚡ Generación normativa completada: {0} puntos de prueba distribuidos según {1} m² (5 pts / 500 m²). Puedes arrastrarlos para ajustar.')
+            .replace('{0}', targetPoints)
+            .replace('{1}', Math.round(areaM2));
+        alert(msg);
     }
 
     function addManualPointToCenter() {
@@ -4101,19 +4104,19 @@
         const ohms = parseFloat(valStr);
         if (isNaN(ohms) || ohms < 0) {
             badge.className = 'badge-pending';
-            badge.innerText = 'VALOR INVÁLIDO';
+            badge.innerText = t('maps.badge_invalid', 'VALOR INVÁLIDO');
             return;
         }
 
         if (ohms <= 1.0e8) {
             badge.className = 'badge-pass';
-            badge.innerText = `🟢 PASS (≤ 1.0e8 Ω / Conforme Óptimo)`;
+            badge.innerText = t('maps.badge_pass', '🟢 PASS (≤ 1.0e8 Ω / Conforme Óptimo)');
         } else if (ohms <= 1.0e9) {
             badge.className = 'badge-pending';
-            badge.innerText = `🟠 ADVERTENCIA (1.01e8 - 0.99e9 Ω)`;
+            badge.innerText = t('maps.badge_warn', '🟠 ADVERTENCIA (1.01e8 - 0.99e9 Ω)');
         } else {
             badge.className = 'badge-fail';
-            badge.innerText = `🔴 FAIL (> 1.0e9 Ω / Fuera de Límite)`;
+            badge.innerText = t('maps.badge_fail', '🔴 FAIL (> 1.0e9 Ω / Fuera de Límite)');
         }
     }
 
@@ -4124,7 +4127,7 @@
         const ohms = parseFloat(valStr);
 
         if (isNaN(ohms) || ohms < 0) {
-            alert('Por favor ingresa un valor de resistencia numérico válido en Ohms (ej: 4.5e7 o 45000000).');
+            alert(t('inventory.invalid_val', 'Por favor ingresa un valor de resistencia numérico válido en Ohms (ej: 4.5e7 o 45000000).'));
             return;
         }
 
@@ -4172,63 +4175,80 @@
             return { px, py, res, logR };
         });
 
+        // Power parameter = 3.5 provides strong local zone dominance:
+        // Cleanroom clusters with green points stay solidly green across their room
+        const power = 3.5;
+
         for (let r = 0; r < rows; r++) {
             const y = r * step;
             for (let c = 0; c < cols; c++) {
                 const x = c * step;
 
-                // IDW Calculation with p=2
                 let sumWeights = 0;
                 let sumLogR = 0;
-                let exactMatch = null;
+                let exactMatchLogR = null;
 
                 for (let i = 0; i < pData.length; i++) {
                     const p = pData[i];
                     const dx = x - p.px;
                     const dy = y - p.py;
-                    const distSq = dx * dx + dy * dy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distSq < 1) {
-                        exactMatch = p.res;
+                    if (dist < 1.0) {
+                        exactMatchLogR = p.logR;
                         break;
                     }
 
-                    const w = 1.0 / (distSq + 0.001);
+                    const w = 1.0 / Math.pow(dist, power);
                     sumWeights += w;
                     sumLogR += w * p.logR;
                 }
 
-                let interpolatedRes;
-                if (exactMatch !== null) {
-                    interpolatedRes = exactMatch;
+                let interpLogR;
+                if (exactMatchLogR !== null) {
+                    interpLogR = exactMatchLogR;
                 } else if (sumWeights > 0) {
-                    interpolatedRes = Math.pow(10, sumLogR / sumWeights);
+                    interpLogR = sumLogR / sumWeights;
                 } else {
-                    interpolatedRes = 1.0e7;
+                    interpLogR = 7.0; // 1e7 default
                 }
 
-                // Smooth color transition based on requirements:
-                // <= 1.0e8: Verde (#10B981)
-                // 1.01e8 - 0.99e9: Naranja (#F59E0B)
-                // >= 1.0e9: Rojo (#EF4444)
+                // Physical ESD floor qualification logic (ANSI/ESD S20.20):
+                // <= 1.0e8 Ohms (log <= 8.0) -> PURE SOLID GREEN (#10B981)
+                // 1.01e8 - 0.99e9 Ohms (8.0 < log < 9.0) -> ORANGE (#F59E0B)
+                // >= 1.0e9 Ohms (log >= 9.0) -> PURE SOLID RED (#EF4444)
                 let red, green, blue;
-                if (interpolatedRes <= 1.0e8) {
-                    const t = Math.min(1, Math.max(0, (Math.log10(interpolatedRes) - 6) / 2));
-                    red = Math.round(16 + (200 - 16) * t * 0.4);
-                    green = Math.round(185 + (200 - 185) * t);
-                    blue = Math.round(129 * (1 - t * 0.5));
-                } else if (interpolatedRes < 1.0e9) {
-                    const t = Math.min(1, Math.max(0, (Math.log10(interpolatedRes) - 8) / 1));
-                    red = Math.round(245 + (239 - 245) * t);
-                    green = Math.round(158 * (1 - t * 0.45));
+
+                if (interpLogR <= 8.0) {
+                    // Solid Pure Green for all compliant green zones
+                    red = 16;
+                    green = 185;
+                    blue = 129;
+                } else if (interpLogR < 8.2) {
+                    // Smooth transition from Green (#10B981) to Orange (#F59E0B)
+                    const t = (interpLogR - 8.0) / 0.2;
+                    red = Math.round(16 + (245 - 16) * t);
+                    green = Math.round(185 + (158 - 185) * t);
+                    blue = Math.round(129 + (11 - 129) * t);
+                } else if (interpLogR <= 8.95) {
+                    // Solid Pure Orange for warning zone (1.01e8 - 0.99e9 Ohms)
+                    red = 245;
+                    green = 158;
                     blue = 11;
+                } else if (interpLogR < 9.05) {
+                    // Smooth transition from Orange (#F59E0B) to Red (#EF4444)
+                    const t = (interpLogR - 8.95) / 0.10;
+                    red = Math.round(245 + (239 - 245) * t);
+                    green = Math.round(158 + (68 - 158) * t);
+                    blue = Math.round(11 + (68 - 11) * t);
                 } else {
+                    // Solid Pure Red for out of spec (> 1.0e9 Ohms)
                     red = 239;
                     green = 68;
                     blue = 68;
                 }
 
-                const alpha = 145; // ~57% alpha for rich blended overlay
+                const alpha = activeHeatmapMode === 'heatmap' ? 225 : 140;
 
                 for (let dy = 0; dy < step && (y + dy) < height; dy++) {
                     for (let dx = 0; dx < step && (x + dx) < width; dx++) {
@@ -4250,7 +4270,7 @@
 
         const measuredCount = currentViewerMap.points.filter(p => p.lastResistanceOhms != null).length;
         if (measuredCount === 0) {
-            alert('Por favor captura al menos una medición en los puntos del plano antes de guardar.');
+            alert(t('maps.no_points_hint', 'Por favor captura al menos una medición en los puntos del plano antes de guardar.'));
             return;
         }
 
@@ -4280,9 +4300,15 @@
                 const passCount = measuredCount - failCount;
 
                 if (failCount > 0) {
-                    alert(`⚠️ Lote de ${measuredCount} mediciones guardado en el historial:\n\n• ${passCount} puntos CONFORMES (PASS ≤ 1.0e9 Ω)\n• ${failCount} puntos FUERA DE LÍMITE (FAIL > 1.0e9 Ω)\n\nTodos los registros se almacenaron correctamente para trazabilidad y se han marcado en rojo en el heatmap.`);
+                    const msg = t('maps.batch_alert_mixed', '⚠️ Lote de {0} mediciones guardado en el historial:\n\n• {1} puntos CONFORMES (PASS ≤ 1.0e9 Ω)\n• {2} puntos FUERA DE LÍMITE (FAIL > 1.0e9 Ω)\n\nTodos los registros se almacenaron correctamente para trazabilidad y se han marcado en rojo en el heatmap.')
+                        .replace('{0}', measuredCount)
+                        .replace('{1}', passCount)
+                        .replace('{2}', failCount);
+                    alert(msg);
                 } else {
-                    alert(`✅ Lote de ${measuredCount} mediciones de piso guardado exitosamente (100% PASS) y registrado en el historial.`);
+                    const msg = t('maps.batch_alert_pass', '✅ Lote de {0} mediciones de piso guardado exitosamente (100% PASS) y registrado en el historial.')
+                        .replace('{0}', measuredCount);
+                    alert(msg);
                 }
                 loadInfraData();
             } else {
