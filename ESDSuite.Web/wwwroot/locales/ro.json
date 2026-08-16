@@ -125,7 +125,9 @@
     "btn_add_res": "➕ Rezistență",
     "btn_add_volt": "➕ Tensiune",
     "lbl_obs": "Observații / Comentarii",
-    "btn_save": "💾 Salvare Audit",
+    "lbl_equipment": "Echipament de Măsurare Utilizat (Calibrat)",
+    "lbl_photo_evidence": "Dovadă Fotografică (Foto)",
+    "btn_save": "💾 Salvează Auditul",
     "loc": "Locație",
     "class": "Clasificare"
   },

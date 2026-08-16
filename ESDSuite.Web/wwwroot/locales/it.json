@@ -124,9 +124,11 @@
     "extra_points_heading": "➕ Punti di Misurazione Aggiuntivi",
     "btn_add_res": "➕ Resistenza",
     "btn_add_volt": "➕ Tensione",
-    "lbl_obs": "Note / Commenti",
+    "lbl_obs": "Osservazioni / Commenti",
+    "lbl_equipment": "Strumento di Misura Utilizzato (Calibrato)",
+    "lbl_photo_evidence": "Evidenza Fotografica (Foto)",
     "btn_save": "💾 Salva Audit",
-    "loc": "Ubicazione",
+    "loc": "Posizione",
     "class": "Classificazione"
   },
   "eventmeter": {

@@ -96,6 +96,12 @@ public class SaveFloorMeasurementBatchDto
     [JsonPropertyName("notes")]
     public string Notes { get; set; } = string.Empty;
 
+    [JsonPropertyName("equipmentId")]
+    public string EquipmentId { get; set; } = string.Empty;
+
+    [JsonPropertyName("evidenceUrl")]
+    public string EvidenceUrl { get; set; } = string.Empty;
+
     [JsonPropertyName("points")]
     public List<FloorMapPoint> Points { get; set; } = new();
 }

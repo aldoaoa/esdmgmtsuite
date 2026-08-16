@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.1</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.8.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.8.0</span>
             </div>
         </div>
     </aside>
@@ -351,6 +351,12 @@
                                         <option value="" data-i18n="audit.opt_select_line">-- Seleccionar Línea --</option>
                                     </select>
                                 </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label data-i18n="audit.lbl_equipment">Equipo de Medición Utilizado (Calibrado)*</label>
+                                    <select id="audit-equipment-select" class="form-control" required>
+                                        <option value="">-- Seleccionar Equipo de Medición --</option>
+                                    </select>
+                                </div>
                                 <div class="form-group">
                                     <label data-i18n="audit.lbl_element_type">Element Type*</label>
                                     <select id="audit-tipo-equipo" class="form-control" required onchange="onElementTypeChange(this.value)">
@@ -423,6 +429,18 @@
                                 </div>
                             </div>
 
+                            <div id="audit-photo-section" class="form-group" style="margin-top:12px;">
+                                <label data-i18n="audit.lbl_photo_evidence">Evidencia Fotográfica (Foto)</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="file" id="audit-photo-file" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleGenericPhotoUpload(this, 'audit-photo-img', 'audit-photo-thumb', 'audit-photo-url', 'tr53')" />
+                                    <div id="audit-photo-thumb" style="display:none; align-items:center; gap:4px;">
+                                        <img id="audit-photo-img" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                        <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearGenericPhoto('audit-photo-file', 'audit-photo-thumb', 'audit-photo-img', 'audit-photo-url')">🗑️</button>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="audit-photo-url" value="" />
+                            </div>
+
                             <div class="form-group" style="margin-top:12px;">
                                 <label data-i18n="audit.lbl_obs">Observaciones / Comentarios</label>
                                 <input type="text" id="audit-comentarios" class="form-control" placeholder="Sin observaciones" data-i18n-placeholder="audit.ph_comments" />
@@ -455,6 +473,12 @@
                                 <label data-i18n="eventmeter.lbl_op_id">ID de Operación / Activo*</label>
                                 <select id="em-op-id" class="form-control" required>
                                     <option value="" data-i18n="eventmeter.opt_select_asset">-- Seleccionar Activo u Operación --</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label data-i18n="audit.lbl_equipment">Equipo de Medición Utilizado (Calibrado)*</label>
+                                <select id="em-equipment-select" class="form-control" required>
+                                    <option value="">-- Seleccionar Event Meter / Detector --</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -499,7 +523,18 @@
                                     <input type="number" step="0.1" id="em-hum" class="form-control" placeholder="Ej: 45" data-i18n-placeholder="eventmeter.ph_humidity" />
                                 </div>
                             </div>
-                            <div class="form-group">
+                            <div id="em-photo-section" class="form-group" style="grid-column: span 2;">
+                                <label data-i18n="audit.lbl_photo_evidence">Evidencia Fotográfica (Foto)</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="file" id="em-photo-file" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleGenericPhotoUpload(this, 'em-photo-img', 'em-photo-thumb', 'em-photo-url', 'em')" />
+                                    <div id="em-photo-thumb" style="display:none; align-items:center; gap:4px;">
+                                        <img id="em-photo-img" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                        <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearGenericPhoto('em-photo-file', 'em-photo-thumb', 'em-photo-img', 'em-photo-url')">🗑️</button>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="em-photo-url" value="" />
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
                                 <label data-i18n="eventmeter.lbl_comments">Notas / Observaciones</label>
                                 <textarea id="em-notas" class="form-control" rows="2" placeholder="Sin observaciones" data-i18n-placeholder="eventmeter.ph_comments"></textarea>
                             </div>
@@ -627,6 +662,12 @@
                                     <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
                                 </select>
                             </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label data-i18n="audit.lbl_equipment">Equipo de Medición Utilizado (Calibrado)*</label>
+                                <select id="gnd-equipment-select" class="form-control" required>
+                                    <option value="">-- Seleccionar Comprobador de Tierras / Multímetro --</option>
+                                </select>
+                            </div>
                             <div class="form-group">
                                 <label data-i18n="infra.gr_id">Identificador del Punto (ID)*</label>
                                 <input id="gnd-id" class="form-control" placeholder="Ej: GND-01" required />
@@ -634,6 +675,17 @@
                             <div class="form-group">
                                 <label data-i18n="infra.gr_ohms">Resistencia a Tierra (Ohms)*</label>
                                 <input id="gnd-ohms" type="number" step="0.001" min="0" placeholder="Ej: 0.143" class="form-control" required />
+                            </div>
+                            <div id="gnd-photo-section" class="form-group" style="grid-column: span 2;">
+                                <label data-i18n="audit.lbl_photo_evidence">Evidencia Fotográfica (Foto)</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="file" id="gnd-photo-file" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleGenericPhotoUpload(this, 'gnd-photo-img', 'gnd-photo-thumb', 'gnd-photo-url', 'gnd')" />
+                                    <div id="gnd-photo-thumb" style="display:none; align-items:center; gap:4px;">
+                                        <img id="gnd-photo-img" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                        <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearGenericPhoto('gnd-photo-file', 'gnd-photo-thumb', 'gnd-photo-img', 'gnd-photo-url')">🗑️</button>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="gnd-photo-url" value="" />
                             </div>
                             <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.gr_save">💾 Guardar Verificación de Tierra</button>
                         </form>
@@ -710,6 +762,23 @@
                                     <input type="text" id="pt-modal-resistance" class="form-control" placeholder="Ej: 4.5e7 o 45000000" autofocus oninput="updatePointModalBadge(this.value)" />
                                     <small style="color:var(--text-muted); font-size:10.5px;" data-i18n="maps.scientific_note">Soporta notación científica (ej: 1.0e7, 3.8e8, 1.2e9)</small>
                                 </div>
+                                <div class="form-group" style="margin-top:8px;">
+                                    <label data-i18n="audit.lbl_equipment" style="font-size:11.5px;">Megóhmetro Utilizado:</label>
+                                    <select id="pt-modal-equipment" class="form-control" style="font-size:11.5px;">
+                                        <option value="">-- Seleccionar Megóhmetro --</option>
+                                    </select>
+                                </div>
+                                <div id="pt-modal-photo-section" class="form-group" style="margin-top:8px;">
+                                    <label data-i18n="audit.lbl_photo_evidence" style="font-size:11px;">Evidencia Fotográfica (Foto)</label>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <input type="file" id="pt-modal-photo-file" accept="image/*" capture="environment" class="form-control" style="font-size:11px; padding:3px 6px; height:32px;" onchange="handleGenericPhotoUpload(this, 'pt-modal-photo-img', 'pt-modal-photo-thumb', 'pt-modal-photo-url', 'fl_pt')" />
+                                        <div id="pt-modal-photo-thumb" style="display:none; align-items:center; gap:4px;">
+                                            <img id="pt-modal-photo-img" src="" style="width:32px; height:32px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                            <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:13px; padding:2px 4px;" onclick="clearGenericPhoto('pt-modal-photo-file', 'pt-modal-photo-thumb', 'pt-modal-photo-img', 'pt-modal-photo-url')">🗑️</button>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="pt-modal-photo-url" value="" />
+                                </div>
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
                                     <span id="pt-modal-badge" class="badge-pass">--</span>
                                     <button type="button" class="btn-primary" onclick="applyPointMeasurement()" data-i18n="maps.btn_apply">Aplicar</button>
@@ -731,6 +800,12 @@
                                     <label data-i18n="infra.fl_point">Número de Punto*</label>
                                     <input id="fl-point" type="number" min="1" class="form-control" placeholder="Ej: 1" required />
                                 </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label data-i18n="audit.lbl_equipment">Equipo de Medición Utilizado (Calibrado)*</label>
+                                    <select id="fl-equipment-select" class="form-control" required>
+                                        <option value="">-- Seleccionar Megóhmetro / Sondas 5lb --</option>
+                                    </select>
+                                </div>
                                 <div class="form-group">
                                     <label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*</label>
                                     <input id="fl-ohms" type="text" class="form-control" placeholder="Ej: 1.0e7" required />
@@ -738,6 +813,17 @@
                                 <div class="form-group">
                                     <label>Temperatura (°C) / Humedad (%)</label>
                                     <input id="fl-temp-hum" class="form-control" placeholder="Ej: 23.5°C / 45%" />
+                                </div>
+                                <div id="fl-photo-section" class="form-group" style="grid-column: span 2;">
+                                    <label data-i18n="audit.lbl_photo_evidence">Evidencia Fotográfica (Foto)</label>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <input type="file" id="fl-photo-file" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleGenericPhotoUpload(this, 'fl-photo-img', 'fl-photo-thumb', 'fl-photo-url', 'floor')" />
+                                        <div id="fl-photo-thumb" style="display:none; align-items:center; gap:4px;">
+                                            <img id="fl-photo-img" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                            <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearGenericPhoto('fl-photo-file', 'fl-photo-thumb', 'fl-photo-img', 'fl-photo-url')">🗑️</button>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="fl-photo-url" value="" />
                                 </div>
                                 <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.fl_save">💾 Guardar Verificación de Piso</button>
                             </form>
@@ -775,6 +861,12 @@
                                 <div class="form-group">
                                     <label data-i18n="infra.iso_op">Operación / Estación / ID*</label>
                                     <input id="iso-op" class="form-control" placeholder="Ej: ROUTER-01 / CONV-02" required />
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="audit.lbl_equipment">Equipo de Medición Utilizado (Calibrado)*</label>
+                                    <select id="iso-equipment-select" class="form-control">
+                                        <option value="">-- Seleccionar Medidor de Campo / Voltímetro --</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -868,8 +960,11 @@
                                     </select>
                                 </div>
                                 <div class="form-group" style="margin-bottom:0;">
-                                    <label>Megóhmetro Patrón de Referencia</label>
-                                    <input id="chk-meg-ref-id" class="form-control" placeholder="Ej: MEGOHM-01 (Calibrado)" />
+                                    <label data-i18n="audit.lbl_equipment">Megóhmetro Patrón de Referencia*</label>
+                                    <select id="chk-meg-ref-select" class="form-control" onchange="document.getElementById('chk-meg-ref-id').value = this.value">
+                                        <option value="">-- Seleccionar Megóhmetro Calibrado --</option>
+                                    </select>
+                                    <input type="hidden" id="chk-meg-ref-id" value="" />
                                 </div>
                                 <div class="form-group" style="margin-bottom:0;">
                                     <label data-i18n="infra.chk_range_info">Rango Dinámico del Equipo:</label>
@@ -941,6 +1036,18 @@
                             <div class="form-group">
                                 <label data-i18n="audit.lbl_obs">Observaciones / Comentarios</label>
                                 <input id="chk-obs" class="form-control" placeholder="Observaciones de la verificación..." />
+                            </div>
+
+                            <div id="chk-photo-section" class="form-group" style="margin-top:12px;">
+                                <label data-i18n="audit.lbl_photo_evidence">Evidencia Fotográfica (Foto)</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <input type="file" id="chk-photo-file" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleGenericPhotoUpload(this, 'chk-photo-img', 'chk-photo-thumb', 'chk-photo-url', 'chk')" />
+                                    <div id="chk-photo-thumb" style="display:none; align-items:center; gap:4px;">
+                                        <img id="chk-photo-img" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                        <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearGenericPhoto('chk-photo-file', 'chk-photo-thumb', 'chk-photo-img', 'chk-photo-url')">🗑️</button>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="chk-photo-url" value="" />
                             </div>
 
                             <button type="submit" id="btn-save-chk" class="btn-primary" style="width:100%; height:44px; font-size:13.5px; font-weight:700; border-radius:8px; margin-top:8px;" data-i18n="infra.chk_save">
@@ -1215,6 +1322,7 @@
                         <button class="tab-btn" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
                         <button class="tab-btn" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
                         <button class="tab-btn" onclick="switchSettingsTab('maps')" id="set-tab-btn-maps">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
+                        <button class="tab-btn" onclick="switchSettingsTab('photos')" id="set-tab-btn-photos">📸 <span>Evidencias Fotográficas</span></button>
                     </div>
 
                     <!-- TAB 1: WINDOWS EXPLORER TREE VIEW HIERARCHY -->
@@ -1530,6 +1638,78 @@
                                 </div>
                             </div>
                         </div>
+                    <!-- TAB 6: PHOTO EVIDENCE SETTINGS PER SECTION & SITE -->
+                    <div id="set-tab-photos" class="tab-content">
+                        <div class="glass-card" style="max-width:800px; padding:22px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                                <div>
+                                    <h4 style="margin:0; font-size:16px;">📸 Configuración de Evidencias Fotográficas por Sección</h4>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">Activa o desactiva la captura de evidencia fotográfica para cada módulo de medición según las políticas del site.</p>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <label style="font-size:12px; font-weight:700;">Site / Planta:</label>
+                                    <select id="photo-policy-site-select" class="form-control" style="width:200px; font-size:12px;" onchange="loadSitePhotoPolicyForAdmin(this.value)">
+                                        <option value="">Selecciona Site...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <form id="form-site-photo-policy" onsubmit="submitSitePhotoPolicy(event)">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px;">
+                                    <label style="display:flex; align-items:center; gap:10px; background:#F8FAFC; border:1px solid var(--border-color); padding:12px; border-radius:8px; cursor:pointer;">
+                                        <input type="checkbox" id="pol-audit-tr53" checked style="width:18px; height:18px;" />
+                                        <div>
+                                            <div style="font-weight:700; font-size:13px;">🛠️ Auditoría en Piso (TR53)</div>
+                                            <div style="font-size:11px; color:var(--text-muted);">Mobiliario, Maquinaria, Ionizadores</div>
+                                        </div>
+                                    </label>
+
+                                    <label style="display:flex; align-items:center; gap:10px; background:#F8FAFC; border:1px solid var(--border-color); padding:12px; border-radius:8px; cursor:pointer;">
+                                        <input type="checkbox" id="pol-event-meter" checked style="width:18px; height:18px;" />
+                                        <div>
+                                            <div style="font-weight:700; font-size:13px;">⚡ Event Meter</div>
+                                            <div style="font-size:11px; color:var(--text-muted);">Descargas ESD en operaciones críticas</div>
+                                        </div>
+                                    </label>
+
+                                    <label style="display:flex; align-items:center; gap:10px; background:#F8FAFC; border:1px solid var(--border-color); padding:12px; border-radius:8px; cursor:pointer;">
+                                        <input type="checkbox" id="pol-grounding" checked style="width:18px; height:18px;" />
+                                        <div>
+                                            <div style="font-weight:700; font-size:13px;">⚡ Tierras & Conexiones</div>
+                                            <div style="font-size:11px; color:var(--text-muted);">Puntos principales y auxiliares</div>
+                                        </div>
+                                    </label>
+
+                                    <label style="display:flex; align-items:center; gap:10px; background:#F8FAFC; border:1px solid var(--border-color); padding:12px; border-radius:8px; cursor:pointer;">
+                                        <input type="checkbox" id="pol-flooring" checked style="width:18px; height:18px;" />
+                                        <div>
+                                            <div style="font-weight:700; font-size:13px;">🔲 Pisos ESD</div>
+                                            <div style="font-size:11px; color:var(--text-muted);">Mapa interactivo y registro manual</div>
+                                        </div>
+                                    </label>
+
+                                    <label style="display:flex; align-items:center; gap:10px; background:#F8FAFC; border:1px solid var(--border-color); padding:12px; border-radius:8px; cursor:pointer;">
+                                        <input type="checkbox" id="pol-isolated" checked style="width:18px; height:18px;" />
+                                        <div>
+                                            <div style="font-weight:700; font-size:13px;">⚡ Conductores Aislados</div>
+                                            <div style="font-size:11px; color:var(--text-muted);">Voltaje inducido en zonas críticas</div>
+                                        </div>
+                                    </label>
+
+                                    <label style="display:flex; align-items:center; gap:10px; background:#F8FAFC; border:1px solid var(--border-color); padding:12px; border-radius:8px; cursor:pointer;">
+                                        <input type="checkbox" id="pol-checkers" checked style="width:18px; height:18px;" />
+                                        <div>
+                                            <div style="font-weight:700; font-size:13px;">🥾 Checadores de Entrada</div>
+                                            <div style="font-size:11px; color:var(--text-muted);">Calzado y pulseras de acceso</div>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <button type="submit" class="btn-primary" style="margin-top:20px; width:100%; height:44px; font-weight:700; font-size:13.5px;">
+                                    💾 Guardar Políticas de Evidencia Fotográfica
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1575,7 +1755,9 @@
                 
                 enforceRolePermissions();
                 await loadTranslations(userLang);
-                loadSites();
+                await loadSites();
+                await loadEquipmentForSite();
+                await loadSitePhotoPolicy();
                 loadDashboardMetrics();
             } else {
                 const landingLang = getStoredLang();
@@ -1886,6 +2068,9 @@
             if (subVal !== null) hSub.innerHTML = subVal;
         }
 
+        loadEquipmentForSite();
+        loadSitePhotoPolicy();
+
         if (modName === 'dashboard') loadDashboardMetrics();
         if (modName === 'audit') initQRScanner();
         if (modName === 'eventmeter') {
@@ -2161,6 +2346,9 @@
             ? (document.getElementById('ion-punto-contacto')?.value.trim() || '') 
             : (document.getElementById('mob-punto-contacto')?.value.trim() || '');
 
+        const equipment_id = document.getElementById('audit-equipment-select')?.value || '';
+        const evidence_url = document.getElementById('audit-photo-url')?.value || '';
+
         const payload = {
             id_elemento,
             tipo_equipo,
@@ -2170,6 +2358,8 @@
             punto_contacto,
             auditor,
             comentarios,
+            equipment_id,
+            evidence_url,
             es_maquinaria: group === 'machinery'
         };
 
@@ -2196,6 +2386,7 @@
             }
             extraPoints = [];
             renderExtraPoints();
+            clearGenericPhoto('audit-photo-file', 'audit-photo-thumb', 'audit-photo-img', 'audit-photo-url');
             lookupScannedAsset(id_elemento);
         } else {
             alert('❌ Error al guardar la auditoría.');
@@ -2316,6 +2507,8 @@
             voltaje_maximo: parseFloat(document.getElementById('em-volt-max').value) || 0,
             temperatura: tempVal,
             humedad: humVal,
+            equipment_id: document.getElementById('em-equipment-select')?.value || '',
+            evidence_url: document.getElementById('em-photo-url')?.value || '',
             notas: document.getElementById('em-notas').value.trim()
         };
 
@@ -2340,6 +2533,7 @@
                 document.getElementById('em-temp').value = '';
                 document.getElementById('em-hum').value = '';
                 document.getElementById('em-notas').value = '';
+                clearGenericPhoto('em-photo-file', 'em-photo-thumb', 'em-photo-img', 'em-photo-url');
                 loadEventMeterHistory();
             } else {
                 alert('❌ Error al guardar el registro de Event Meter.');
@@ -2761,6 +2955,8 @@
 
         const limit = pointType.includes('Auxiliary') ? 25.0 : (pointType.includes('Main') ? 1.0 : 2.0);
         const isPass = ohms <= limit;
+        const equipment_id = document.getElementById('gnd-equipment-select')?.value || '';
+        const evidence_url = document.getElementById('gnd-photo-url')?.value || '';
 
         try {
             const res = await fetch('/api/infra/grounding', {
@@ -2775,6 +2971,8 @@
                     location: loc,
                     point_id: pointId,
                     resistance_ohms: ohms,
+                    equipment_id: equipment_id,
+                    evidence_url: evidence_url,
                     site_id: (sessionData && sessionData.site_id) || ''
                 })
             });
@@ -2788,6 +2986,7 @@
                 document.getElementById('gnd-loc').value = '';
                 document.getElementById('gnd-id').value = '';
                 document.getElementById('gnd-ohms').value = '';
+                clearGenericPhoto('gnd-photo-file', 'gnd-photo-thumb', 'gnd-photo-img', 'gnd-photo-url');
                 loadInfraData();
             } else {
                 alert('❌ Error al guardar verificación de tierra.');
@@ -2807,6 +3006,8 @@
         const pointNum = parseInt(document.getElementById('fl-point').value) || 1;
         const ptpRaw = document.getElementById('fl-ohms').value.trim();
         const tempHum = document.getElementById('fl-temp-hum').value.trim();
+        const equipment_id = document.getElementById('fl-equipment-select')?.value || '';
+        const evidence_url = document.getElementById('fl-photo-url')?.value || '';
 
         try {
             const res = await fetch('/api/infra/floors', {
@@ -2822,12 +3023,21 @@
                     ptp_resistance: ptpRaw,
                     resistance_ohms: parseFloat(ptpRaw) || 0,
                     temp_hum: tempHum,
+                    equipment_id: equipment_id,
+                    evidence_url: evidence_url,
                     site_id: (sessionData && sessionData.site_id) || ''
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
                 alert('✅ Verificación de Piso ESD registrada exitosamente.');
+                document.getElementById('fl-room').value = '';
+                document.getElementById('fl-point').value = '';
+                document.getElementById('fl-ohms').value = '';
+                document.getElementById('fl-temp-hum').value = '';
+                clearGenericPhoto('fl-photo-file', 'fl-photo-thumb', 'fl-photo-img', 'fl-photo-url');
+                loadInfraData();
+            } else {
                 document.getElementById('fl-room').value = '';
                 document.getElementById('fl-point').value = '';
                 document.getElementById('fl-ohms').value = '';
@@ -3051,6 +3261,193 @@
         }
     }
 
+    // ========================================================
+    // UNIVERSAL MEASUREMENT EQUIPMENT POPULATION & TRACEABILITY
+    // ========================================================
+    async function loadEquipmentForSite() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        if (!siteId) return;
+
+        try {
+            const res = await fetch(`/api/equipment?siteId=${siteId}`);
+            if (!res.ok) return;
+            const eqList = await res.json();
+
+            const selects = [
+                'audit-equipment-select',
+                'em-equipment-select',
+                'gnd-equipment-select',
+                'fl-equipment-select',
+                'pt-modal-equipment',
+                'iso-equipment-select',
+                'chk-meg-ref-select'
+            ];
+
+            selects.forEach(selId => {
+                const el = document.getElementById(selId);
+                if (!el) return;
+                const currentVal = el.value;
+                el.innerHTML = '<option value="">-- Seleccionar Equipo de Medición (Calibrado) --</option>';
+                if (eqList && Array.isArray(eqList)) {
+                    eqList.forEach(eq => {
+                        const opt = document.createElement('option');
+                        opt.value = eq.codigo_equipo || eq.id;
+                        const statusBadge = (eq.estatus === 'VENCIDO') ? ' [⚠️ VENCIDO]' : (eq.estatus === 'PROXIMO_VENCER' ? ' [⏳ POR VENCER]' : ' [✅ VIGENTE]');
+                        opt.text = `${eq.codigo_equipo || 'EQ'} - ${eq.nombre_equipo || ''} (${eq.marca_modelo || 'N/A'})${statusBadge}`;
+                        opt.dataset.estatus = eq.estatus || 'VIGENTE';
+                        el.appendChild(opt);
+                    });
+                }
+                if (currentVal) el.value = currentVal;
+            });
+        } catch(e) {
+            console.error('Error loading site equipment:', e);
+        }
+    }
+
+    // ========================================================
+    // SITE PHOTO EVIDENCE POLICIES (PER SITE & SECTION)
+    // ========================================================
+    async function loadSitePhotoPolicy() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        if (!siteId) return;
+
+        try {
+            const res = await fetch(`/api/sites/${siteId}/photo-policy`);
+            if (!res.ok) return;
+            const policy = await res.json();
+
+            const toggle = (sectionId, enabled) => {
+                const el = document.getElementById(sectionId);
+                if (el) el.style.display = (enabled !== false) ? 'block' : 'none';
+            };
+
+            toggle('audit-photo-section', policy.audit_tr53);
+            toggle('em-photo-section', policy.event_meter);
+            toggle('gnd-photo-section', policy.grounding);
+            toggle('fl-photo-section', policy.flooring);
+            toggle('pt-modal-photo-section', policy.flooring);
+            toggle('chk-photo-section', policy.checkers);
+        } catch(e) {
+            console.warn('Error loading site photo policy:', e);
+        }
+    }
+
+    async function loadPhotoPolicySettingsTab() {
+        const siteSel = document.getElementById('photo-policy-site-select');
+        if (!siteSel) return;
+        siteSel.innerHTML = '';
+        if (allSites && Array.isArray(allSites)) {
+            allSites.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.text = s.name;
+                if (s.id === sessionData.site_id) opt.selected = true;
+                siteSel.appendChild(opt);
+            });
+        }
+        await loadSitePhotoPolicyForAdmin(siteSel.value || (sessionData && sessionData.site_id));
+    }
+
+    async function loadSitePhotoPolicyForAdmin(siteId) {
+        if (!siteId) return;
+        try {
+            const res = await fetch(`/api/sites/${siteId}/photo-policy`);
+            if (!res.ok) return;
+            const pol = await res.json();
+            document.getElementById('pol-audit-tr53').checked = pol.audit_tr53 !== false;
+            document.getElementById('pol-event-meter').checked = pol.event_meter !== false;
+            document.getElementById('pol-grounding').checked = pol.grounding !== false;
+            document.getElementById('pol-flooring').checked = pol.flooring !== false;
+            document.getElementById('pol-isolated').checked = pol.isolated !== false;
+            document.getElementById('pol-checkers').checked = pol.checkers !== false;
+        } catch(e) {
+            console.error('Error loading admin photo policy:', e);
+        }
+    }
+
+    async function submitSitePhotoPolicy(e) {
+        e.preventDefault();
+        const siteId = document.getElementById('photo-policy-site-select').value || (sessionData && sessionData.site_id);
+        if (!siteId) {
+            alert('Por favor selecciona una planta/site.');
+            return;
+        }
+        const payload = {
+            audit_tr53: document.getElementById('pol-audit-tr53').checked,
+            event_meter: document.getElementById('pol-event-meter').checked,
+            grounding: document.getElementById('pol-grounding').checked,
+            flooring: document.getElementById('pol-flooring').checked,
+            isolated: document.getElementById('pol-isolated').checked,
+            checkers: document.getElementById('pol-checkers').checked
+        };
+
+        try {
+            const res = await fetch(`/api/sites/${siteId}/photo-policy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                alert('✅ Políticas de evidencia fotográfica actualizadas correctamente para este site.');
+                await loadSitePhotoPolicy();
+            } else {
+                alert('❌ Error al guardar políticas de evidencia fotográfica.');
+            }
+        } catch(ex) {
+            alert('❌ Error de conexión al servidor.');
+        }
+    }
+
+    // ========================================================
+    // GENERIC EVIDENCE PHOTO UPLOAD & CANVAS DOWNSAMPLE
+    // ========================================================
+    async function handleGenericPhotoUpload(inputEl, imgId, thumbId, urlInputId, prefix = 'ev') {
+        if (!inputEl || !inputEl.files || !inputEl.files[0]) return;
+        const file = inputEl.files[0];
+        
+        const compressedBase64 = await compressEvidenceImage(file, 1024, 0.75);
+        if (!compressedBase64) return;
+
+        const thumb = document.getElementById(thumbId);
+        const img = document.getElementById(imgId);
+        const urlInput = document.getElementById(urlInputId);
+
+        if (img) img.src = compressedBase64;
+        if (thumb) thumb.style.display = 'inline-flex';
+        if (urlInput) urlInput.value = compressedBase64;
+
+        try {
+            const res = await fetch('/api/infra/isolated/upload-photo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    base64: compressedBase64,
+                    filename: `${prefix}_${Date.now()}.jpg`
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.url && urlInput) {
+                    urlInput.value = data.url;
+                }
+            }
+        } catch(e) {
+            console.warn('Background photo upload note:', e);
+        }
+    }
+
+    function clearGenericPhoto(fileInputId, thumbId, imgId, urlInputId) {
+        const fileInput = document.getElementById(fileInputId);
+        const thumb = document.getElementById(thumbId);
+        const img = document.getElementById(imgId);
+        const urlInput = document.getElementById(urlInputId);
+        if (fileInput) fileInput.value = '';
+        if (thumb) thumb.style.display = 'none';
+        if (img) img.src = '';
+        if (urlInput) urlInput.value = '';
+    }
+
     async function loadIsolatedHistory() {
         const siteId = (sessionData && sessionData.site_id) || '';
         const container = document.getElementById('isolated-history-table');
@@ -3143,6 +3540,7 @@
             return;
         }
         const notes = document.getElementById('iso-notes').value.trim();
+        const equipment_id = document.getElementById('iso-equipment-select')?.value || '';
 
         // Collect points
         const points = [];
@@ -3187,6 +3585,7 @@
                     location: loc,
                     asset_id: assetId,
                     operation_id: op,
+                    equipment_id: equipment_id,
                     points: points,
                     notes: notes,
                     site_id: (sessionData && sessionData.site_id) || ''
@@ -3369,6 +3768,8 @@
         const minR = parseFloat(document.getElementById('chk-range-min').value) || 1e3;
         const maxR = parseFloat(document.getElementById('chk-range-max').value) || 1e12;
         const obs = document.getElementById('chk-obs').value.trim();
+        const equipment_id = document.getElementById('chk-meg-ref-select')?.value || document.getElementById('chk-meg-ref-id')?.value || '';
+        const evidence_url = document.getElementById('chk-photo-url')?.value || '';
 
         try {
             const res = await fetch('/api/infra/checkers', {
@@ -3386,6 +3787,8 @@
                     reading_right: readR,
                     range_min: minR,
                     range_max: maxR,
+                    equipment_id: equipment_id,
+                    evidence_url: evidence_url,
                     observations: obs,
                     site_id: (sessionData && sessionData.site_id) || ''
                 })
@@ -3405,6 +3808,7 @@
                 document.getElementById('chk-ref-l').value = '';
                 document.getElementById('chk-ref-r').value = '';
                 document.getElementById('chk-obs').value = '';
+                clearGenericPhoto('chk-photo-file', 'chk-photo-thumb', 'chk-photo-img', 'chk-photo-url');
                 updateCheckerVariation();
 
                 await loadCheckersHistory();
@@ -3757,6 +4161,7 @@
 
         if (tabName === 'equipment') loadEquipmentTable();
         if (tabName === 'maps') loadMapsEditor();
+        if (tabName === 'photos') loadPhotoPolicySettingsTab();
     }
 
     // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW & SETTINGS ---
@@ -4792,6 +5197,21 @@
         const resInput = document.getElementById('pt-modal-resistance');
         resInput.value = pt.lastResistanceOhms != null ? formatResistanceScientific(pt.lastResistanceOhms) : '';
 
+        if (document.getElementById('pt-modal-equipment')) {
+            document.getElementById('pt-modal-equipment').value = pt.equipmentId || '';
+        }
+        if (document.getElementById('pt-modal-photo-url')) {
+            document.getElementById('pt-modal-photo-url').value = pt.evidenceUrl || '';
+            const thumb = document.getElementById('pt-modal-photo-thumb');
+            const img = document.getElementById('pt-modal-photo-img');
+            if (pt.evidenceUrl && thumb && img) {
+                img.src = pt.evidenceUrl;
+                thumb.style.display = 'inline-flex';
+            } else {
+                clearGenericPhoto('pt-modal-photo-file', 'pt-modal-photo-thumb', 'pt-modal-photo-img', 'pt-modal-photo-url');
+            }
+        }
+
         updatePointModalBadge(resInput.value);
         document.getElementById('modal-point-measurement').style.display = 'flex';
         setTimeout(() => resInput.focus(), 50);
@@ -4842,7 +5262,12 @@
             return;
         }
 
+        const eqVal = document.getElementById('pt-modal-equipment')?.value || '';
+        const photoUrl = document.getElementById('pt-modal-photo-url')?.value || '';
+
         currentViewerMap.points[activePointEditIdx].lastResistanceOhms = ohms;
+        currentViewerMap.points[activePointEditIdx].equipmentId = eqVal;
+        currentViewerMap.points[activePointEditIdx].evidenceUrl = photoUrl;
         currentViewerMap.points[activePointEditIdx].measuredAt = new Date().toISOString();
 
         closePointMeasurementModal();

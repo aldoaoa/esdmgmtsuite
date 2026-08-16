@@ -1427,8 +1427,9 @@ public class ApiController : ControllerBase
         return Ok(new { success = result != null, score, passed, data = result });
     }
 
-    // --- MEASUREMENT EQUIPMENT ---
+    // --- MEASUREMENT EQUIPMENT & SITE PHOTO POLICIES ---
     [HttpGet("equipment")]
+    [HttpGet("catalogo-equipos")]
     public async Task<IActionResult> GetEquipment([FromQuery] string? siteId)
     {
         string targetSite = siteId ?? "";
@@ -1439,6 +1440,64 @@ public class ApiController : ControllerBase
 
         var data = await _supabase.GetCatalogoEquiposAsync(string.IsNullOrEmpty(targetSite) ? null : targetSite);
         return Ok(data);
+    }
+
+    [HttpGet("sites/{siteId}/photo-policy")]
+    public async Task<IActionResult> GetSitePhotoPolicy(string siteId)
+    {
+        string filePath = Path.Combine(_env.WebRootPath, "data", "site_photo_policies.json");
+        if (System.IO.File.Exists(filePath))
+        {
+            try
+            {
+                string json = await System.IO.File.ReadAllTextAsync(filePath);
+                var root = JsonNode.Parse(json) as JsonObject;
+                if (root != null && root[siteId] != null)
+                {
+                    return Ok(root[siteId]);
+                }
+            }
+            catch { }
+        }
+
+        return Ok(new
+        {
+            audit_tr53 = true,
+            event_meter = true,
+            grounding = true,
+            flooring = true,
+            isolated = true,
+            checkers = true,
+            walking_test = true
+        });
+    }
+
+    [HttpPost("sites/{siteId}/photo-policy")]
+    public async Task<IActionResult> SaveSitePhotoPolicy(string siteId, [FromBody] JsonObject payload)
+    {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para modificar la política de fotos." });
+        }
+
+        string dataDir = Path.Combine(_env.WebRootPath, "data");
+        Directory.CreateDirectory(dataDir);
+        string filePath = Path.Combine(dataDir, "site_photo_policies.json");
+
+        JsonObject root = new JsonObject();
+        if (System.IO.File.Exists(filePath))
+        {
+            try
+            {
+                string json = await System.IO.File.ReadAllTextAsync(filePath);
+                root = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+            }
+            catch { }
+        }
+
+        root[siteId] = payload;
+        await System.IO.File.WriteAllTextAsync(filePath, root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        return Ok(new { success = true, policy = payload });
     }
 
     [HttpPost("equipment")]

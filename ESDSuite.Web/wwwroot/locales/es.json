@@ -125,6 +125,8 @@
     "btn_add_res": "➕ Resistencia",
     "btn_add_volt": "➕ Voltaje",
     "lbl_obs": "Observaciones / Comentarios",
+    "lbl_equipment": "Equipo de Medición Utilizado (Calibrado)",
+    "lbl_photo_evidence": "Evidencia Fotográfica (Foto)",
     "btn_save": "💾 Guardar Auditoría",
     "loc": "Ubicación",
     "class": "Clasificación"

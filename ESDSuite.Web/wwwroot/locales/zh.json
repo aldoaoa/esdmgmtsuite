@@ -124,8 +124,10 @@
     "extra_points_heading": "➕ 额外测量点",
     "btn_add_res": "➕ 电阻",
     "btn_add_volt": "➕ 电压",
-    "lbl_obs": "备注 / 说明",
-    "btn_save": "💾 保存审计",
+    "lbl_obs": "观察与备注",
+    "lbl_equipment": "使用的测量设备 (已校准)",
+    "lbl_photo_evidence": "照片凭证 (照片)",
+    "btn_save": "💾 保存审计记录",
     "loc": "位置",
     "class": "分类"
   },

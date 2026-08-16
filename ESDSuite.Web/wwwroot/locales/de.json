@@ -124,7 +124,9 @@
     "extra_points_heading": "➕ Zusätzliche Messpunkte",
     "btn_add_res": "➕ Widerstand",
     "btn_add_volt": "➕ Spannung",
-    "lbl_obs": "Bemerkungen / Kommentare",
+    "lbl_obs": "Beobachtungen / Kommentare",
+    "lbl_equipment": "Verwendetes Messgerät (Kalibriert)",
+    "lbl_photo_evidence": "Fotonachweis (Foto)",
     "btn_save": "💾 Audit speichern",
     "loc": "Standort",
     "class": "Klassifizierung"
