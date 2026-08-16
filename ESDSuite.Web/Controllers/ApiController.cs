@@ -15,8 +15,6 @@ namespace ESDSuite.Web.Controllers;
 [Route("api")]
 public class ApiController : ControllerBase
 {
-    private readonly SupabaseService _supabase;
-    private readonly FloorMapStorageService _mapStorage;
     private const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
     private const string DefaultAuditorId = "84d85bea-272c-42d1-ad14-35eb702f1e56";
 
@@ -64,10 +62,15 @@ public class ApiController : ControllerBase
         }
     }
 
-    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage)
+    private readonly SupabaseService _supabase;
+    private readonly FloorMapStorageService _mapStorage;
+    private readonly IWebHostEnvironment _env;
+
+    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage, IWebHostEnvironment env)
     {
         _supabase = supabase;
         _mapStorage = mapStorage;
+        _env = env;
     }
 
     [HttpPost("login")]
@@ -807,7 +810,40 @@ public class ApiController : ControllerBase
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var data = await _supabase.GetIsolatedConductorsLogsAsync(targetSite);
-        return Ok(data);
+        
+        var resultList = new JsonArray();
+        foreach (var item in data)
+        {
+            if (item is JsonObject obj)
+            {
+                var clone = JsonNode.Parse(obj.ToJsonString())?.AsObject() ?? new JsonObject();
+                string commentsStr = obj["comments"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(commentsStr) && commentsStr.TrimStart().StartsWith("{"))
+                {
+                    try
+                    {
+                        var parsed = JsonNode.Parse(commentsStr)?.AsObject();
+                        if (parsed != null)
+                        {
+                            if (parsed["points"] != null) clone["points"] = parsed["points"]?.DeepClone();
+                            if (parsed["status_result"] != null) clone["status_result"] = parsed["status_result"]?.ToString();
+                            if (parsed["asset_id"] != null) clone["asset_id"] = parsed["asset_id"]?.ToString();
+                            if (parsed["notes"] != null) clone["notes"] = parsed["notes"]?.ToString();
+                        }
+                    }
+                    catch { }
+                }
+                
+                if (clone["status_result"] == null)
+                {
+                    double v = clone["max_voltage"]?.GetValue<double>() ?? 0;
+                    clone["status_result"] = (v >= -35.0 && v <= 35.0) ? "PASS" : "FAIL";
+                }
+                
+                resultList.Add(clone);
+            }
+        }
+        return Ok(resultList);
     }
 
     [HttpPost("infra/isolated")]
@@ -820,11 +856,85 @@ public class ApiController : ControllerBase
         if (payload["measured_at"] == null)
             payload["measured_at"] = DateTime.UtcNow.ToString("o");
 
-        double volts = payload["max_voltage"]?.GetValue<double>() ?? 0;
-        payload["status_result"] = volts <= 35.0 ? "PASS" : "FAIL";
+        double maxAbsVolt = 0;
+        double maxSignedVolt = 0;
+        bool hasFail = false;
+        
+        var pointsArr = payload["points"] as JsonArray;
+        if (pointsArr != null && pointsArr.Count > 0)
+        {
+            for (int i = 0; i < pointsArr.Count; i++)
+            {
+                if (pointsArr[i] is JsonObject pObj)
+                {
+                    double v = pObj["voltage"]?.GetValue<double>() ?? 0;
+                    if (Math.Abs(v) >= maxAbsVolt || i == 0)
+                    {
+                        maxAbsVolt = Math.Abs(v);
+                        maxSignedVolt = v;
+                    }
+                    bool pPass = v >= -35.0 && v <= 35.0;
+                    pObj["status"] = pPass ? "PASS" : "FAIL";
+                    if (!pPass) hasFail = true;
+                }
+            }
+            payload["max_voltage"] = maxSignedVolt;
+        }
+        else
+        {
+            double v = payload["max_voltage"]?.GetValue<double>() ?? 0;
+            hasFail = v < -35.0 || v > 35.0;
+            payload["max_voltage"] = v;
+        }
 
-        var result = await _supabase.InsertIsolatedConductorsLogAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        string overallStatus = hasFail ? "FAIL" : "PASS";
+        payload["status_result"] = overallStatus;
+
+        var structuredComments = new JsonObject
+        {
+            ["notes"] = payload["notes"]?.ToString() ?? payload["comments"]?.ToString() ?? "",
+            ["status_result"] = overallStatus,
+            ["asset_id"] = payload["asset_id"]?.ToString() ?? payload["operation_id"]?.ToString() ?? "",
+            ["points"] = pointsArr?.DeepClone() ?? new JsonArray()
+        };
+        payload["comments"] = structuredComments.ToJsonString();
+
+        var insertPayload = new JsonObject
+        {
+            ["site_id"] = payload["site_id"]?.ToString(),
+            ["auditor_id"] = payload["auditor_id"]?.ToString(),
+            ["location"] = payload["location"]?.ToString() ?? "General",
+            ["operation_id"] = payload["operation_id"]?.ToString() ?? "ISO-01",
+            ["max_voltage"] = payload["max_voltage"]?.GetValue<double>() ?? 0,
+            ["comments"] = payload["comments"]?.ToString(),
+            ["measured_at"] = payload["measured_at"]?.ToString()
+        };
+
+        var result = await _supabase.InsertIsolatedConductorsLogAsync(insertPayload);
+        return Ok(new { success = result != null, status_result = overallStatus, max_voltage = payload["max_voltage"]?.GetValue<double>() ?? 0, data = result });
+    }
+
+    [HttpPost("infra/isolated/upload-photo")]
+    public async Task<IActionResult> UploadIsolatedPhoto([FromBody] JsonObject payload)
+    {
+        string base64 = payload["base64"]?.ToString() ?? "";
+        string fileName = payload["filename"]?.ToString() ?? $"iso_{DateTime.UtcNow.Ticks}.jpg";
+        if (string.IsNullOrEmpty(base64)) return BadRequest(new { success = false, message = "No image data" });
+
+        int commaIdx = base64.IndexOf(',');
+        if (commaIdx >= 0) base64 = base64.Substring(commaIdx + 1);
+
+        byte[] bytes = Convert.FromBase64String(base64);
+        string? url = await _supabase.UploadStorageFileAsync("evidence", $"isolated/{fileName}", bytes, "image/jpeg");
+        if (string.IsNullOrEmpty(url))
+        {
+            string uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "isolated");
+            Directory.CreateDirectory(uploadsDir);
+            string localPath = Path.Combine(uploadsDir, fileName);
+            await System.IO.File.WriteAllBytesAsync(localPath, bytes);
+            url = $"/uploads/isolated/{fileName}";
+        }
+        return Ok(new { success = true, url = url });
     }
 
     [HttpGet("infra/checkers")]

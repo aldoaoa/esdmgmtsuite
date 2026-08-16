@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.2</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.2</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.0</span>
             </div>
         </div>
     </aside>
@@ -749,28 +749,98 @@
 
                     <!-- TAB CONDUCTORES AISLADOS -->
                     <div id="infra-tab-iso" class="tab-content">
-                        <h4 data-i18n="infra.iso_heading">Identificación de Conductores Aislados (Campo Estático &le; 100V)</h4>
-                        <form id="form-infra-iso" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group">
-                                <label data-i18n="infra.gr_loc">Ubicación / Línea*</label>
-                                <select id="iso-loc" class="form-control" required>
-                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
-                                </select>
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h4 data-i18n="infra.iso_heading" style="margin:0;">⚡ Identificación de Conductores Aislados (Límite Conforme: -35V a +35V)</h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">ANSI/ESD S20.20 &bull; Medición de Voltaje Máximo Inducido y Evidencia Fotográfica</p>
                             </div>
-                            <div class="form-group">
-                                <label data-i18n="infra.iso_op">Operación / Estación ID*</label>
-                                <input id="iso-op" class="form-control" placeholder="Ej: ROUTER-01" required />
+                            <span class="badge-pass" style="font-size:11px; padding:4px 10px; font-weight:700; border-color:rgba(16,185,129,0.3);">Límite: ±35.0 V</span>
+                        </div>
+
+                        <!-- CAPTURE FORM -->
+                        <form id="form-infra-iso" style="margin-top:16px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:18px;">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+                                <div class="form-group">
+                                    <label data-i18n="infra.gr_loc">Ubicación / Línea*</label>
+                                    <select id="iso-loc" class="form-control" onchange="loadIsoAssetsForLine()" required>
+                                        <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="infra.iso_asset">Activo / Equipo en Línea</label>
+                                    <select id="iso-asset-id" class="form-control" onchange="onIsoAssetSelected(this.value)">
+                                        <option value="">-- Seleccionar Activo / Equipo --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="infra.iso_op">Operación / Estación / ID*</label>
+                                    <input id="iso-op" class="form-control" placeholder="Ej: ROUTER-01 / CONV-02" required />
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label data-i18n="infra.iso_volt">Voltaje Inducido Máximo (V)*</label>
-                                <input id="iso-volt" type="number" step="0.1" min="0" placeholder="Ej: 15.0" class="form-control" required />
+
+                            <hr style="border-color:var(--border-color); margin:16px 0;" />
+
+                            <!-- MEASUREMENTS SECTION -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <span style="font-weight:700; font-size:13px; color:var(--text-primary);">📍 Mediciones de Voltaje & Zonas de Prueba</span>
                             </div>
-                            <div class="form-group">
-                                <label data-i18n="audit.lbl_obs">Comentarios</label>
-                                <input id="iso-notes" class="form-control" placeholder="Sin observaciones" />
+
+                            <div id="iso-points-container" style="display:flex; flex-direction:column; gap:12px;">
+                                <!-- PRIMARY MEASUREMENT POINT -->
+                                <div class="iso-point-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                        <span style="font-size:12px; font-weight:700; color:var(--accent-blue);">Medición Principal #1</span>
+                                        <span id="iso-pt-badge-0" class="badge-pass" style="font-size:10px; padding:2px 7px; display:none;"></span>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr; gap:12px; align-items:start;">
+                                        <div class="form-group" style="margin-bottom:0;">
+                                            <label style="font-size:11px;" data-i18n="infra.iso_zone">Zona / Dónde se Realizó la Medición*</label>
+                                            <input id="iso-pt-zone-0" class="form-control" placeholder="Ej: Chasis metálico, Eje motor, Pinza..." required />
+                                        </div>
+                                        <div class="form-group" style="margin-bottom:0;">
+                                            <label style="font-size:11px;" data-i18n="infra.iso_volt">Maximum voltage (V)*</label>
+                                            <input id="iso-pt-volt-0" type="number" step="0.1" placeholder="Ej: 12.5" class="form-control" oninput="updateIsoPointBadge(0)" required />
+                                        </div>
+                                        <div class="form-group" style="margin-bottom:0;">
+                                            <label style="font-size:11px;" data-i18n="infra.iso_evidence">Evidencia Fotográfica (Foto)</label>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <input type="file" id="iso-pt-file-0" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleIsoPhotoUpload(0, this)" />
+                                                <div id="iso-pt-thumb-0" style="display:none; align-items:center; gap:4px;">
+                                                    <img id="iso-pt-img-0" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                                                    <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearIsoPhoto(0)">🗑️</button>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" id="iso-pt-url-0" value="" />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.iso_save">💾 Guardar Registro de Conductor Aislado</button>
+
+                            <!-- EXTRA POINTS CONTAINER -->
+                            <div id="iso-extra-points-container" style="display:flex; flex-direction:column; gap:12px; margin-top:12px;"></div>
+
+                            <!-- ADD EXTRA POINT BUTTON -->
+                            <div style="margin-top:12px;">
+                                <button type="button" class="tab-btn" onclick="addIsoExtraPoint()" style="font-size:12px; padding:6px 14px; background:#FFFFFF; border:1px dashed var(--border-color);" data-i18n="infra.iso_btn_add_point">
+                                    ➕ Agregar Medición Extra en este Conductor / Equipo
+                                </button>
+                            </div>
+
+                            <hr style="border-color:var(--border-color); margin:16px 0;" />
+
+                            <div class="form-group">
+                                <label data-i18n="audit.lbl_obs">Comentarios / Observaciones</label>
+                                <input id="iso-notes" class="form-control" placeholder="Observaciones generales de la prueba..." />
+                            </div>
+
+                            <button type="submit" id="btn-save-iso" class="btn-primary" style="width:100%; height:44px; font-size:13.5px; font-weight:700; border-radius:8px; margin-top:10px;" data-i18n="infra.iso_save">
+                                💾 Guardar Registro de Conductor Aislado
+                            </button>
                         </form>
+
+                        <!-- HISTORICAL TABLE -->
+                        <h4 style="margin-top:28px;" data-i18n="infra.lbl_iso_history">⚡ Histórico de Conductores Aislados</h4>
+                        <div id="isolated-history-table" style="margin-top:10px;"></div>
                     </div>
 
                     <!-- TAB CHECADORES -->
@@ -2441,6 +2511,9 @@
         if (tabName === 'floor') {
             loadFloorMapsForViewer();
         }
+        if (tabName === 'iso') {
+            loadIsolatedHistory();
+        }
     }
 
     async function loadInfraLinesSelect() {
@@ -2569,6 +2642,9 @@
 
         // 3. Load Floor Maps for Viewer
         await loadFloorMapsForViewer();
+
+        // 4. Load Isolated Conductors History
+        await loadIsolatedHistory();
     }
 
     document.getElementById('form-infra-ground').onsubmit = async function(e) {
@@ -2665,6 +2741,294 @@
         }
     };
 
+    // ========================================================
+    // ISOLATED CONDUCTORS MULTI-MEASUREMENT & PHOTO LOGIC
+    // ========================================================
+    let isoExtraPointsCount = 0;
+
+    async function loadIsoAssetsForLine() {
+        const loc = document.getElementById('iso-loc').value;
+        const assetSel = document.getElementById('iso-asset-id');
+        if (!assetSel) return;
+        assetSel.innerHTML = '<option value="">-- Seleccionar Activo / Equipo --</option>';
+        if (!loc) return;
+
+        const siteId = (sessionData && sessionData.site_id) || '';
+        try {
+            const res = await fetch(`/api/line-assets?line=${encodeURIComponent(loc)}&siteId=${siteId}`);
+            if (res.ok) {
+                const assets = await res.json();
+                assets.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.asset_id;
+                    opt.text = `${a.asset_id} - ${a.element_subtype || a.element_type || 'Equipo'}`;
+                    opt.dataset.sub = a.element_subtype || a.element_type || '';
+                    assetSel.appendChild(opt);
+                });
+            }
+        } catch(e) {
+            console.error('Error loading iso assets:', e);
+        }
+    }
+
+    function onIsoAssetSelected(val) {
+        const opInput = document.getElementById('iso-op');
+        if (opInput && val) {
+            opInput.value = val;
+        }
+    }
+
+    function updateIsoPointBadge(idx) {
+        const voltInput = document.getElementById(`iso-pt-volt-${idx}`);
+        const badge = document.getElementById(`iso-pt-badge-${idx}`);
+        if (!voltInput || !badge) return;
+
+        const valStr = voltInput.value.trim();
+        if (valStr === '') {
+            badge.style.display = 'none';
+            return;
+        }
+
+        const v = parseFloat(valStr);
+        badge.style.display = 'inline-block';
+        if (isNaN(v)) {
+            badge.className = 'badge-pending';
+            badge.innerText = 'Inválido';
+        } else if (v >= -35.0 && v <= 35.0) {
+            badge.className = 'badge-pass';
+            badge.innerText = `🟢 PASS (${v > 0 ? '+' : ''}${v} V)`;
+        } else {
+            badge.className = 'badge-fail';
+            badge.innerText = `🔴 FAIL (${v > 0 ? '+' : ''}${v} V / Fuera de ±35V)`;
+        }
+    }
+
+    function addIsoExtraPoint() {
+        isoExtraPointsCount++;
+        const idx = isoExtraPointsCount;
+        const container = document.getElementById('iso-extra-points-container');
+        if (!container) return;
+
+        const card = document.createElement('div');
+        card.id = `iso-pt-card-${idx}`;
+        card.className = 'iso-point-card';
+        card.style.cssText = 'background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,0.03); position:relative;';
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:12px; font-weight:700; color:var(--text-primary);">Medición Extra #${idx + 1}</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span id="iso-pt-badge-${idx}" class="badge-pass" style="font-size:10px; padding:2px 7px; display:none;"></span>
+                    <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:12px; font-weight:700; cursor:pointer;" onclick="removeIsoExtraPoint(${idx})">🗑️ Eliminar</button>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr; gap:12px; align-items:start;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:11px;" data-i18n="infra.iso_zone">Zona / Dónde se Realizó la Medición*</label>
+                    <input id="iso-pt-zone-${idx}" class="form-control" placeholder="Ej: Conector, Rodillo, Sensor..." required />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:11px;" data-i18n="infra.iso_volt">Maximum voltage (V)*</label>
+                    <input id="iso-pt-volt-${idx}" type="number" step="0.1" placeholder="Ej: -18.0" class="form-control" oninput="updateIsoPointBadge(${idx})" required />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:11px;" data-i18n="infra.iso_evidence">Evidencia Fotográfica (Foto)</label>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="file" id="iso-pt-file-${idx}" accept="image/*" capture="environment" class="form-control" style="font-size:11.5px; padding:4px 8px; height:36px;" onchange="handleIsoPhotoUpload(${idx}, this)" />
+                        <div id="iso-pt-thumb-${idx}" style="display:none; align-items:center; gap:4px;">
+                            <img id="iso-pt-img-${idx}" src="" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Ver foto" />
+                            <button type="button" class="btn-text" style="color:var(--accent-rose); font-size:14px; padding:2px 6px;" onclick="clearIsoPhoto(${idx})">🗑️</button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="iso-pt-url-${idx}" value="" />
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    }
+
+    function removeIsoExtraPoint(idx) {
+        const card = document.getElementById(`iso-pt-card-${idx}`);
+        if (card) card.remove();
+    }
+
+    function clearIsoPhoto(idx) {
+        const fileInput = document.getElementById(`iso-pt-file-${idx}`);
+        const thumb = document.getElementById(`iso-pt-thumb-${idx}`);
+        const img = document.getElementById(`iso-pt-img-${idx}`);
+        const urlInput = document.getElementById(`iso-pt-url-${idx}`);
+        if (fileInput) fileInput.value = '';
+        if (thumb) thumb.style.display = 'none';
+        if (img) img.src = '';
+        if (urlInput) urlInput.value = '';
+    }
+
+    async function handleIsoPhotoUpload(idx, inputEl) {
+        if (!inputEl || !inputEl.files || !inputEl.files[0]) return;
+        const file = inputEl.files[0];
+        
+        // Client-side downsample & compression (max 1024px, 0.75 quality)
+        const compressedBase64 = await compressEvidenceImage(file, 1024, 0.75);
+        if (!compressedBase64) return;
+
+        const thumb = document.getElementById(`iso-pt-thumb-${idx}`);
+        const img = document.getElementById(`iso-pt-img-${idx}`);
+        const urlInput = document.getElementById(`iso-pt-url-${idx}`);
+
+        if (img) img.src = compressedBase64;
+        if (thumb) thumb.style.display = 'inline-flex';
+        if (urlInput) urlInput.value = compressedBase64;
+
+        // Try upload to backend in background
+        try {
+            const res = await fetch('/api/infra/isolated/upload-photo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    base64: compressedBase64,
+                    filename: `iso_${Date.now()}_pt${idx}.jpg`
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.url && urlInput) {
+                    urlInput.value = data.url;
+                }
+            }
+        } catch(e) {
+            console.warn('Background photo upload note:', e);
+        }
+    }
+
+    function compressEvidenceImage(file, maxDimension = 1024, quality = 0.75) {
+        return new Promise((resolve) => {
+            if (!file || !file.type.startsWith('image/')) {
+                resolve(null);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                        } else {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    let dataUrl = canvas.toDataURL('image/webp', quality);
+                    if (!dataUrl.startsWith('data:image/webp')) {
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    }
+                    resolve(dataUrl);
+                };
+                img.onerror = () => resolve(null);
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function previewIsoImageModal(src) {
+        if (!src) return;
+        const modal = document.getElementById('modal-photo-preview');
+        const img = document.getElementById('modal-photo-preview-img');
+        if (modal && img) {
+            img.src = src;
+            modal.style.display = 'flex';
+        }
+    }
+
+    async function loadIsolatedHistory() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        const container = document.getElementById('isolated-history-table');
+        if (!container) return;
+
+        try {
+            const res = await fetch(`/api/infra/isolated?siteId=${siteId}`);
+            if (!res.ok) return;
+            const list = await res.json();
+
+            if (!list || list.length === 0) {
+                container.innerHTML = `<div class="glass-card" style="text-align:center; padding:16px; color:var(--text-muted); font-size:13px;" data-i18n="infra.no_records">No hay registros de conductores aislados para esta planta.</div>`;
+                return;
+            }
+
+            let html = `<div class="table-responsive" style="max-height:450px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                <table class="data-table" style="margin:0; width:100%;">
+                    <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                        <tr>
+                            <th style="min-width:120px;" data-i18n="eventmeter.col_date">Fecha</th>
+                            <th style="min-width:120px;" data-i18n="eventmeter.col_line">Línea</th>
+                            <th style="min-width:130px;">Activo / Equipo</th>
+                            <th style="min-width:220px;">Zonas & Mediciones (V)</th>
+                            <th style="min-width:110px; text-align:right;">Voltaje Máx</th>
+                            <th style="min-width:90px; text-align:center;">Evidencia</th>
+                            <th style="min-width:90px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
+                            <th style="min-width:140px;">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            list.forEach(r => {
+                const dateStr = r.measured_at ? new Date(r.measured_at).toLocaleDateString() + ' ' + new Date(r.measured_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                const maxV = r.max_voltage != null ? parseFloat(r.max_voltage) : 0;
+                const isPass = r.status_result === 'PASS';
+                const statusBadge = isPass
+                    ? `<span class="badge-pass" style="font-size:11px; padding:3px 8px;">PASS</span>`
+                    : `<span class="badge-fail" style="font-size:11px; padding:3px 8px;">FAIL</span>`;
+
+                let pointsHtml = '';
+                let photoThumbHtml = '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+
+                if (r.points && Array.isArray(r.points) && r.points.length > 0) {
+                    pointsHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px;">`;
+                    r.points.forEach((p, pIdx) => {
+                        const pV = p.voltage != null ? parseFloat(p.voltage) : 0;
+                        const pPass = pV >= -35.0 && pV <= 35.0;
+                        pointsHtml += `<span style="font-size:11px; padding:2px 6px; border-radius:4px; font-weight:700; background:${pPass ? 'var(--accent-emerald-light)' : 'var(--accent-rose-light)'}; color:${pPass ? 'var(--accent-emerald)' : 'var(--accent-rose)'}; border:1px solid ${pPass ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'};">
+                            ${p.zone || 'P' + (pIdx + 1)}: ${pV > 0 ? '+' : ''}${pV}V
+                        </span>`;
+                        if (p.evidence_url && photoThumbHtml.includes('-')) {
+                            photoThumbHtml = `<img src="${p.evidence_url}" style="width:36px; height:36px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color); cursor:pointer;" onclick="previewIsoImageModal('${p.evidence_url}')" title="Ver foto" />`;
+                        }
+                    });
+                    pointsHtml += `</div>`;
+                } else {
+                    pointsHtml = `<span style="font-size:12px; font-weight:700;">${maxV > 0 ? '+' : ''}${maxV} V</span>`;
+                }
+
+                html += `<tr>
+                    <td style="font-size:12px;"><b>${dateStr}</b></td>
+                    <td style="font-size:12px;">${r.location || '-'}</td>
+                    <td style="font-size:12.5px; font-weight:700; color:var(--accent-blue);">${r.operation_id || r.asset_id || '-'}</td>
+                    <td>${pointsHtml}</td>
+                    <td style="font-size:12.5px; font-weight:800; text-align:right; color:${isPass ? 'var(--text-primary)' : 'var(--accent-rose)'};">${maxV > 0 ? '+' : ''}${maxV.toFixed(1)} V</td>
+                    <td style="text-align:center;">${photoThumbHtml}</td>
+                    <td style="text-align:center;">${statusBadge}</td>
+                    <td style="font-size:11.5px; color:var(--text-muted);">${r.notes || r.comments || '-'}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        } catch(e) {
+            console.error('Error loading isolated history:', e);
+        }
+    }
+
     document.getElementById('form-infra-iso').onsubmit = async function(e) {
         e.preventDefault();
         const loc = document.getElementById('iso-loc').value;
@@ -2672,9 +3036,44 @@
             alert(t('eventmeter.opt_select_line', 'Por favor selecciona una línea.'));
             return;
         }
+        const assetId = document.getElementById('iso-asset-id').value;
         const op = document.getElementById('iso-op').value.trim();
-        const volt = parseFloat(document.getElementById('iso-volt').value) || 0;
+        if (!op) {
+            alert('Por favor ingresa la Operación / Estación / ID.');
+            return;
+        }
         const notes = document.getElementById('iso-notes').value.trim();
+
+        // Collect points
+        const points = [];
+        const z0 = document.getElementById('iso-pt-zone-0').value.trim();
+        const v0 = parseFloat(document.getElementById('iso-pt-volt-0').value);
+        const url0 = document.getElementById('iso-pt-url-0').value;
+        if (!z0 || isNaN(v0)) {
+            alert('Por favor ingresa la Zona y el Voltaje Máximo para la Medición #1.');
+            return;
+        }
+        points.push({ zone: z0, voltage: v0, evidence_url: url0 });
+
+        const extraCards = document.querySelectorAll('#iso-extra-points-container .iso-point-card');
+        for (let i = 0; i < extraCards.length; i++) {
+            const card = extraCards[i];
+            const idxMatch = card.id.match(/\d+$/);
+            if (!idxMatch) continue;
+            const idx = idxMatch[0];
+            const zEl = document.getElementById(`iso-pt-zone-${idx}`);
+            const vEl = document.getElementById(`iso-pt-volt-${idx}`);
+            const uEl = document.getElementById(`iso-pt-url-${idx}`);
+            if (zEl && vEl) {
+                const zVal = zEl.value.trim();
+                const vVal = parseFloat(vEl.value);
+                if (!zVal || isNaN(vVal)) {
+                    alert(`Por favor completa la Zona y Voltaje para la Medición Extra.`);
+                    return;
+                }
+                points.push({ zone: zVal, voltage: vVal, evidence_url: (uEl ? uEl.value : '') });
+            }
+        }
 
         try {
             const res = await fetch('/api/infra/isolated', {
@@ -2686,19 +3085,34 @@
                 },
                 body: JSON.stringify({
                     location: loc,
+                    asset_id: assetId,
                     operation_id: op,
-                    max_voltage: volt,
+                    points: points,
                     notes: notes,
                     site_id: (sessionData && sessionData.site_id) || ''
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert('✅ Registro de Conductor Aislado guardado exitosamente.');
+                if (data.status_result === 'FAIL') {
+                    alert(t('infra.iso_warn_fail', '⚠️ ADVERTENCIA: Uno o más voltajes exceden el rango normativo (-35V a +35V). El registro se guardó como FAIL.'));
+                } else {
+                    alert('✅ Registro de Conductor Aislado guardado exitosamente (PASS).');
+                }
+
+                // Reset form fields
                 document.getElementById('iso-loc').value = '';
+                document.getElementById('iso-asset-id').innerHTML = '<option value="">-- Seleccionar Activo / Equipo --</option>';
                 document.getElementById('iso-op').value = '';
-                document.getElementById('iso-volt').value = '';
+                document.getElementById('iso-pt-zone-0').value = '';
+                document.getElementById('iso-pt-volt-0').value = '';
+                clearIsoPhoto(0);
+                updateIsoPointBadge(0);
+                document.getElementById('iso-extra-points-container').innerHTML = '';
+                isoExtraPointsCount = 0;
                 document.getElementById('iso-notes').value = '';
+
+                await loadIsolatedHistory();
             } else {
                 alert('❌ Error al guardar conductor aislado.');
             }
@@ -4359,5 +4773,13 @@
         }
     }
 </script>
+
+<!-- MODAL PHOTO PREVIEW -->
+<div id="modal-photo-preview" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; padding:20px;" onclick="this.style.display='none'">
+    <div style="position:relative; max-width:90vw; max-height:90vh; display:flex; flex-direction:column; align-items:center;">
+        <img id="modal-photo-preview-img" src="" style="max-width:100%; max-height:85vh; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.5); object-fit:contain;" onclick="event.stopPropagation()" />
+        <button type="button" class="btn-primary" style="margin-top:14px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#FFFFFF; font-size:13px; padding:6px 18px; border-radius:20px;" onclick="document.getElementById('modal-photo-preview').style.display='none'">✕ Cerrar Vista Previa</button>
+    </div>
+</div>
 </body>
 </html>
