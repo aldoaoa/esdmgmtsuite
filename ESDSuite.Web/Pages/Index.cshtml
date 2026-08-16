@@ -3077,12 +3077,6 @@
                 clearGenericPhoto('fl-photo-file', 'fl-photo-thumb', 'fl-photo-img', 'fl-photo-url');
                 loadInfraData();
             } else {
-                document.getElementById('fl-room').value = '';
-                document.getElementById('fl-point').value = '';
-                document.getElementById('fl-ohms').value = '';
-                document.getElementById('fl-temp-hum').value = '';
-                loadInfraData();
-            } else {
                 alert('❌ Error al guardar verificación de piso.');
             }
         } catch(ex) {
