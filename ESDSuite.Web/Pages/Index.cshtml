@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.1</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.7.1</span>
             </div>
         </div>
     </aside>
@@ -845,18 +845,112 @@
 
                     <!-- TAB CHECADORES -->
                     <div id="infra-tab-checkers" class="tab-content">
-                        <h4 data-i18n="infra.chk_heading">Calibración y Verificación de Checadores de Calzado & Pulsera</h4>
-                        <form id="form-infra-checkers" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label data-i18n="infra.chk_id">ID del Checador de Entrada*</label>
-                                <input id="chk-id" class="form-control" placeholder="Ej: CHECADOR-01" required />
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h4 data-i18n="infra.chk_heading" style="margin:0;">🥾 Calibración y Verificación de Checadores de Ingreso (Tolerancia ≤ 5% sobre rango)</h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">ANSI/ESD S20.20 &bull; ESD TR53 &bull; Calibración comparativa de Checador vs Megóhmetro patrón</p>
                             </div>
-                            <div class="form-group"><label>Ref Megóhmetro Izq (Ohms)</label><input id="chk-ref-l" class="form-control" placeholder="Ej: 1.0e8" /></div>
-                            <div class="form-group"><label>Lectura Checador Izq (Ohms)</label><input id="chk-read-l" class="form-control" placeholder="Ej: 1.02e8" /></div>
-                            <div class="form-group"><label>Ref Megóhmetro Der (Ohms)</label><input id="chk-ref-r" class="form-control" placeholder="Ej: 1.0e8" /></div>
-                            <div class="form-group"><label>Lectura Checador Der (Ohms)</label><input id="chk-read-r" class="form-control" placeholder="Ej: 1.01e8" /></div>
-                            <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.chk_save">💾 Guardar Verificación de Checador</button>
+                            <span class="badge-pass" style="font-size:11px; padding:4px 10px; font-weight:700; border-color:rgba(16,185,129,0.3);">Tolerancia: ≤ 5.0%</span>
+                        </div>
+
+                        <!-- CAPTURE FORM WITH TWO FRAMES -->
+                        <form id="form-infra-checkers" style="margin-top:16px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:18px;">
+                            <!-- TOP ROW: CHECKER IDENTIFICATION & INSTRUMENT RANGE -->
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:16px;">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label data-i18n="infra.chk_id">ID del Checador de Entrada*</label>
+                                    <input id="chk-id" class="form-control" placeholder="Ej: ESDMAN-01 / CHK-SMT1" required />
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label data-i18n="infra.gr_loc">Ubicación / Línea</label>
+                                    <select id="chk-loc" class="form-control">
+                                        <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>Megóhmetro Patrón de Referencia</label>
+                                    <input id="chk-meg-ref-id" class="form-control" placeholder="Ej: MEGOHM-01 (Calibrado)" />
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label data-i18n="infra.chk_range_info">Rango Dinámico del Equipo:</label>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <input id="chk-range-min" class="form-control" style="font-size:11.5px; height:36px;" value="1e3" placeholder="1e3" title="Rango Mínimo (Ohms)" />
+                                        <span style="font-size:12px; color:var(--text-muted); font-weight:700;">a</span>
+                                        <input id="chk-range-max" class="form-control" style="font-size:11.5px; height:36px;" value="1e12" placeholder="1e12" title="Rango Máximo (Ohms)" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TWO SIDE-BY-SIDE FRAMES: LEFT = CHECKER, RIGHT = MEGOHMMETER -->
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:18px;">
+                                
+                                <!-- LEFT FRAME: CHECADOR DE ENTRADA -->
+                                <div class="checker-frame" style="background:#FFFFFF; border:1.5px solid #CBD5E1; border-radius:8px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #F1F5F9;">
+                                        <span style="font-size:18px;">🥾</span>
+                                        <div>
+                                            <h5 style="margin:0; font-size:13px; font-weight:700; color:var(--text-primary);" data-i18n="infra.chk_frame_tester">Mediciones del Checador de Ingreso</h5>
+                                            <span style="font-size:11px; color:var(--text-muted);">Lecturas obtenidas en el equipo bajo prueba</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label style="font-size:12px;" data-i18n="infra.chk_read_l">Lectura Checador Izq / Calzado Izq (Ohms)*</label>
+                                        <input id="chk-read-l" class="form-control" placeholder="Ej: 3.45e6" oninput="updateCheckerVariation()" required />
+                                    </div>
+
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label style="font-size:12px;" data-i18n="infra.chk_read_r">Lectura Checador Der / Calzado Der (Ohms)*</label>
+                                        <input id="chk-read-r" class="form-control" placeholder="Ej: 2.18e6" oninput="updateCheckerVariation()" required />
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT FRAME: MEGÓHMETRO PATRÓN DE REFERENCIA -->
+                                <div class="megohmmeter-frame" style="background:#FFFFFF; border:1.5px solid #CBD5E1; border-radius:8px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #F1F5F9;">
+                                        <span style="font-size:18px;">⚡</span>
+                                        <div>
+                                            <h5 style="margin:0; font-size:13px; font-weight:700; color:var(--text-primary);" data-i18n="infra.chk_frame_meg">Referencias del Megóhmetro Patrón</h5>
+                                            <span style="font-size:11px; color:var(--text-muted);">Valores de resistencia estándar de referencia</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label style="font-size:12px;" data-i18n="infra.chk_ref_l">Ref Megóhmetro Izq (Ohms)*</label>
+                                        <input id="chk-ref-l" class="form-control" placeholder="Ej: 3.50e6" oninput="updateCheckerVariation()" required />
+                                    </div>
+
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label style="font-size:12px;" data-i18n="infra.chk_ref_r">Ref Megóhmetro Der (Ohms)*</label>
+                                        <input id="chk-ref-r" class="form-control" placeholder="Ej: 2.20e6" oninput="updateCheckerVariation()" required />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- REAL-TIME VARIATION & TOLERANCE BADGES -->
+                            <div id="chk-variation-summary" style="margin-top:16px; background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                                <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:12px;">
+                                    <div><b>Canal Izquierdo:</b> <span id="chk-dev-l-text" style="color:var(--text-muted);">-</span></div>
+                                    <div><b>Canal Derecho:</b> <span id="chk-dev-r-text" style="color:var(--text-muted);">-</span></div>
+                                </div>
+                                <div id="chk-overall-badge" class="badge-pass" style="font-size:11.5px; padding:4px 12px; display:none;"></div>
+                            </div>
+
+                            <hr style="border-color:var(--border-color); margin:16px 0;" />
+
+                            <div class="form-group">
+                                <label data-i18n="audit.lbl_obs">Observaciones / Comentarios</label>
+                                <input id="chk-obs" class="form-control" placeholder="Observaciones de la verificación..." />
+                            </div>
+
+                            <button type="submit" id="btn-save-chk" class="btn-primary" style="width:100%; height:44px; font-size:13.5px; font-weight:700; border-radius:8px; margin-top:8px;" data-i18n="infra.chk_save">
+                                💾 Guardar Verificación de Checador
+                            </button>
                         </form>
+
+                        <!-- HISTORICAL TABLE FOR ENTRANCE CHECKERS -->
+                        <h4 style="margin-top:28px;" data-i18n="infra.lbl_chk_history">🥾 Histórico de Calibración de Checadores</h4>
+                        <div id="checkers-history-table" style="margin-top:10px;"></div>
                     </div>
                 </div>
             </div>
@@ -2514,10 +2608,13 @@
         if (tabName === 'iso') {
             loadIsolatedHistory();
         }
+        if (tabName === 'checkers') {
+            loadCheckersHistory();
+        }
     }
 
     async function loadInfraLinesSelect() {
-        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'rep-linea'];
+        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'chk-loc', 'rep-linea'];
         try {
             const siteId = (sessionData && sessionData.site_id) || '';
             const res = await fetch(`/api/lines?siteId=${siteId}`);
@@ -2645,6 +2742,9 @@
 
         // 4. Load Isolated Conductors History
         await loadIsolatedHistory();
+
+        // 5. Load Entrance Checkers History
+        await loadCheckersHistory();
     }
 
     document.getElementById('form-infra-ground').onsubmit = async function(e) {
@@ -3121,13 +3221,154 @@
         }
     };
 
+    // ========================================================
+    // ENTRANCE CHECKERS CALIBRATION & VERIFICATION LOGIC
+    // ========================================================
+    function updateCheckerVariation() {
+        const readLStr = document.getElementById('chk-read-l').value.trim();
+        const readRStr = document.getElementById('chk-read-r').value.trim();
+        const refLStr = document.getElementById('chk-ref-l').value.trim();
+        const refRStr = document.getElementById('chk-ref-r').value.trim();
+
+        const readL = parseFloat(readLStr);
+        const readR = parseFloat(readRStr);
+        const refL = parseFloat(refLStr);
+        const refR = parseFloat(refRStr);
+
+        const minR = parseFloat(document.getElementById('chk-range-min').value) || 1e3;
+        const maxR = parseFloat(document.getElementById('chk-range-max').value) || 1e12;
+        const totalDecades = (Math.log10(maxR) - Math.log10(minR)) || 9;
+
+        const devLText = document.getElementById('chk-dev-l-text');
+        const devRText = document.getElementById('chk-dev-r-text');
+        const overallBadge = document.getElementById('chk-overall-badge');
+
+        let devLPct = null;
+        let devRPct = null;
+
+        if (!isNaN(readL) && !isNaN(refL) && readL > 0 && refL > 0) {
+            devLPct = (Math.abs(Math.log10(readL) - Math.log10(refL)) / totalDecades) * 100;
+            const isPassL = devLPct <= 5.0;
+            devLText.innerHTML = `<span style="font-weight:700; color:${isPassL ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devLPct.toFixed(2)}% (${isPassL ? 'PASS ≤ 5%' : 'FAIL > 5%'})</span>`;
+        } else {
+            devLText.innerHTML = `<span style="color:var(--text-muted);">-</span>`;
+        }
+
+        if (!isNaN(readR) && !isNaN(refR) && readR > 0 && refR > 0) {
+            devRPct = (Math.abs(Math.log10(readR) - Math.log10(refR)) / totalDecades) * 100;
+            const isPassR = devRPct <= 5.0;
+            devRText.innerHTML = `<span style="font-weight:700; color:${isPassR ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devRPct.toFixed(2)}% (${isPassR ? 'PASS ≤ 5%' : 'FAIL > 5%'})</span>`;
+        } else {
+            devRText.innerHTML = `<span style="color:var(--text-muted);">-</span>`;
+        }
+
+        if (devLPct !== null || devRPct !== null) {
+            overallBadge.style.display = 'inline-block';
+            const passL = devLPct === null || devLPct <= 5.0;
+            const passR = devRPct === null || devRPct <= 5.0;
+            if (passL && passR) {
+                overallBadge.className = 'badge-pass';
+                overallBadge.innerText = '🟢 PASS (Tolerancia Conforme ≤ 5.0%)';
+            } else {
+                overallBadge.className = 'badge-fail';
+                overallBadge.innerText = '🔴 FAIL (Variación > 5.0% / Requiere Calibración)';
+            }
+        } else {
+            overallBadge.style.display = 'none';
+        }
+    }
+
+    async function loadCheckersHistory() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        const container = document.getElementById('checkers-history-table');
+        if (!container) return;
+
+        try {
+            const res = await fetch(`/api/infra/checkers?siteId=${siteId}`);
+            if (!res.ok) return;
+            const list = await res.json();
+
+            if (!list || list.length === 0) {
+                container.innerHTML = `<div class="glass-card" style="text-align:center; padding:16px; color:var(--text-muted); font-size:13px;" data-i18n="infra.no_records">No hay registros de calibración de checadores para esta planta.</div>`;
+                return;
+            }
+
+            let html = `<div class="table-responsive" style="max-height:450px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                <table class="data-table" style="margin:0; width:100%;">
+                    <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                        <tr>
+                            <th style="min-width:120px;" data-i18n="eventmeter.col_date">Fecha</th>
+                            <th style="min-width:130px;">ID Checador</th>
+                            <th style="min-width:170px;">Canal Izq (Checador vs Ref)</th>
+                            <th style="min-width:110px; text-align:center;">Var. Izq (%)</th>
+                            <th style="min-width:170px;">Canal Der (Checador vs Ref)</th>
+                            <th style="min-width:110px; text-align:center;">Var. Der (%)</th>
+                            <th style="min-width:90px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
+                            <th style="min-width:140px;">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            list.forEach(r => {
+                const dateStr = r.measured_at ? new Date(r.measured_at).toLocaleDateString() + ' ' + new Date(r.measured_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                const isPass = r.status_result === 'PASS';
+                const statusBadge = isPass
+                    ? `<span class="badge-pass" style="font-size:11px; padding:3px 8px;">PASS</span>`
+                    : `<span class="badge-fail" style="font-size:11px; padding:3px 8px;">FAIL</span>`;
+
+                const readLFmt = formatResistanceScientific(r.reading_left);
+                const refLFmt = formatResistanceScientific(r.reference_left);
+                const devL = r.deviation_left != null ? parseFloat(r.deviation_left) : 0;
+
+                const readRFmt = formatResistanceScientific(r.reading_right);
+                const refRFmt = formatResistanceScientific(r.reference_right);
+                const devR = r.deviation_right != null ? parseFloat(r.deviation_right) : 0;
+
+                html += `<tr>
+                    <td style="font-size:12px;"><b>${dateStr}</b></td>
+                    <td style="font-size:12.5px; font-weight:700; color:var(--accent-blue);">${r.checker_id || '-'}</td>
+                    <td style="font-size:12px;">
+                        <span>Chk: <b>${readLFmt}</b> Ω</span><br/>
+                        <span style="color:var(--text-muted); font-size:11px;">Ref: ${refLFmt} Ω</span>
+                    </td>
+                    <td style="text-align:center; font-weight:700; color:${devL <= 5.0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devL.toFixed(2)}%</td>
+                    <td style="font-size:12px;">
+                        <span>Chk: <b>${readRFmt}</b> Ω</span><br/>
+                        <span style="color:var(--text-muted); font-size:11px;">Ref: ${refRFmt} Ω</span>
+                    </td>
+                    <td style="text-align:center; font-weight:700; color:${devR <= 5.0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devR.toFixed(2)}%</td>
+                    <td style="text-align:center;">${statusBadge}</td>
+                    <td style="font-size:11.5px; color:var(--text-muted);">${r.observations || '-'}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        } catch(e) {
+            console.error('Error loading checkers history:', e);
+        }
+    }
+
     document.getElementById('form-infra-checkers').onsubmit = async function(e) {
         e.preventDefault();
         const chkId = document.getElementById('chk-id').value.trim();
-        const refL = parseFloat(document.getElementById('chk-ref-l').value) || 0;
-        const readL = parseFloat(document.getElementById('chk-read-l').value) || 0;
-        const refR = parseFloat(document.getElementById('chk-ref-r').value) || 0;
-        const readR = parseFloat(document.getElementById('chk-read-r').value) || 0;
+        if (!chkId) {
+            alert('Por favor ingresa el ID del Checador de Entrada.');
+            return;
+        }
+        const refL = parseFloat(document.getElementById('chk-ref-l').value);
+        const readL = parseFloat(document.getElementById('chk-read-l').value);
+        const refR = parseFloat(document.getElementById('chk-ref-r').value);
+        const readR = parseFloat(document.getElementById('chk-read-r').value);
+
+        if (isNaN(refL) || isNaN(readL) || isNaN(refR) || isNaN(readR)) {
+            alert('Por favor completa todas las mediciones de los canales izquierdo y derecho (Checador y Megóhmetro).');
+            return;
+        }
+
+        const minR = parseFloat(document.getElementById('chk-range-min').value) || 1e3;
+        const maxR = parseFloat(document.getElementById('chk-range-max').value) || 1e12;
+        const obs = document.getElementById('chk-obs').value.trim();
 
         try {
             const res = await fetch('/api/infra/checkers', {
@@ -3143,13 +3384,30 @@
                     reading_left: readL,
                     reference_right: refR,
                     reading_right: readR,
+                    range_min: minR,
+                    range_max: maxR,
+                    observations: obs,
                     site_id: (sessionData && sessionData.site_id) || ''
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert('✅ Registro de Checador guardado exitosamente.');
+                if (data.status_result === 'FAIL') {
+                    alert(t('infra.chk_warn_fail', '⚠️ ADVERTENCIA: La variación entre el checador y el megóhmetro supera el 5% sobre el rango del equipo. Se guardó como FAIL.'));
+                } else {
+                    alert('✅ Verificación de Checador guardada exitosamente (PASS).');
+                }
+
+                // Reset form fields
                 document.getElementById('chk-id').value = '';
+                document.getElementById('chk-read-l').value = '';
+                document.getElementById('chk-read-r').value = '';
+                document.getElementById('chk-ref-l').value = '';
+                document.getElementById('chk-ref-r').value = '';
+                document.getElementById('chk-obs').value = '';
+                updateCheckerVariation();
+
+                await loadCheckersHistory();
             } else {
                 alert('❌ Error al guardar registro de checador.');
             }

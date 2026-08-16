@@ -960,16 +960,49 @@ public class ApiController : ControllerBase
         double refRight = payload["reference_right"]?.GetValue<double>() ?? 0;
         double readRight = payload["reading_right"]?.GetValue<double>() ?? 0;
 
-        double devLeft = Math.Abs(readLeft - refLeft);
-        double devRight = Math.Abs(readRight - refRight);
+        double minRange = payload["range_min"]?.GetValue<double>() ?? 1e3;
+        double maxRange = payload["range_max"]?.GetValue<double>() ?? 1e12;
+        if (minRange <= 0) minRange = 1e3;
+        if (maxRange <= minRange) maxRange = 1e12;
 
-        payload["deviation_left"] = devLeft;
-        payload["deviation_right"] = devRight;
-        double maxAllowedDev = 1e9 * 0.05;
-        payload["status_result"] = (devLeft <= maxAllowedDev && devRight <= maxAllowedDev) ? "PASS" : "FAIL";
+        double totalDecades = Math.Log10(maxRange) - Math.Log10(minRange);
+        if (totalDecades <= 0) totalDecades = 9.0;
 
-        var result = await _supabase.InsertEntranceCheckersLogAsync(payload);
-        return Ok(new { success = result != null, data = result });
+        double devLeftPct = 0;
+        if (readLeft > 0 && refLeft > 0)
+        {
+            double logDiff = Math.Abs(Math.Log10(readLeft) - Math.Log10(refLeft));
+            devLeftPct = (logDiff / totalDecades) * 100.0;
+        }
+
+        double devRightPct = 0;
+        if (readRight > 0 && refRight > 0)
+        {
+            double logDiff = Math.Abs(Math.Log10(readRight) - Math.Log10(refRight));
+            devRightPct = (logDiff / totalDecades) * 100.0;
+        }
+
+        bool isPass = devLeftPct <= 5.0 && devRightPct <= 5.0;
+        string status = isPass ? "PASS" : "FAIL";
+
+        var insertPayload = new JsonObject
+        {
+            ["site_id"] = payload["site_id"]?.ToString(),
+            ["auditor_id"] = payload["auditor_id"]?.ToString(),
+            ["checker_id"] = payload["checker_id"]?.ToString() ?? "CHECKER-01",
+            ["reference_left"] = refLeft,
+            ["reading_left"] = readLeft,
+            ["deviation_left"] = Math.Round(devLeftPct, 2),
+            ["reference_right"] = refRight,
+            ["reading_right"] = readRight,
+            ["deviation_right"] = Math.Round(devRightPct, 2),
+            ["status_result"] = status,
+            ["observations"] = payload["observations"]?.ToString() ?? payload["notes"]?.ToString(),
+            ["measured_at"] = payload["measured_at"]?.ToString()
+        };
+
+        var result = await _supabase.InsertEntranceCheckersLogAsync(insertPayload);
+        return Ok(new { success = result != null, status_result = status, deviation_left = Math.Round(devLeftPct, 2), deviation_right = Math.Round(devRightPct, 2), data = result });
     }
 
     // --- SCHEDULE & OFFICIAL LINE REPORTS ---
