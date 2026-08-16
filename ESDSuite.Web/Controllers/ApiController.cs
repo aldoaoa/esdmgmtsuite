@@ -402,6 +402,10 @@ public class ApiController : ControllerBase
             double voltMax = obj["static_field_value"]?.GetValue<double>() ?? extra?["voltaje_maximo"]?.GetValue<double>() ?? 0;
             double? temp = extra?["temperatura"] != null ? extra["temperatura"]?.GetValue<double>() : null;
             double? hum = extra?["humedad"] != null ? extra["humedad"]?.GetValue<double>() : null;
+            string tiempoAnalisis = extra?["tiempo_analisis"]?.ToString() 
+                ?? (extra?["tiempo_analisis_valor"] != null ? $"{extra["tiempo_analisis_valor"]} {extra["tiempo_analisis_unidad"] ?? "min"}" : "-");
+            double? tiempoValor = extra?["tiempo_analisis_valor"] != null ? extra["tiempo_analisis_valor"]?.GetValue<double>() : null;
+            string tiempoUnidad = extra?["tiempo_analisis_unidad"]?.ToString() ?? "min";
 
             return new
             {
@@ -410,6 +414,9 @@ public class ApiController : ControllerBase
                 linea_ubicacion = areaLine,
                 id_operacion = idOp,
                 tipo_contacto = tipoContacto,
+                tiempo_analisis = tiempoAnalisis,
+                tiempo_analisis_valor = tiempoValor,
+                tiempo_analisis_unidad = tiempoUnidad,
                 cantidad_eventos = cantEventos,
                 voltaje_maximo = voltMax,
                 temperatura = temp,
@@ -431,6 +438,9 @@ public class ApiController : ControllerBase
         string linea = payload["linea_ubicacion"]?.ToString() ?? "SMT-01";
         string idOp = payload["id_operacion"]?.ToString() ?? "OP-01";
         string tipoContacto = payload["tipo_contacto"]?.ToString() ?? "Maquinaria";
+        double tiempoValor = payload["tiempo_analisis_valor"] != null ? (payload["tiempo_analisis_valor"]?.GetValue<double>() ?? 30) : 30;
+        string tiempoUnidad = payload["tiempo_analisis_unidad"]?.ToString() ?? "min";
+        string tiempoAnalisis = payload["tiempo_analisis"]?.ToString() ?? $"{tiempoValor} {tiempoUnidad}";
         int cantEventos = payload["cantidad_eventos"]?.GetValue<int>() ?? 0;
         double voltMax = payload["voltaje_maximo"]?.GetValue<double>() ?? 0;
         double? temp = payload["temperatura"] != null ? payload["temperatura"]?.GetValue<double>() : 23.5;
@@ -456,6 +466,9 @@ public class ApiController : ControllerBase
                 id_operacion = idOp,
                 linea_ubicacion = linea,
                 tipo_contacto = tipoContacto,
+                tiempo_analisis = tiempoAnalisis,
+                tiempo_analisis_valor = tiempoValor,
+                tiempo_analisis_unidad = tiempoUnidad,
                 cantidad_eventos = cantEventos,
                 voltaje_maximo = voltMax,
                 temperatura = temp,
@@ -480,6 +493,9 @@ public class ApiController : ControllerBase
         string linea = payload["linea_ubicacion"]?.ToString() ?? "SMT-01";
         string idOp = payload["id_operacion"]?.ToString() ?? "OP-01";
         string tipoContacto = payload["tipo_contacto"]?.ToString() ?? "Maquinaria";
+        double tiempoValor = payload["tiempo_analisis_valor"] != null ? (payload["tiempo_analisis_valor"]?.GetValue<double>() ?? 30) : 30;
+        string tiempoUnidad = payload["tiempo_analisis_unidad"]?.ToString() ?? "min";
+        string tiempoAnalisis = payload["tiempo_analisis"]?.ToString() ?? $"{tiempoValor} {tiempoUnidad}";
         int cantEventos = payload["cantidad_eventos"]?.GetValue<int>() ?? 0;
         double voltMax = payload["voltaje_maximo"]?.GetValue<double>() ?? 0;
         double? temp = payload["temperatura"] != null ? payload["temperatura"]?.GetValue<double>() : 23.5;
@@ -501,6 +517,9 @@ public class ApiController : ControllerBase
                 id_operacion = idOp,
                 linea_ubicacion = linea,
                 tipo_contacto = tipoContacto,
+                tiempo_analisis = tiempoAnalisis,
+                tiempo_analisis_valor = tiempoValor,
+                tiempo_analisis_unidad = tiempoUnidad,
                 cantidad_eventos = cantEventos,
                 voltaje_maximo = voltMax,
                 temperatura = temp,
