@@ -29,7 +29,7 @@
     "cat_verification": "VERIFICATION & FLOOR",
     "cat_assets": "ASSETS & TRAINING",
     "cat_config": "CONFIGURATION",
-    "platform": "esd360 SaaS Platform"
+    "platform": "esd360 Enterprise Platform"
   },
   "nav": {
     "dashboard": "Dashboard Overview",
@@ -340,7 +340,7 @@
     "tree_sub": "Expand structure: Company (Level 1) → Site / Plant (Level 2) → Areas / Locations (Level 3).",
     "btn_add_company": "➕ Company",
     "btn_add_site": "➕ Site",
-    "users_title": "👥 Supabase Registered User Directory",
+    "users_title": "👥 Registered User Directory",
     "btn_new_user": "➕ Create User",
     "col_name": "Full Name",
     "col_email": "Email Address",
@@ -352,7 +352,7 @@
     "lang_title": "🌐 Language Preference Selection",
     "lang_sub": "Select your preferred language for the system interface.",
     "eq_title": "🛠️ Measurement Equipment Directory & Calibration (TR53)",
-    "eq_sub": "Real-time control of Megohmmeters, Static Field Meters, Ionizer Charge Plates and Terrometers in Supabase.",
+    "eq_sub": "Real-time control of Megohmmeters, Static Field Meters, Ionizer Charge Plates and Terrometers.",
     "btn_add_eq": "➕ Register Equipment",
     "form_add_eq": "📝 Add Measurement Equipment",
     "lbl_site_assigned": "Assigned Site / Plant*",
@@ -363,7 +363,7 @@
     "lbl_date_last": "Last Calibration Date",
     "lbl_date_next": "Next Calibration Date (Expiration)*",
     "btn_cancel": "Cancel",
-    "btn_save_supabase": "💾 Save to Supabase",
+    "btn_save_supabase": "💾 Save Equipment",
     "col_code": "Code / ID",
     "col_desc": "Equipment Description",
     "col_brand": "Brand & Model",

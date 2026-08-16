@@ -29,7 +29,7 @@
     "cat_verification": "VERIFICACIÓN Y PISO",
     "cat_assets": "ACTIVOS & CAPACITACIÓN",
     "cat_config": "CONFIGURACIÓN",
-    "platform": "esd360 SaaS Platform"
+    "platform": "esd360 Enterprise Platform"
   },
   "nav": {
     "dashboard": "Dashboard Overview",
@@ -340,7 +340,7 @@
     "tree_sub": "Despliega la estructura: Empresa (Nivel 1) → Site / Planta (Nivel 2) → Áreas / Ubicaciones (Nivel 3).",
     "btn_add_company": "➕ Empresa",
     "btn_add_site": "➕ Site",
-    "users_title": "👥 Directorio de Usuarios Registrados en Supabase",
+    "users_title": "👥 Directorio de Usuarios Registrados",
     "btn_new_user": "➕ Crear Usuario",
     "col_name": "Nombre Completo",
     "col_email": "Correo Electrónico",
@@ -352,7 +352,7 @@
     "lang_title": "🌐 Selección de Idioma / Language Preference",
     "lang_sub": "Selecciona el idioma preferido para la interfaz del sistema.",
     "eq_title": "🛠️ Directorio & Calibración de Equipos de Medición (TR53)",
-    "eq_sub": "Control de Megóhmetros, Medidores de Campo Estático, Placas de Carga de Ionizadores y Terómetros con estatus en tiempo real en Supabase.",
+    "eq_sub": "Control de Megóhmetros, Medidores de Campo Estático, Placas de Carga de Ionizadores y Terómetros con estatus en tiempo real.",
     "btn_add_eq": "➕ Registrar Equipo",
     "form_add_eq": "📝 Alta de Equipo de Medición",
     "lbl_site_assigned": "Site / Planta Asignada*",
@@ -363,7 +363,7 @@
     "lbl_date_last": "Fecha de Última Calibración",
     "lbl_date_next": "Fecha Próxima Calibración (Vencimiento)*",
     "btn_cancel": "Cancelar",
-    "btn_save_supabase": "💾 Guardar en Supabase",
+    "btn_save_supabase": "💾 Guardar Equipo",
     "col_code": "Código / ID",
     "col_desc": "Descripción del Equipo",
     "col_brand": "Marca & Modelo",

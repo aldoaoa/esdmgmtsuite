@@ -29,7 +29,7 @@
     "cat_verification": "验证与车间",
     "cat_assets": "资产与培训",
     "cat_config": "系统配置",
-    "platform": "esd360 SaaS Platform"
+    "platform": "esd360 Enterprise Platform"
   },
   "nav": {
     "dashboard": "仪表板概览",
@@ -340,7 +340,7 @@
     "tree_sub": "展开层级结构：集团/公司 (层级 1) → 厂区/工厂 (层级 2) → 区域/产线 (层级 3)。",
     "btn_add_company": "➕ 添加公司",
     "btn_add_site": "➕ 添加厂区",
-    "users_title": "👥 Supabase 已注册用户目录",
+    "users_title": "👥 已注册用户目录",
     "btn_new_user": "➕ 创建用户",
     "col_name": "姓名",
     "col_email": "电子邮件地址",
@@ -352,7 +352,7 @@
     "lang_title": "🌐 语言偏好选择 / Language Preference",
     "lang_sub": "选择您偏好的系统界面语言。",
     "eq_title": "🛠️ 测量设备目录与校准管理 (TR53)",
-    "eq_sub": "在 Supabase 中实时控制高阻计、静电场测试仪、平板分析仪和接地电阻测试仪。",
+    "eq_sub": "实时控制高阻计、静电场测试仪、平板分析仪和接地电阻测试仪。",
     "btn_add_eq": "➕ 登记测量设备",
     "form_add_eq": "📝 添加测量设备",
     "lbl_site_assigned": "分配厂区/工厂*",
@@ -363,7 +363,7 @@
     "lbl_date_last": "上次校准日期",
     "lbl_date_next": "下次校准日期 (有效期)*",
     "btn_cancel": "取消",
-    "btn_save_supabase": "💾 保存到 Supabase",
+    "btn_save_supabase": "💾 保存设备",
     "col_code": "编号 / ID",
     "col_desc": "设备描述",
     "col_brand": "品牌与型号",

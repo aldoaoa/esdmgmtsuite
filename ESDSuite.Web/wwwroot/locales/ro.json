@@ -29,7 +29,7 @@
     "cat_verification": "VERIFICARE ȘI FABRICĂ",
     "cat_assets": "ACTIVE ȘI INSTRUIRE",
     "cat_config": "CONFIGURARE",
-    "platform": "esd360 SaaS Platform"
+    "platform": "esd360 Enterprise Platform"
   },
   "nav": {
     "dashboard": "Tablou de Bord (Dashboard)",
@@ -340,7 +340,7 @@
     "tree_sub": "Extinde structura: Companie (Nivel 1) → Fabrică (Nivel 2) → Zone / Linii (Nivel 3).",
     "btn_add_company": "➕ Companie",
     "btn_add_site": "➕ Fabrică",
-    "users_title": "👥 Registru Utilizatori Înregistrați Supabase",
+    "users_title": "👥 Registru Utilizatori Înregistrați",
     "btn_new_user": "➕ Creare Utilizator",
     "col_name": "Nume Complet",
     "col_email": "Adresă de Email",
@@ -352,7 +352,7 @@
     "lang_title": "🌐 Selectare Limbă / Language Preference",
     "lang_sub": "Selectați limba preferată pentru interfața sistemului.",
     "eq_title": "🛠️ Registru Echipamente de Măsurare și Calibrare (TR53)",
-    "eq_sub": "Control în timp real al Megohmmetrelor, Măsurătorilor de Câmp Static, Plăcilor de Sarcină Ionizatoare și Terrometrelor în Supabase.",
+    "eq_sub": "Control în timp real al Megohmmetrelor, Măsurătorilor de Câmp Static, Plăcilor de Sarcină Ionizatoare și Terrometrelor.",
     "btn_add_eq": "➕ Înregistrare Echipament",
     "form_add_eq": "📝 Adăugare Echipament de Măsurare",
     "lbl_site_assigned": "Fabrică Alocată*",
@@ -363,7 +363,7 @@
     "lbl_date_last": "Data Ultimei Calibrări",
     "lbl_date_next": "Data Următoarei Calibrări (Expirare)*",
     "btn_cancel": "Anulare",
-    "btn_save_supabase": "💾 Salvare în Supabase",
+    "btn_save_supabase": "💾 Salvare Echipament",
     "col_code": "Cod / ID",
     "col_desc": "Descriere Echipament",
     "col_brand": "Marcă și Model",

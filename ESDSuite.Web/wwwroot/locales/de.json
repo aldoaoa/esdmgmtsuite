@@ -29,7 +29,7 @@
     "cat_verification": "VERIFIZIERUNG & FERTIGUNG",
     "cat_assets": "BETRIEBSMITTEL & SCHULUNG",
     "cat_config": "KONFIGURATION",
-    "platform": "esd360 SaaS Platform"
+    "platform": "esd360 Enterprise Platform"
   },
   "nav": {
     "dashboard": "Haupt-Dashboard Overview",
@@ -340,7 +340,7 @@
     "tree_sub": "Struktur aufklappen: Unternehmen (Ebene 1) → Standort / Werk (Ebene 2) → Bereiche / Linien (Ebene 3).",
     "btn_add_company": "➕ Unternehmen",
     "btn_add_site": "➕ Standort",
-    "users_title": "👥 Supabase Registrierte Benutzerübersicht",
+    "users_title": "👥 Registrierte Benutzerübersicht",
     "btn_new_user": "➕ Benutzer erstellen",
     "col_name": "Vollständiger Name",
     "col_email": "E-Mail-Adresse",
@@ -352,7 +352,7 @@
     "lang_title": "🌐 Sprachauswahl / Language Preference",
     "lang_sub": "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
     "eq_title": "🛠️ Messgeräte-Verzeichnis & Kalibrierung (TR53)",
-    "eq_sub": "Echtzeitsteuerung von Megohmmetern, Feldstärkemessern, Ionisator-Ladeplatten und Erdungsprüfern in Supabase.",
+    "eq_sub": "Echtzeitsteuerung von Megohmmetern, Feldstärkemessern, Ionisator-Ladeplatten und Erdungsprüfern.",
     "btn_add_eq": "➕ Messgerät registrieren",
     "form_add_eq": "📝 Neues Messgerät anlegen",
     "lbl_site_assigned": "Zugewiesener Standort / Werk*",
@@ -363,7 +363,7 @@
     "lbl_date_last": "Datum der letzten Kalibrierung",
     "lbl_date_next": "Nächstes Kalibrierdatum (Ablauf)*",
     "btn_cancel": "Abbrechen",
-    "btn_save_supabase": "💾 In Supabase speichern",
+    "btn_save_supabase": "💾 Gerät speichern",
     "col_code": "Code / ID",
     "col_desc": "Gerätebeschreibung",
     "col_brand": "Marke & Modell",

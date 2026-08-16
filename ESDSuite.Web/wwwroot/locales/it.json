@@ -29,7 +29,7 @@
     "cat_verification": "VERIFICA E REPARTO",
     "cat_assets": "RESOURCE E FORMAZIONE",
     "cat_config": "CONFIGURAZIONE",
-    "platform": "esd360 SaaS Platform"
+    "platform": "esd360 Enterprise Platform"
   },
   "nav": {
     "dashboard": "Panoramica Dashboard",
@@ -340,7 +340,7 @@
     "tree_sub": "Espandi struttura: Azienda (Livello 1) → Stabilimento (Livello 2) → Aree / Linee (Livello 3).",
     "btn_add_company": "➕ Azienda",
     "btn_add_site": "➕ Stabilimento",
-    "users_title": "👥 Registro Utenti Registrati Supabase",
+    "users_title": "👥 Registro Utenti Registrati",
     "btn_new_user": "➕ Crea Utente",
     "col_name": "Nome Completo",
     "col_email": "Indirizzo Email",
@@ -352,7 +352,7 @@
     "lang_title": "🌐 Selezione Lingua / Language Preference",
     "lang_sub": "Seleziona la tua lingua preferita per l'interfaccia di sistema.",
     "eq_title": "🛠️ Elenco Strumenti di Misurazione e Taratura (TR53)",
-    "eq_sub": "Controllo in tempo reale di Megohmmetri, Misuratori di Campo Statico, Piastre di Carica Ionizzatori e Terrometri in Supabase.",
+    "eq_sub": "Controllo in tempo reale di Megohmmetri, Misuratori di Campo Statico, Piastre di Carica Ionizzatori e Terrometri.",
     "btn_add_eq": "➕ Registra Strumento",
     "form_add_eq": "📝 Aggiungi Strumento di Misurazione",
     "lbl_site_assigned": "Stabilimento Assegnato*",
@@ -363,7 +363,7 @@
     "lbl_date_last": "Data Ultima Taratura",
     "lbl_date_next": "Data Prossima Taratura (Scadenza)*",
     "btn_cancel": "Annulla",
-    "btn_save_supabase": "💾 Salva su Supabase",
+    "btn_save_supabase": "💾 Salva Attrezzatura",
     "col_code": "Codice / ID",
     "col_desc": "Descrizione Strumento",
     "col_brand": "Marca e Modello",

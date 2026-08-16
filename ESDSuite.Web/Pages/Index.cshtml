@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.4.8</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.4.9</span>
                     </div>
                 </div>
             </div>
@@ -194,10 +194,10 @@
             </div>
             <div style="padding:8px 10px; background:#F8FAFC; border:1px solid var(--border-color); border-radius:7px; display:flex; align-items:center; justify-content:space-between;">
                 <div>
-                    <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 SaaS Platform</div>
+                    <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.4.8</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.4.9</span>
             </div>
         </div>
     </aside>
@@ -612,10 +612,29 @@
                     <div id="infra-tab-ground" class="tab-content active">
                         <h4 data-i18n="infra.tab_ground">Captura de Tierras y Conexiones</h4>
                         <form id="form-infra-ground" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group"><label data-i18n="infra.gr_type">Tipo de Punto de Tierra</label><select id="gnd-type" class="form-control"><option value="Main Ground" data-i18n="infra.opt_main_ground">Tierra Principal (Main Ground)</option><option value="Wrist Strap Jack" data-i18n="infra.opt_wrist_jack">Jack de Pulsera (Wrist Strap Jack)</option><option value="Mat Ground" data-i18n="infra.opt_mat_ground">Tierra de Tapete ESD (Mat Ground)</option><option value="Auxiliary Ground" data-i18n="infra.opt_aux_ground">Tierra Auxiliar</option></select></div>
-                            <div class="form-group"><label data-i18n="infra.gr_loc">Ubicación / Línea</label><input id="gnd-loc" class="form-control" placeholder="SMT-01" required /></div>
-                            <div class="form-group"><label data-i18n="infra.gr_id">ID del Punto</label><input id="gnd-id" class="form-control" placeholder="GND-01" required /></div>
-                            <div class="form-group"><label data-i18n="infra.gr_ohms">Resistencia a Tierra (Ohms)</label><input id="gnd-ohms" type="number" step="0.1" class="form-control" required /></div>
+                            <div class="form-group">
+                                <label data-i18n="infra.gr_type">Tipo de Punto de Tierra</label>
+                                <select id="gnd-type" class="form-control">
+                                    <option value="Main Ground" data-i18n="infra.opt_main_ground">Tierra Principal (Main Ground)</option>
+                                    <option value="Wrist Strap Jack" data-i18n="infra.opt_wrist_jack">Jack de Pulsera (Wrist Strap Jack)</option>
+                                    <option value="Mat Ground" data-i18n="infra.opt_mat_ground">Tierra de Tapete ESD (Mat Ground)</option>
+                                    <option value="Auxiliary Ground" data-i18n="infra.opt_aux_ground">Tierra Auxiliar</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.gr_loc">Ubicación / Línea*</label>
+                                <select id="gnd-loc" class="form-control" required>
+                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.gr_id">Identificador del Punto (ID)*</label>
+                                <input id="gnd-id" class="form-control" placeholder="Ej: GND-01" required />
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.gr_ohms">Resistencia a Tierra (Ohms)*</label>
+                                <input id="gnd-ohms" type="number" step="0.001" min="0" placeholder="Ej: 0.143" class="form-control" required />
+                            </div>
                             <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.gr_save">💾 Guardar Verificación de Tierra</button>
                         </form>
                         <h4 style="margin-top:24px;" data-i18n="infra.lbl_gr_history">📋 Histórico de Tierras</h4>
@@ -626,10 +645,24 @@
                     <div id="infra-tab-floor" class="tab-content">
                         <h4 data-i18n="infra.fl_heading">Calificación de Pisos ESD (Resistencia PTP y RTG &le; 1.0e9 &Omega;)</h4>
                         <form id="form-infra-floor" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group"><label data-i18n="infra.fl_room">Cuarto / Área Cleanroom</label><input id="fl-room" class="form-control" placeholder="Room 1" required /></div>
-                            <div class="form-group"><label data-i18n="infra.fl_point">Número de Punto</label><input id="fl-point" type="number" class="form-control" value="1" required /></div>
-                            <div class="form-group"><label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*</label><input id="fl-ohms" type="text" class="form-control" placeholder="1.0e7" required /></div>
-                            <div class="form-group"><label>Temperatura (°C) / Humedad (%)</label><input id="fl-temp-hum" class="form-control" value="23.5°C / 45%" /></div>
+                            <div class="form-group">
+                                <label data-i18n="infra.fl_room">Cuarto / Área / Línea*</label>
+                                <select id="fl-room" class="form-control" required>
+                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea / Área --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.fl_point">Número de Punto*</label>
+                                <input id="fl-point" type="number" min="1" class="form-control" placeholder="Ej: 1" required />
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*</label>
+                                <input id="fl-ohms" type="text" class="form-control" placeholder="Ej: 1.0e7" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Temperatura (°C) / Humedad (%)</label>
+                                <input id="fl-temp-hum" class="form-control" placeholder="Ej: 23.5°C / 45%" />
+                            </div>
                             <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.fl_save">💾 Guardar Verificación de Piso</button>
                         </form>
                         <h4 style="margin-top:24px;" data-i18n="infra.lbl_fl_history">📋 Histórico de Pisos ESD</h4>
@@ -640,10 +673,24 @@
                     <div id="infra-tab-iso" class="tab-content">
                         <h4 data-i18n="infra.iso_heading">Identificación de Conductores Aislados (Campo Estático &le; 100V)</h4>
                         <form id="form-infra-iso" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group"><label data-i18n="infra.gr_loc">Ubicación / Línea</label><input id="iso-loc" class="form-control" placeholder="SMT-02" required /></div>
-                            <div class="form-group"><label data-i18n="infra.iso_op">Operación / Estación ID</label><input id="iso-op" class="form-control" placeholder="ROUTER-01" required /></div>
-                            <div class="form-group"><label data-i18n="infra.iso_volt">Voltaje Inducido Máximo (V)</label><input id="iso-volt" type="number" step="0.1" class="form-control" required /></div>
-                            <div class="form-group"><label data-i18n="audit.lbl_obs">Comentarios</label><input id="iso-notes" class="form-control" placeholder="Shielding OK" /></div>
+                            <div class="form-group">
+                                <label data-i18n="infra.gr_loc">Ubicación / Línea*</label>
+                                <select id="iso-loc" class="form-control" required>
+                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.iso_op">Operación / Estación ID*</label>
+                                <input id="iso-op" class="form-control" placeholder="Ej: ROUTER-01" required />
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="infra.iso_volt">Voltaje Inducido Máximo (V)*</label>
+                                <input id="iso-volt" type="number" step="0.1" min="0" placeholder="Ej: 15.0" class="form-control" required />
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="audit.lbl_obs">Comentarios</label>
+                                <input id="iso-notes" class="form-control" placeholder="Sin observaciones" />
+                            </div>
                             <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.iso_save">💾 Guardar Registro de Conductor Aislado</button>
                         </form>
                     </div>
@@ -652,11 +699,14 @@
                     <div id="infra-tab-checkers" class="tab-content">
                         <h4 data-i18n="infra.chk_heading">Calibración y Verificación de Checadores de Calzado & Pulsera</h4>
                         <form id="form-infra-checkers" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group" style="grid-column: span 2;"><label data-i18n="infra.chk_id">ID del Checador de Entrada*</label><input id="chk-id" class="form-control" placeholder="CHECADOR-01" required /></div>
-                            <div class="form-group"><label>Ref Megóhmetro Izq (Ohms)</label><input id="chk-ref-l" class="form-control" value="1.0e8" /></div>
-                            <div class="form-group"><label>Lectura Checador Izq (Ohms)</label><input id="chk-read-l" class="form-control" value="1.02e8" /></div>
-                            <div class="form-group"><label>Ref Megóhmetro Der (Ohms)</label><input id="chk-ref-r" class="form-control" value="1.0e8" /></div>
-                            <div class="form-group"><label>Lectura Checador Der (Ohms)</label><input id="chk-read-r" class="form-control" value="1.01e8" /></div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label data-i18n="infra.chk_id">ID del Checador de Entrada*</label>
+                                <input id="chk-id" class="form-control" placeholder="Ej: CHECADOR-01" required />
+                            </div>
+                            <div class="form-group"><label>Ref Megóhmetro Izq (Ohms)</label><input id="chk-ref-l" class="form-control" placeholder="Ej: 1.0e8" /></div>
+                            <div class="form-group"><label>Lectura Checador Izq (Ohms)</label><input id="chk-read-l" class="form-control" placeholder="Ej: 1.02e8" /></div>
+                            <div class="form-group"><label>Ref Megóhmetro Der (Ohms)</label><input id="chk-ref-r" class="form-control" placeholder="Ej: 1.0e8" /></div>
+                            <div class="form-group"><label>Lectura Checador Der (Ohms)</label><input id="chk-read-r" class="form-control" placeholder="Ej: 1.01e8" /></div>
                             <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.chk_save">💾 Guardar Verificación de Checador</button>
                         </form>
                     </div>
@@ -675,9 +725,20 @@
                     <div class="glass-card" style="margin-bottom:20px;">
                         <h4 data-i18n="schedule.heading">Emisión de Reporte Oficial de Línea</h4>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
-                            <div class="form-group"><label data-i18n="schedule.lbl_line">Línea / Ubicación a Certificar</label><input id="rep-linea" class="form-control" value="SMT 1" /></div>
-                            <div class="form-group"><label data-i18n="schedule.lbl_auditor">Auditor / Coordinador Responsable</label><input id="rep-auditor" class="form-control" value="Aldo Orozco" /></div>
-                            <div class="form-group" style="grid-column: span 2;"><label data-i18n="schedule.lbl_comments">Comentarios / Observaciones de la Línea</label><input id="rep-comments" class="form-control" value="La línea cumple satisfactoriamente con los límites de resistencia ANSI/ESD S20.20." /></div>
+                            <div class="form-group">
+                                <label data-i18n="schedule.lbl_line">Línea / Ubicación a Certificar*</label>
+                                <select id="rep-linea" class="form-control" required>
+                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="schedule.lbl_auditor">Auditor / Coordinador Responsable*</label>
+                                <input id="rep-auditor" class="form-control" placeholder="Ej: Auditor ESD" />
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label data-i18n="schedule.lbl_comments">Comentarios / Observaciones de la Línea</label>
+                                <input id="rep-comments" class="form-control" placeholder="La línea cumple satisfactoriamente con los límites de resistencia ANSI/ESD S20.20." />
+                            </div>
                         </div>
                         <button class="btn-primary" onclick="generateOfficialLineReport()" data-i18n="schedule.btn_generate">🖨️ Generar y Previsualizar Reporte Oficial (PDF / HTML)</button>
                     </div>
@@ -1030,7 +1091,7 @@
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                             <div>
                                 <h4 style="margin:0; font-size:16px;" data-i18n="settings.eq_title">🛠️ Directorio & Calibración de Equipos de Medición (TR53)</h4>
-                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;" data-i18n="settings.eq_sub">Control de Megóhmetros, Medidores de Campo Estático, Placas de Carga de Ionizadores y Terómetros con estatus en tiempo real en Supabase.</p>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;" data-i18n="settings.eq_sub">Control de Megóhmetros, Medidores de Campo Estático, Placas de Carga de Ionizadores y Terómetros con estatus en tiempo real.</p>
                             </div>
                             <div style="display:flex; gap:10px; align-items:center;">
                                 <select id="eq-site-filter" class="form-control" style="width:200px; font-size:12px;" onchange="loadEquipmentTable()">
@@ -1076,7 +1137,7 @@
                                 </div>
                                 <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
                                     <button type="button" class="btn-primary" style="background:var(--text-muted);" onclick="toggleAddEquipmentForm()" data-i18n="settings.btn_cancel">Cancelar</button>
-                                    <button type="submit" class="btn-primary" data-i18n="settings.btn_save_supabase">💾 Guardar en Supabase</button>
+                                    <button type="submit" class="btn-primary" data-i18n="settings.btn_save_supabase">💾 Guardar Equipo</button>
                                 </div>
                             </form>
                         </div>
@@ -1460,6 +1521,7 @@
             loadEventMeterHistory();
         }
         if (modName === 'infra') loadInfraData();
+        if (modName === 'schedule') loadInfraLinesSelect();
         if (modName === 'inventory') loadInventory();
         if (modName === 'lab') loadLab();
         if (modName === 'routes') loadRoutes();
@@ -2170,30 +2232,301 @@
         document.getElementById('infra-tab-' + tabName).classList.add('active');
     }
 
-    async function loadInfraData() {
-        const gRes = await fetch('/api/infra/grounding');
-        const grounds = await gRes.json();
-        document.getElementById('ground-history-table').innerHTML = `<div class="glass-card">${grounds.length} registros de tierras en Supabase.</div>`;
+    async function loadInfraLinesSelect() {
+        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'rep-linea'];
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const res = await fetch(`/api/lines?siteId=${siteId}`);
+            if (res.ok) {
+                const lines = await res.json();
+                const defaultText = t('eventmeter.opt_select_line', '-- Seleccionar Línea --');
+                selects.forEach(id => {
+                    const sel = document.getElementById(id);
+                    if (!sel) return;
+                    const prevVal = sel.value;
+                    sel.innerHTML = `<option value="">${defaultText}</option>`;
+                    lines.forEach(l => {
+                        const name = l.nombre_linea || l.name;
+                        sel.innerHTML += `<option value="${name}">${name}</option>`;
+                    });
+                    if (prevVal && lines.some(l => (l.nombre_linea || l.name) === prevVal)) {
+                        sel.value = prevVal;
+                    } else {
+                        sel.value = '';
+                    }
+                });
+            }
+        } catch(e) {
+            console.error('Error loading infra lines:', e);
+        }
+    }
 
-        const fRes = await fetch('/api/infra/floors');
-        const floors = await fRes.json();
-        document.getElementById('floor-history-table').innerHTML = `<div class="glass-card">${floors.length} registros de piso en Supabase.</div>`;
+    async function loadInfraData() {
+        await loadInfraLinesSelect();
+        const siteId = (sessionData && sessionData.site_id) || '';
+
+        // 1. Load Grounding History
+        try {
+            const gRes = await fetch(`/api/infra/grounding?siteId=${siteId}`);
+            const grounds = await gRes.json();
+            const gContainer = document.getElementById('ground-history-table');
+            if (gContainer) {
+                if (!grounds || grounds.length === 0) {
+                    gContainer.innerHTML = `<div class="glass-card" style="text-align:center; padding:16px; color:var(--text-muted); font-size:13px;" data-i18n="infra.no_records">No hay registros de tierras para esta planta.</div>`;
+                } else {
+                    let html = `<div class="table-responsive" style="max-height:400px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                        <table class="data-table" style="margin:0; width:100%;">
+                            <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                                <tr>
+                                    <th style="min-width:120px;" data-i18n="eventmeter.col_date">Fecha</th>
+                                    <th style="min-width:130px;" data-i18n="eventmeter.col_line">Línea / Ubicación</th>
+                                    <th style="min-width:110px;">ID Punto</th>
+                                    <th style="min-width:140px;">Tipo de Punto</th>
+                                    <th style="min-width:120px; text-align:right;">Resistencia (Ω)</th>
+                                    <th style="min-width:90px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                    grounds.forEach(g => {
+                        const dateStr = g.measured_at ? new Date(g.measured_at).toLocaleDateString() + ' ' + new Date(g.measured_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : (g.created_at ? new Date(g.created_at).toLocaleDateString() : '-');
+                        const ohms = g.resistance_ohms != null ? parseFloat(g.resistance_ohms) : null;
+                        const ohmsFormatted = ohms !== null ? (ohms < 1 ? ohms.toFixed(3) : ohms.toFixed(2)) + ' Ω' : '-';
+                        const statusBadge = (g.status_result === 'PASS' || (ohms !== null && ohms <= 2.0))
+                            ? `<span class="badge-pass" style="font-size:11px; padding:3px 8px;">PASS</span>`
+                            : `<span class="badge-fail" style="font-size:11px; padding:3px 8px;">FAIL</span>`;
+                        html += `<tr>
+                            <td style="font-size:12px;"><b>${dateStr}</b></td>
+                            <td style="font-size:12px;">${g.location || g.area_line || '-'}</td>
+                            <td style="font-size:12.5px; font-weight:700; color:var(--accent-blue);">${g.point_id || '-'}</td>
+                            <td style="font-size:12px;">${g.point_type || 'Main Ground'}</td>
+                            <td style="font-size:12.5px; font-weight:800; text-align:right; color:${ohms > 2.0 ? 'var(--accent-rose)' : 'var(--text-primary)'};">${ohmsFormatted}</td>
+                            <td style="text-align:center;">${statusBadge}</td>
+                        </tr>`;
+                    });
+                    html += `</tbody></table></div>`;
+                    gContainer.innerHTML = html;
+                }
+            }
+        } catch(e) {
+            console.error('Error loading grounds:', e);
+        }
+
+        // 2. Load Flooring History
+        try {
+            const fRes = await fetch(`/api/infra/floors?siteId=${siteId}`);
+            const floors = await fRes.json();
+            const fContainer = document.getElementById('floor-history-table');
+            if (fContainer) {
+                if (!floors || floors.length === 0) {
+                    fContainer.innerHTML = `<div class="glass-card" style="text-align:center; padding:16px; color:var(--text-muted); font-size:13px;" data-i18n="infra.no_records">No hay registros de pisos ESD para esta planta.</div>`;
+                } else {
+                    let html = `<div class="table-responsive" style="max-height:400px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                        <table class="data-table" style="margin:0; width:100%;">
+                            <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                                <tr>
+                                    <th style="min-width:120px;" data-i18n="eventmeter.col_date">Fecha</th>
+                                    <th style="min-width:130px;">Área / Cuarto</th>
+                                    <th style="min-width:90px; text-align:center;">Punto</th>
+                                    <th style="min-width:140px;">Resistencia PTP (Ω)</th>
+                                    <th style="min-width:120px;">Temp / Hum</th>
+                                    <th style="min-width:90px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                    floors.forEach(f => {
+                        const dateStr = f.measured_at ? new Date(f.measured_at).toLocaleDateString() + ' ' + new Date(f.measured_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : (f.created_at ? new Date(f.created_at).toLocaleDateString() : '-');
+                        const statusBadge = (f.status_result === 'PASS')
+                            ? `<span class="badge-pass" style="font-size:11px; padding:3px 8px;">PASS</span>`
+                            : `<span class="badge-fail" style="font-size:11px; padding:3px 8px;">FAIL</span>`;
+                        html += `<tr>
+                            <td style="font-size:12px;"><b>${dateStr}</b></td>
+                            <td style="font-size:12px;">${f.room_name || f.location || '-'}</td>
+                            <td style="text-align:center; font-weight:700;">${f.point_number || 1}</td>
+                            <td style="font-size:12.5px; font-weight:800;">${f.ptp_resistance || f.resistance_ohms || '-'} Ω</td>
+                            <td style="font-size:11.5px; color:var(--text-muted);">${f.temp_hum || '-'}</td>
+                            <td style="text-align:center;">${statusBadge}</td>
+                        </tr>`;
+                    });
+                    html += `</tbody></table></div>`;
+                    fContainer.innerHTML = html;
+                }
+            }
+        } catch(e) {
+            console.error('Error loading floors:', e);
+        }
     }
 
     document.getElementById('form-infra-ground').onsubmit = async function(e) {
         e.preventDefault();
-        await fetch('/api/infra/grounding', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                point_type: document.getElementById('gnd-type').value,
-                location: document.getElementById('gnd-loc').value,
-                point_id: document.getElementById('gnd-id').value,
-                resistance_ohms: parseFloat(document.getElementById('gnd-ohms').value)
-            })
-        });
-        alert('✅ Verificación de Tierra Guardada en Supabase!');
-        loadInfraData();
+        const loc = document.getElementById('gnd-loc').value;
+        if (!loc) {
+            alert(t('eventmeter.opt_select_line', 'Por favor selecciona una línea / ubicación.'));
+            return;
+        }
+        const pointType = document.getElementById('gnd-type').value;
+        const pointId = document.getElementById('gnd-id').value.trim();
+        const ohmsRaw = document.getElementById('gnd-ohms').value.trim();
+        const ohms = parseFloat(ohmsRaw) || 0;
+
+        const limit = pointType.includes('Auxiliary') ? 25.0 : (pointType.includes('Main') ? 1.0 : 2.0);
+        const isPass = ohms <= limit;
+
+        try {
+            const res = await fetch('/api/infra/grounding', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-User-Id': (sessionData && sessionData.user_id) || '',
+                    'X-User-Role': (sessionData && sessionData.user_role) || ''
+                },
+                body: JSON.stringify({
+                    point_type: pointType,
+                    location: loc,
+                    point_id: pointId,
+                    resistance_ohms: ohms,
+                    site_id: (sessionData && sessionData.site_id) || ''
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                if (isPass) {
+                    alert(`✅ Verificación de Tierra registrada exitosamente. (Estatus: PASS - ${ohms} Ω ≤ ${limit} Ω)`);
+                } else {
+                    alert(`⚠️ ¡ALERTA DE TIERRA FUERA DE LÍMITE!\n\nLa resistencia registrada (${ohms} Ω) EXCEDE el límite permitido de ${limit} Ω (Estatus: FAIL).\n\nSe requiere revisión y mantenimiento del punto de tierra.`);
+                }
+                document.getElementById('gnd-loc').value = '';
+                document.getElementById('gnd-id').value = '';
+                document.getElementById('gnd-ohms').value = '';
+                loadInfraData();
+            } else {
+                alert('❌ Error al guardar verificación de tierra.');
+            }
+        } catch(ex) {
+            alert('❌ Error de conexión con el servidor.');
+        }
+    };
+
+    document.getElementById('form-infra-floor').onsubmit = async function(e) {
+        e.preventDefault();
+        const room = document.getElementById('fl-room').value;
+        if (!room) {
+            alert(t('eventmeter.opt_select_line', 'Por favor selecciona una línea / área.'));
+            return;
+        }
+        const pointNum = parseInt(document.getElementById('fl-point').value) || 1;
+        const ptpRaw = document.getElementById('fl-ohms').value.trim();
+        const tempHum = document.getElementById('fl-temp-hum').value.trim();
+
+        try {
+            const res = await fetch('/api/infra/floors', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-User-Id': (sessionData && sessionData.user_id) || '',
+                    'X-User-Role': (sessionData && sessionData.user_role) || ''
+                },
+                body: JSON.stringify({
+                    room_name: room,
+                    point_number: pointNum,
+                    ptp_resistance: ptpRaw,
+                    resistance_ohms: parseFloat(ptpRaw) || 0,
+                    temp_hum: tempHum,
+                    site_id: (sessionData && sessionData.site_id) || ''
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ Verificación de Piso ESD registrada exitosamente.');
+                document.getElementById('fl-room').value = '';
+                document.getElementById('fl-point').value = '';
+                document.getElementById('fl-ohms').value = '';
+                document.getElementById('fl-temp-hum').value = '';
+                loadInfraData();
+            } else {
+                alert('❌ Error al guardar verificación de piso.');
+            }
+        } catch(ex) {
+            alert('❌ Error de conexión con el servidor.');
+        }
+    };
+
+    document.getElementById('form-infra-iso').onsubmit = async function(e) {
+        e.preventDefault();
+        const loc = document.getElementById('iso-loc').value;
+        if (!loc) {
+            alert(t('eventmeter.opt_select_line', 'Por favor selecciona una línea.'));
+            return;
+        }
+        const op = document.getElementById('iso-op').value.trim();
+        const volt = parseFloat(document.getElementById('iso-volt').value) || 0;
+        const notes = document.getElementById('iso-notes').value.trim();
+
+        try {
+            const res = await fetch('/api/infra/isolated', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-User-Id': (sessionData && sessionData.user_id) || '',
+                    'X-User-Role': (sessionData && sessionData.user_role) || ''
+                },
+                body: JSON.stringify({
+                    location: loc,
+                    operation_id: op,
+                    max_voltage: volt,
+                    notes: notes,
+                    site_id: (sessionData && sessionData.site_id) || ''
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ Registro de Conductor Aislado guardado exitosamente.');
+                document.getElementById('iso-loc').value = '';
+                document.getElementById('iso-op').value = '';
+                document.getElementById('iso-volt').value = '';
+                document.getElementById('iso-notes').value = '';
+            } else {
+                alert('❌ Error al guardar conductor aislado.');
+            }
+        } catch(ex) {
+            alert('❌ Error de conexión con el servidor.');
+        }
+    };
+
+    document.getElementById('form-infra-checkers').onsubmit = async function(e) {
+        e.preventDefault();
+        const chkId = document.getElementById('chk-id').value.trim();
+        const refL = parseFloat(document.getElementById('chk-ref-l').value) || 0;
+        const readL = parseFloat(document.getElementById('chk-read-l').value) || 0;
+        const refR = parseFloat(document.getElementById('chk-ref-r').value) || 0;
+        const readR = parseFloat(document.getElementById('chk-read-r').value) || 0;
+
+        try {
+            const res = await fetch('/api/infra/checkers', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-User-Id': (sessionData && sessionData.user_id) || '',
+                    'X-User-Role': (sessionData && sessionData.user_role) || ''
+                },
+                body: JSON.stringify({
+                    checker_id: chkId,
+                    reference_left: refL,
+                    reading_left: readL,
+                    reference_right: refR,
+                    reading_right: readR,
+                    site_id: (sessionData && sessionData.site_id) || ''
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ Registro de Checador guardado exitosamente.');
+                document.getElementById('chk-id').value = '';
+            } else {
+                alert('❌ Error al guardar registro de checador.');
+            }
+        } catch(ex) {
+            alert('❌ Error de conexión con el servidor.');
+        }
     };
 
     async function generateOfficialLineReport() {
@@ -2518,7 +2851,7 @@
             confetti();
             resDiv.innerHTML = `<div class="glass-card" style="border-color:var(--accent-emerald); text-align:center;">
                 <h3 style="color:var(--accent-emerald);">🎉 ¡APROBADO! (${data.score}%)</h3>
-                <p>Certificación registrada en Supabase.</p>
+                <p>Certificación registrada en el sistema.</p>
             </div>`;
         } else {
             resDiv.innerHTML = `<div class="glass-card" style="border-color:var(--accent-rose); text-align:center;">
@@ -2633,7 +2966,7 @@
 
         const data = await res.json();
         if (data.success) {
-            showToast(`✅ Equipo "${codigo_equipo}" registrado exitosamente en Supabase.`);
+            showToast(`✅ Equipo "${codigo_equipo}" registrado exitosamente.`);
             toggleAddEquipmentForm();
             document.getElementById('form-create-equipment').reset();
             loadEquipmentTable();
@@ -2830,7 +3163,7 @@
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`✅ Empresa "${name.trim()}" registrada en Supabase.`);
+            showToast(`✅ Empresa "${name.trim()}" registrada exitosamente.`);
             loadSettings();
         } else {
             showToast('❌ ' + (data.message || 'Error al crear la empresa.'), 'error');
@@ -2853,7 +3186,7 @@
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`✅ Site "${siteName.trim()}" registrado en Supabase.`);
+            showToast(`✅ Site "${siteName.trim()}" registrado exitosamente.`);
             loadSettings();
         } else {
             showToast('❌ ' + (data.message || 'Error al crear el Site.'), 'error');
@@ -2877,7 +3210,7 @@
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`✅ Área / Línea "${areaName.trim()}" registrada en Supabase.`);
+            showToast(`✅ Área / Línea "${areaName.trim()}" registrada exitosamente.`);
             loadSettings();
         } else {
             showToast('❌ ' + (data.message || 'Error al crear el Área / Línea.'), 'error');
@@ -2902,7 +3235,7 @@
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`✅ Operación "${opName.trim()}" agregada a "${areaName}" en Supabase.`);
+            showToast(`✅ Operación "${opName.trim()}" agregada a "${areaName}".`);
             loadSettings();
         } else {
             showToast('❌ ' + (data.message || 'Error al crear la Operación.'), 'error');
