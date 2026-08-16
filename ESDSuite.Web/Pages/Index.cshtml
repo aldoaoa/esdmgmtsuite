@@ -4276,7 +4276,14 @@
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(`✅ Lote de ${measuredCount} mediciones de piso guardado exitosamente y registrado en el historial.`);
+                const failCount = currentViewerMap.points.filter(p => p.lastResistanceOhms != null && p.lastResistanceOhms > 1.0e9).length;
+                const passCount = measuredCount - failCount;
+
+                if (failCount > 0) {
+                    alert(`⚠️ Lote de ${measuredCount} mediciones guardado en el historial:\n\n• ${passCount} puntos CONFORMES (PASS ≤ 1.0e9 Ω)\n• ${failCount} puntos FUERA DE LÍMITE (FAIL > 1.0e9 Ω)\n\nTodos los registros se almacenaron correctamente para trazabilidad y se han marcado en rojo en el heatmap.`);
+                } else {
+                    alert(`✅ Lote de ${measuredCount} mediciones de piso guardado exitosamente (100% PASS) y registrado en el historial.`);
+                }
                 loadInfraData();
             } else {
                 alert(data.message || '❌ Error al guardar las mediciones de piso.');
