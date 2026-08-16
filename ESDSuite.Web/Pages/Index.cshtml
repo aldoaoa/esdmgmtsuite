@@ -1737,43 +1737,58 @@
     };
 
     async function checkSession() {
+        let sessionRes = null;
         try {
             const res = await fetch('/api/session');
-            const data = await res.json();
-            if (data.isLoggedIn) {
-                sessionData = data;
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('user-display-name').innerText = data.user_name || data.user_email;
-                document.getElementById('user-display-role').innerText = data.user_role || 'AUDITOR';
-                document.getElementById('user-avatar-initials').innerText = (data.user_name || 'U').substring(0, 1).toUpperCase();
-                document.getElementById('audit-auditor').value = data.user_name || 'Auditor ESD';
-                
-                const userLang = getStoredLang();
-                if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = userLang;
-                if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = userLang;
-                if (data.version) document.getElementById('system-version-badge').innerText = 'v' + data.version;
-                
-                enforceRolePermissions();
-                await loadTranslations(userLang);
-                await loadSites();
-                await loadEquipmentForSite();
-                await loadSitePhotoPolicy();
-                loadDashboardMetrics();
-            } else {
-                const landingLang = getStoredLang();
-                document.getElementById('login-overlay').style.display = 'flex';
-                if (document.getElementById('login-landing-lang-select')) {
-                    document.getElementById('login-landing-lang-select').value = landingLang;
-                }
-                await loadTranslations(landingLang);
+            if (res.ok) {
+                sessionRes = await res.json();
             }
         } catch (e) {
+            console.error('Error fetching session:', e);
+        }
+
+        if (sessionRes && sessionRes.isLoggedIn) {
+            sessionData = sessionRes;
+            const overlay = document.getElementById('login-overlay');
+            if (overlay) overlay.style.display = 'none';
+
+            if (document.getElementById('user-display-name')) {
+                document.getElementById('user-display-name').innerText = sessionRes.user_name || sessionRes.user_email || 'Usuario';
+            }
+            if (document.getElementById('user-display-role')) {
+                document.getElementById('user-display-role').innerText = sessionRes.user_role || 'AUDITOR';
+            }
+            if (document.getElementById('user-avatar-initials')) {
+                document.getElementById('user-avatar-initials').innerText = (sessionRes.user_name || 'U').substring(0, 1).toUpperCase();
+            }
+            if (document.getElementById('audit-auditor')) {
+                document.getElementById('audit-auditor').value = sessionRes.user_name || 'Auditor ESD';
+            }
+            
+            const userLang = getStoredLang();
+            if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = userLang;
+            if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = userLang;
+            if (sessionRes.version && document.getElementById('system-version-badge')) {
+                document.getElementById('system-version-badge').innerText = 'v' + sessionRes.version;
+            }
+            if (sessionRes.version && document.getElementById('login-version-badge')) {
+                document.getElementById('login-version-badge').innerText = 'v' + sessionRes.version;
+            }
+
+            try { enforceRolePermissions(); } catch(e) { console.warn('enforceRolePermissions error:', e); }
+            try { await loadTranslations(userLang); } catch(e) { console.warn('loadTranslations error:', e); }
+            try { await loadSites(); } catch(e) { console.warn('loadSites error:', e); }
+            try { await loadEquipmentForSite(); } catch(e) { console.warn('loadEquipmentForSite error:', e); }
+            try { await loadSitePhotoPolicy(); } catch(e) { console.warn('loadSitePhotoPolicy error:', e); }
+            try { await loadDashboardMetrics(); } catch(e) { console.warn('loadDashboardMetrics error:', e); }
+        } else {
             const landingLang = getStoredLang();
-            document.getElementById('login-overlay').style.display = 'flex';
+            const overlay = document.getElementById('login-overlay');
+            if (overlay) overlay.style.display = 'flex';
             if (document.getElementById('login-landing-lang-select')) {
                 document.getElementById('login-landing-lang-select').value = landingLang;
             }
-            await loadTranslations(landingLang);
+            try { await loadTranslations(landingLang); } catch(e) {}
         }
     }
 
@@ -1920,10 +1935,16 @@
 
     document.getElementById('login-form').onsubmit = async function(e) {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
+        const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
         const errDiv = document.getElementById('login-error');
-        errDiv.style.display = 'none';
+        const submitBtn = this.querySelector('button[type="submit"]');
+        
+        if (errDiv) errDiv.style.display = 'none';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = '⏳ Verificando credenciales...';
+        }
 
         try {
             const res = await fetch('/api/login', {
@@ -1932,15 +1953,26 @@
                 body: JSON.stringify({ email, password })
             });
             const data = await res.json();
-            if (data.success) {
-                location.reload();
+            if (res.ok && data.success) {
+                // Instantly update session state and display dashboard
+                await checkSession();
+                document.getElementById('login-password').value = '';
             } else {
-                errDiv.innerText = '❌ Credenciales incorrectas o cuenta inactiva.';
-                errDiv.style.display = 'block';
+                if (errDiv) {
+                    errDiv.innerText = data.message ? `❌ ${data.message}` : '❌ Credenciales incorrectas o cuenta inactiva.';
+                    errDiv.style.display = 'block';
+                }
             }
         } catch (ex) {
-            errDiv.innerText = '❌ Error de conexión al servidor.';
-            errDiv.style.display = 'block';
+            if (errDiv) {
+                errDiv.innerText = '❌ Error de conexión al servidor.';
+                errDiv.style.display = 'block';
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = t('login.submit', '🔒 Iniciar Sesión en esd360');
+            }
         }
     };
 
@@ -2746,15 +2778,22 @@
     }
 
     async function loadDashboardMetrics() {
-        const res = await fetch('/api/dashboard-metrics');
-        const data = await res.json();
+        try {
+            const res = await fetch('/api/dashboard-metrics');
+            if (!res.ok) return;
+            const data = await res.json();
 
-        document.getElementById('dash-total-assets').innerText = data.totalAssets;
-        document.getElementById('dash-total-floors').innerText = data.totalFloors;
-        document.getElementById('dash-total-grounding').innerText = data.totalGrounding;
-        document.getElementById('dash-total-entrance').innerText = data.totalEntrance;
+            if (document.getElementById('dash-total-assets')) document.getElementById('dash-total-assets').innerText = data.totalAssets ?? 0;
+            if (document.getElementById('dash-total-floors')) document.getElementById('dash-total-floors').innerText = data.totalFloors ?? 0;
+            if (document.getElementById('dash-total-grounding')) document.getElementById('dash-total-grounding').innerText = data.totalGrounding ?? 0;
+            if (document.getElementById('dash-total-entrance')) document.getElementById('dash-total-entrance').innerText = data.totalEntrance ?? 0;
 
-        renderDashboardChart(data.assetsData);
+            if (data.assetsData && Array.isArray(data.assetsData)) {
+                renderDashboardChart(data.assetsData);
+            }
+        } catch(e) {
+            console.error('Error loading dashboard metrics:', e);
+        }
     }
 
     let chartInstance = null;

@@ -115,7 +115,9 @@ public class SupabaseService
     // --- AUTHENTICATION SERVICE ---
     public async Task<(bool Success, UserSession? Session, string Message)> IniciarSesionAsync(string email, string password)
     {
-        string cleanEmail = email.Trim();
+        string cleanEmail = (email ?? "").Trim();
+        if (string.IsNullOrEmpty(cleanEmail)) return (false, null, "Por favor ingresa tu correo electrónico.");
+
         var users = await GetAsync($"users?email=ilike.{cleanEmail}&select=*");
         if (users.Count == 0)
         {
@@ -125,10 +127,16 @@ public class SupabaseService
         var userObj = users[0] as JsonObject;
         if (userObj == null)
         {
-            return (false, null, "Error al procesar usuario.");
+            return (false, null, "Error al procesar los datos de usuario.");
         }
 
-        bool isActive = userObj["is_active"]?.GetValue<bool>() ?? true;
+        bool isActive = true;
+        if (userObj["is_active"] != null)
+        {
+            if (bool.TryParse(userObj["is_active"]?.ToString(), out bool actVal))
+                isActive = actVal;
+        }
+
         if (!isActive)
         {
             return (false, null, "Tu cuenta de usuario está inactiva.");
@@ -148,37 +156,45 @@ public class SupabaseService
         string siteName = "Queretaro Plant";
         string companyName = "BCS AIS";
 
-        if (string.IsNullOrEmpty(siteId))
+        try
         {
-            var defaultSites = await GetAsync("sites?select=id,name,company_id&limit=1");
-            if (defaultSites.Count > 0 && defaultSites[0] is JsonObject dsObj)
+            if (string.IsNullOrEmpty(siteId))
             {
-                siteId = dsObj["id"]?.ToString() ?? "eff70028-0759-4033-9c2b-41e1c1cc6efd";
-                siteName = dsObj["name"]?.ToString() ?? siteName;
-                if (string.IsNullOrEmpty(companyId)) companyId = dsObj["company_id"]?.ToString() ?? "";
+                var defaultSites = await GetAsync("sites?select=id,name,company_id&limit=1");
+                if (defaultSites.Count > 0 && defaultSites[0] is JsonObject dsObj)
+                {
+                    siteId = dsObj["id"]?.ToString() ?? "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+                    siteName = dsObj["name"]?.ToString() ?? siteName;
+                    if (string.IsNullOrEmpty(companyId)) companyId = dsObj["company_id"]?.ToString() ?? "";
+                }
+                else
+                {
+                    siteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+                }
             }
             else
             {
-                siteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+                var sites = await GetAsync($"sites?id=eq.{siteId}&select=name,company_id");
+                if (sites.Count > 0 && sites[0] is JsonObject sObj)
+                {
+                    siteName = sObj["name"]?.ToString() ?? siteName;
+                    if (string.IsNullOrEmpty(companyId)) companyId = sObj["company_id"]?.ToString() ?? "";
+                }
             }
-        }
-        else
-        {
-            var sites = await GetAsync($"sites?id=eq.{siteId}&select=name,company_id");
-            if (sites.Count > 0 && sites[0] is JsonObject sObj)
-            {
-                siteName = sObj["name"]?.ToString() ?? siteName;
-                if (string.IsNullOrEmpty(companyId)) companyId = sObj["company_id"]?.ToString() ?? "";
-            }
-        }
 
-        if (!string.IsNullOrEmpty(companyId))
-        {
-            var companies = await GetAsync($"companies?id=eq.{companyId}&select=name");
-            if (companies.Count > 0 && companies[0] is JsonObject cObj)
+            if (!string.IsNullOrEmpty(companyId))
             {
-                companyName = cObj["name"]?.ToString() ?? companyName;
+                var companies = await GetAsync($"companies?id=eq.{companyId}&select=name");
+                if (companies.Count > 0 && companies[0] is JsonObject cObj)
+                {
+                    companyName = cObj["name"]?.ToString() ?? companyName;
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AUTH NOTE] Error resolving site/company metadata: {ex.Message}");
+            if (string.IsNullOrEmpty(siteId)) siteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
         }
 
         var session = new UserSession
