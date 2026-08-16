@@ -229,13 +229,30 @@ public class ApiController : ControllerBase
     private async Task<string> GetOrCreateAssetIdAsync(string customId, string siteId, string category, string location, string? subCategory = null)
     {
         string cleanCustomId = customId.Trim().ToUpper();
+        string cleanLocation = location.Trim().ToUpper();
         var existingAssets = await _supabase.GetAssetsAsync(siteId);
 
         foreach (var node in existingAssets)
         {
-            if (node is JsonObject aObj && aObj["custom_id"]?.ToString().Trim().ToUpper() == cleanCustomId)
+            if (node is JsonObject aObj)
             {
-                return aObj["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                string idVal = aObj["custom_id"]?.ToString() ?? aObj["asset_id"]?.ToString() ?? "";
+                if (string.Equals(idVal.Trim(), cleanCustomId, StringComparison.OrdinalIgnoreCase))
+                {
+                    string existingDbId = aObj["id"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(existingDbId))
+                    {
+                        await _supabase.UpdateAssetAsync(existingDbId, new
+                        {
+                            location = cleanLocation,
+                            category = category,
+                            sub_category = subCategory ?? category,
+                            classification = category,
+                            status = "ACTIVE"
+                        });
+                    }
+                    return !string.IsNullOrEmpty(existingDbId) ? existingDbId : Guid.NewGuid().ToString();
+                }
             }
         }
 
@@ -262,7 +279,7 @@ public class ApiController : ControllerBase
             category = category,
             sub_category = subCategory ?? category,
             classification = category,
-            location = location.Trim().ToUpper(),
+            location = cleanLocation,
             status = "ACTIVE"
         });
 
@@ -549,27 +566,72 @@ public class ApiController : ControllerBase
     {
         string targetSiteId = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var allAssets = await _supabase.GetAssetsAsync(targetSiteId);
+        var measurements = await _supabase.GetMeasurementsForSiteAsync(targetSiteId);
         
-        var filtered = allAssets.Where(a =>
+        var assetMap = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Index assets from assets table
+        foreach (var node in allAssets)
         {
-            var obj = a?.AsObject();
-            if (obj == null) return false;
-            if (string.IsNullOrEmpty(line)) return true;
-            string area = obj["area_line"]?.ToString() ?? "";
-            return string.Equals(area, line, StringComparison.OrdinalIgnoreCase) ||
-                   area.StartsWith(line + " ->", StringComparison.OrdinalIgnoreCase);
-        }).Select(a =>
-        {
-            var obj = a!.AsObject();
-            return new
+            if (node is JsonObject aObj)
             {
-                id = obj["id"]?.ToString(),
-                asset_id = obj["asset_id"]?.ToString(),
-                element_type = obj["element_type"]?.ToString(),
-                element_subtype = obj["element_subtype"]?.ToString(),
-                area_line = obj["area_line"]?.ToString()
-            };
-        });
+                string customId = aObj["custom_id"]?.ToString() ?? aObj["asset_id"]?.ToString() ?? "";
+                if (string.IsNullOrEmpty(customId)) continue;
+                string loc = aObj["location"]?.ToString() ?? aObj["area_line"]?.ToString() ?? "";
+                string cat = aObj["category"]?.ToString() ?? aObj["element_type"]?.ToString() ?? "Mobiliario ESD";
+                string subcat = aObj["sub_category"]?.ToString() ?? aObj["element_subtype"]?.ToString() ?? cat;
+
+                assetMap[customId] = new JsonObject
+                {
+                    ["id"] = aObj["id"]?.ToString(),
+                    ["asset_id"] = customId,
+                    ["element_type"] = cat,
+                    ["element_subtype"] = subcat,
+                    ["area_line"] = loc
+                };
+            }
+        }
+
+        // 2. Index assets recorded via floor audits/measurements if missing or update location
+        foreach (var node in measurements)
+        {
+            if (node is not JsonObject mObj) continue;
+            if (mObj["extra_data"] is not JsonObject ed) continue;
+
+            string idElem = ed["id_elemento"]?.ToString() ?? ed["id_operacion"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(idElem)) continue;
+
+            string loc = ed["ubicacion"]?.ToString() ?? ed["linea_ubicacion"]?.ToString() ?? "";
+            string cat = ed["tipo_equipo"]?.ToString() ?? ed["tipo_contacto"]?.ToString() ?? "Mobiliario ESD";
+            string subcat = ed["subtipo_elemento"]?.ToString() ?? ed["subtipo_key"]?.ToString() ?? cat;
+
+            if (!assetMap.TryGetValue(idElem, out var existing))
+            {
+                assetMap[idElem] = new JsonObject
+                {
+                    ["id"] = mObj["asset_id"]?.ToString() ?? idElem,
+                    ["asset_id"] = idElem,
+                    ["element_type"] = cat,
+                    ["element_subtype"] = subcat,
+                    ["area_line"] = loc
+                };
+            }
+            else if (string.IsNullOrEmpty(existing["area_line"]?.ToString()) || existing["area_line"]?.ToString() == "N/A")
+            {
+                existing["area_line"] = loc;
+            }
+        }
+
+        // 3. Filter by selected line/area
+        var filtered = assetMap.Values.Where(a =>
+        {
+            if (string.IsNullOrWhiteSpace(line)) return true;
+            string area = a["area_line"]?.ToString() ?? "";
+            string cleanLine = line.Trim();
+            return string.Equals(area, cleanLine, StringComparison.OrdinalIgnoreCase) ||
+                   area.StartsWith(cleanLine + " ->", StringComparison.OrdinalIgnoreCase) ||
+                   area.Contains(cleanLine, StringComparison.OrdinalIgnoreCase);
+        }).OrderBy(x => x["asset_id"]?.ToString());
 
         return Ok(filtered);
     }

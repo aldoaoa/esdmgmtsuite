@@ -402,6 +402,11 @@ public class SupabaseService
         return await InsertAsync("assets", data);
     }
 
+    public async Task<bool> UpdateAssetAsync(string id, object data)
+    {
+        return await UpdateAsync("assets", $"id=eq.{id}", data);
+    }
+
     public async Task<JsonArray> GetEventMeterLogsAsync(string? siteId = null)
     {
         string query = "measurements?extra_data->>type=eq.event_meter";
