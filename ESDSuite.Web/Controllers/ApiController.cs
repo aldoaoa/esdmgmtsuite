@@ -469,6 +469,7 @@ public class ApiController : ControllerBase
         string assetId = await GetOrCreateAssetIdAsync(idOp, siteId, "Event Meter", linea);
 
         string estatus = AuditEvaluationEngine.EvaluateEventMeter(voltMax);
+        string statusResult = (estatus == "APROBADO" && voltMax <= 100.0) ? "PASS" : "FAIL";
 
         var dataToInsert = new
         {
@@ -476,7 +477,7 @@ public class ApiController : ControllerBase
             asset_id = assetId,
             auditor_id = auditorId,
             static_field_value = voltMax,
-            status_result = estatus == "APROBADO" ? "PASS" : "FAIL",
+            status_result = statusResult,
             observaciones = notas,
             extra_data = new
             {
@@ -496,7 +497,13 @@ public class ApiController : ControllerBase
         };
 
         var result = await _supabase.InsertMeasurementAsync(dataToInsert);
-        return Ok(new { success = result != null, estatus, data = result });
+        return Ok(new { 
+            success = result != null, 
+            estatus = statusResult, 
+            voltaje_maximo = voltMax, 
+            is_out_of_limit = (statusResult == "FAIL" || voltMax > 100.0),
+            data = result 
+        });
     }
 
     [HttpPut("event-meter/{id}")]
@@ -522,12 +529,13 @@ public class ApiController : ControllerBase
 
         string assetId = await GetOrCreateAssetIdAsync(idOp, siteId, "Event Meter", linea);
         string estatus = AuditEvaluationEngine.EvaluateEventMeter(voltMax);
+        string statusResult = (estatus == "APROBADO" && voltMax <= 100.0) ? "PASS" : "FAIL";
 
         var dataToUpdate = new
         {
             asset_id = assetId,
             static_field_value = voltMax,
-            status_result = estatus == "APROBADO" ? "PASS" : "FAIL",
+            status_result = statusResult,
             observaciones = notas,
             extra_data = new
             {

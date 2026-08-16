@@ -414,7 +414,7 @@ public class SupabaseService
         {
             query += $"&site_id=eq.{siteId}";
         }
-        query += "&select=*,assets(asset_id,area_line,element_type,element_subtype)&order=measured_at.desc";
+        query += "&select=*&order=measured_at.desc";
         return await GetAsync(query);
     }
 
