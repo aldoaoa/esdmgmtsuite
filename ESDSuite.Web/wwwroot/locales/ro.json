@@ -42,7 +42,7 @@
     "routes": "Rute de Producție",
     "employees": "Personal și Halate",
     "training": "Examinări și Certificare",
-    "settings": "Setări și Multi-Tenant"
+    "settings": "Setări"
   },
   "header": {
     "site_lbl": "Fabrică / Site:"

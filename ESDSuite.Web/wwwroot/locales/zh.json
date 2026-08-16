@@ -42,7 +42,7 @@
     "routes": "产品工艺路线",
     "employees": "人员与防静电服",
     "training": "考试与认证",
-    "settings": "设置与多租户"
+    "settings": "设置"
   },
   "header": {
     "site_lbl": "厂区:"

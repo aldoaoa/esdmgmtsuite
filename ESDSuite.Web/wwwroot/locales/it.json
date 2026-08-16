@@ -41,8 +41,8 @@
     "lab": "Laboratorio ESD (HBM/CDM)",
     "routes": "Rotte di Prodotto",
     "employees": "Personale e Camici",
-    "training": "Esami e Certificazione",
-    "settings": "Impostazioni e Multi-Tenant"
+    "training": "Esami e Certificazioni",
+    "settings": "Impostazioni"
   },
   "header": {
     "site_lbl": "Sito:"

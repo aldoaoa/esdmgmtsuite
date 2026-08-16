@@ -42,7 +42,7 @@
     "routes": "Rutas de Productos",
     "employees": "Personal & Batas",
     "training": "Exámenes & Certificación",
-    "settings": "Ajustes & Multi-Tenant"
+    "settings": "Ajustes"
   },
   "header": {
     "site_lbl": "Site:"

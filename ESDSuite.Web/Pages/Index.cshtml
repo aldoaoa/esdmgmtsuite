@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.1</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.2</span>
                     </div>
                 </div>
             </div>
@@ -185,7 +185,7 @@
 
         <div class="sidebar-category" data-i18n="sidebar.cat_config">CONFIGURACIÓN</div>
         <div id="nav-settings" class="nav-item" onclick="switchModule('settings')">
-            <span class="icon"><img src="/images/icons/icon-settings.svg" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.settings">Ajustes & Multi-Tenant</span>
+            <span class="icon"><img src="/images/icons/icon-settings.svg" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.settings">Settings</span>
         </div>
 
         <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border-color); display:flex; flex-direction:column; gap:8px;">
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.2</span>
             </div>
         </div>
     </aside>
@@ -1090,8 +1090,8 @@
                                         <input type="text" id="u-fullname" class="form-control" placeholder="Ej: Ing. Juan Pérez" required />
                                     </div>
                                     <div class="form-group">
-                                        <label data-i18n="login.password">Contraseña*</label>
-                                        <input type="password" id="u-password" class="form-control" placeholder="••••••••" required value="123456" />
+                                        <label data-i18n="settings.u_password">Contraseña*:</label>
+                                        <input type="password" id="u-password" class="form-control" placeholder="••••••••" required value="" />
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="settings.col_role">Rol & Nivel de Permisos*</label>
@@ -1295,7 +1295,7 @@
                                 <div style="display:grid; grid-template-columns: 2fr 1fr; gap:8px;">
                                     <div class="form-group">
                                         <label data-i18n="maps.lbl_total_area">Área Total*:</label>
-                                        <input type="number" id="map-input-total-area" class="form-control" min="1" step="1" value="500" placeholder="500" />
+                                        <input type="number" id="map-input-total-area" class="form-control" min="1" step="1" value="" placeholder="Ej: 500" />
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="maps.lbl_unit">Unidad:</label>
@@ -3622,7 +3622,7 @@
 
         document.getElementById('map-input-name').value = '';
         document.getElementById('map-input-area').value = '';
-        document.getElementById('map-input-total-area').value = '500';
+        document.getElementById('map-input-total-area').value = '';
         document.getElementById('map-input-unit').value = 'm2';
         document.getElementById('map-input-file').value = '';
         document.getElementById('map-input-base64').value = '';
@@ -3672,7 +3672,12 @@
     }
 
     function generateAutoPointsNorm() {
-        const rawArea = parseFloat(document.getElementById('map-input-total-area').value) || 500;
+        const rawArea = parseFloat(document.getElementById('map-input-total-area').value);
+        if (isNaN(rawArea) || rawArea <= 0) {
+            alert('Por favor introduce el Área Total de la sala/planta para calcular los puntos normativos (5 puntos por cada 500 m²).');
+            document.getElementById('map-input-total-area').focus();
+            return;
+        }
         const unit = document.getElementById('map-input-unit').value || 'm2';
         
         // Convert to m2 if ft2 (1 m2 = 10.7639 ft2)
@@ -4113,7 +4118,7 @@
         const pt = currentViewerMap.points[pointIdx];
         document.getElementById('pt-modal-title').innerText = `📍 ${pt.label || 'Punto ' + pt.code} (Punto #${pt.code || (pointIdx + 1)})`;
         const resInput = document.getElementById('pt-modal-resistance');
-        resInput.value = pt.lastResistanceOhms != null ? formatResistanceScientific(pt.lastResistanceOhms) : '4.5e7';
+        resInput.value = pt.lastResistanceOhms != null ? formatResistanceScientific(pt.lastResistanceOhms) : '';
 
         updatePointModalBadge(resInput.value);
         document.getElementById('modal-point-measurement').style.display = 'flex';
@@ -4128,6 +4133,12 @@
     function updatePointModalBadge(valStr) {
         const badge = document.getElementById('pt-modal-badge');
         if (!badge) return;
+
+        if (!valStr || valStr.trim() === '') {
+            badge.className = 'badge-pending';
+            badge.innerText = '--';
+            return;
+        }
 
         const ohms = parseFloat(valStr);
         if (isNaN(ohms) || ohms < 0) {

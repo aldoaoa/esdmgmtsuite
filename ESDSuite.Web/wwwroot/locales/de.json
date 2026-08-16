@@ -42,7 +42,7 @@
     "routes": "Produktrouten",
     "employees": "Personal & Kittel",
     "training": "Prüfungen & Zertifizierung",
-    "settings": "Einstellungen & Multi-Tenant"
+    "settings": "Einstellungen"
   },
   "header": {
     "site_lbl": "Standort:"
