@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.5.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.5.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.6.0</span>
             </div>
         </div>
     </aside>
@@ -641,30 +641,108 @@
                         <div id="ground-history-table" style="margin-top:10px;"></div>
                     </div>
 
-                    <!-- TAB PISO -->
+                    <!-- TAB PISO (MAPA & HEATMAP 2D) -->
                     <div id="infra-tab-floor" class="tab-content">
-                        <h4 data-i18n="infra.fl_heading">Calificación de Pisos ESD (Resistencia PTP y RTG &le; 1.0e9 &Omega;)</h4>
-                        <form id="form-infra-floor" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                            <div class="form-group">
-                                <label data-i18n="infra.fl_room">Cuarto / Área / Línea*</label>
-                                <select id="fl-room" class="form-control" required>
-                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea / Área --</option>
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                            <div>
+                                <h4 data-i18n="infra.fl_heading" style="margin:0; font-size:16px;">Calificación de Pisos ESD & Heatmap 2D</h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;" data-i18n="infra.fl_sub">
+                                    Límite normativo ANSI/ESD S20.20: Resistencia PTP &le; 1.0e9 &Omega;. Clic en cada punto para capturar mediciones y visualizar el mapa de calor térmico/resistivo.
+                                </p>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <label style="font-size:12px; font-weight:700;" data-i18n="infra.fl_select_map">Plano de Línea:</label>
+                                <select id="fl-map-select" class="form-control" style="width:240px; font-size:12px;" onchange="onFloorMapViewerSelected(this.value)">
+                                    <option value="">-- Seleccionar Plano --</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label data-i18n="infra.fl_point">Número de Punto*</label>
-                                <input id="fl-point" type="number" min="1" class="form-control" placeholder="Ej: 1" required />
+                        </div>
+
+                        <!-- MAP & HEATMAP VIEWER CONTAINER -->
+                        <div id="floor-map-viewer-card" class="glass-card" style="margin-bottom:20px; display:none;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                                <!-- MODE SWITCH BUTTONS -->
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                    <button type="button" class="tab-btn active" id="btn-hm-mode-mixed" onclick="setHeatmapMode('mixed')">👁️ <span data-i18n="maps.hm_mixed">Modo Mixto (Heatmap + Plano)</span></button>
+                                    <button type="button" class="tab-btn" id="btn-hm-mode-heatmap" onclick="setHeatmapMode('heatmap')">🔥 <span data-i18n="maps.hm_heat_only">Solo Heatmap 2D</span></button>
+                                    <button type="button" class="tab-btn" id="btn-hm-mode-plan" onclick="setHeatmapMode('plan')">🗺️ <span data-i18n="maps.hm_plan_only">Solo Plano</span></button>
+                                </div>
+                                <!-- LEGEND -->
+                                <div style="display:flex; align-items:center; gap:12px; font-size:11px; font-weight:700; flex-wrap:wrap;">
+                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10B981;"></span> &le; 1e8 &Omega; (Verde)</span>
+                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#F59E0B;"></span> 1.01e8 - 0.99e9 &Omega; (Naranja)</span>
+                                    <span style="display:inline-flex; align-items:center; gap:4px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#EF4444;"></span> &gt; 1e9 &Omega; (Rojo)</span>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*</label>
-                                <input id="fl-ohms" type="text" class="form-control" placeholder="Ej: 1.0e7" required />
+
+                            <div class="map-viewport-container" id="viewer-map-container" style="margin:0 auto;">
+                                <div class="map-viewport-wrapper" id="viewer-map-wrapper">
+                                    <img id="viewer-floorplan-img" class="map-floorplan-img" src="" alt="Plano de Piso" />
+                                    <canvas id="viewer-heatmap-canvas" class="map-heatmap-canvas"></canvas>
+                                    <div id="viewer-points-overlay" class="map-points-overlay"></div>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Temperatura (°C) / Humedad (%)</label>
-                                <input id="fl-temp-hum" class="form-control" placeholder="Ej: 23.5°C / 45%" />
+
+                            <!-- BATCH MEASUREMENT CONTROLS & SUMMARY -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border-color);">
+                                <div style="display:flex; gap:16px; align-items:center; font-size:12px; flex-wrap:wrap;">
+                                    <div><b data-i18n="maps.lbl_total_points">Total Puntos:</b> <span id="v-total-pts" style="font-weight:800;">0</span></div>
+                                    <div><b data-i18n="maps.lbl_measured_points">Medidos:</b> <span id="v-measured-pts" style="font-weight:800; color:var(--accent-blue);">0</span></div>
+                                    <div><b data-i18n="maps.lbl_pass_points">Conformes:</b> <span id="v-pass-pts" style="font-weight:800; color:var(--accent-emerald);">0</span></div>
+                                    <div><b data-i18n="maps.lbl_fail_points">No Conformes:</b> <span id="v-fail-pts" style="font-weight:800; color:var(--accent-rose);">0</span></div>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn-primary" style="background:#0891B2; font-size:12px;" onclick="renderFloor2DHeatmap()" data-i18n="maps.btn_recalc_hm">🔄 Recalcular Heatmap</button>
+                                    <button type="button" class="btn-primary" style="font-size:12px;" onclick="saveFloorMapBatchMeasurements()" data-i18n="maps.btn_save_batch">💾 Guardar Mediciones de Piso</button>
+                                </div>
                             </div>
-                            <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.fl_save">💾 Guardar Verificación de Piso</button>
-                        </form>
+                        </div>
+
+                        <!-- QUICK POINT MEASUREMENT MODAL / POPOVER -->
+                        <div id="modal-point-measurement" class="modal-overlay" style="display:none; z-index:1050;">
+                            <div class="glass-card" style="max-width:380px; width:90%; background:#FFFFFF; padding:20px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                    <h4 id="pt-modal-title" style="margin:0; font-size:14px; font-weight:800; color:var(--accent-blue);">📍 Punto de Medición</h4>
+                                    <button type="button" class="tab-btn" style="padding:2px 6px; font-size:11px;" onclick="closePointMeasurementModal()">✕</button>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*:</label>
+                                    <input type="text" id="pt-modal-resistance" class="form-control" placeholder="Ej: 4.5e7 o 45000000" autofocus oninput="updatePointModalBadge(this.value)" />
+                                    <small style="color:var(--text-muted); font-size:10.5px;">Soporta notación científica (ej: 1.0e7, 3.8e8, 1.2e9)</small>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+                                    <span id="pt-modal-badge" class="badge-pass">--</span>
+                                    <button type="button" class="btn-primary" onclick="applyPointMeasurement()">Aplicar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SINGLE MANUAL ENTRY FORM (COLLAPSIBLE / FALLBACK) -->
+                        <div class="glass-card" style="margin-top:16px;">
+                            <h5 style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text-secondary);" data-i18n="infra.fl_manual_title">➕ Registro Manual Sin Plano (Punto Individual)</h5>
+                            <form id="form-infra-floor" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                                <div class="form-group">
+                                    <label data-i18n="infra.fl_room">Cuarto / Área / Línea*</label>
+                                    <select id="fl-room" class="form-control" required>
+                                        <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea / Área --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="infra.fl_point">Número de Punto*</label>
+                                    <input id="fl-point" type="number" min="1" class="form-control" placeholder="Ej: 1" required />
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="infra.fl_ptp">Resistencia Punto a Punto (PTP) [Ohms]*</label>
+                                    <input id="fl-ohms" type="text" class="form-control" placeholder="Ej: 1.0e7" required />
+                                </div>
+                                <div class="form-group">
+                                    <label>Temperatura (°C) / Humedad (%)</label>
+                                    <input id="fl-temp-hum" class="form-control" placeholder="Ej: 23.5°C / 45%" />
+                                </div>
+                                <button type="submit" class="btn-primary" style="grid-column: span 2;" data-i18n="infra.fl_save">💾 Guardar Verificación de Piso</button>
+                            </form>
+                        </div>
+
                         <h4 style="margin-top:24px;" data-i18n="infra.lbl_fl_history">📋 Histórico de Pisos ESD</h4>
                         <div id="floor-history-table" style="margin-top:10px;"></div>
                     </div>
@@ -972,6 +1050,7 @@
                         <button class="tab-btn" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">Usuarios, Alta & Permisos de Rol</button>
                         <button class="tab-btn" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
                         <button class="tab-btn" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
+                        <button class="tab-btn" onclick="switchSettingsTab('maps')" id="set-tab-btn-maps">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
                     </div>
 
                     <!-- TAB 1: WINDOWS EXPLORER TREE VIEW HIERARCHY -->
@@ -1163,6 +1242,131 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- TAB 5: MAPS & LAYOUTS EDITOR (SITE ADMIN & ABOVE) -->
+                    <div id="set-tab-maps" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h4 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; margin:0;">
+                                    <img src="/images/icons/icon-infra.svg" class="ui-icon-3d-sm" alt="" />
+                                    <span data-i18n="maps.editor_title">Configuración & Mapeo de Planos ESD</span>
+                                </h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;" data-i18n="maps.editor_sub">
+                                    Carga el layout de la línea o cuarto, define el área total y genera o coloca interactivamente los puntos de prueba (5 puntos por cada 500 m² según norma ANSI/ESD).
+                                </p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn-primary" onclick="initNewMapEditor()" data-i18n="maps.btn_new_map">➕ Nuevo Plano</button>
+                            </div>
+                        </div>
+
+                        <!-- MAIN MAP EDITOR INTERFACE -->
+                        <div style="display:grid; grid-template-columns: 320px 1fr; gap:20px; align-items:start;">
+                            <!-- LEFT: FORM & CONTROLS -->
+                            <div class="glass-card">
+                                <h5 style="font-size:13px; font-weight:700; margin-top:0; margin-bottom:12px; color:var(--accent-blue);" data-i18n="maps.properties_title">📐 Parámetros del Plano</h5>
+                                
+                                <div class="form-group">
+                                    <label data-i18n="maps.lbl_select_existing">Editar Plano Existente:</label>
+                                    <select id="map-select-edit" class="form-control" onchange="loadMapForEditing(this.value)">
+                                        <option value="">-- Crear Nuevo Plano --</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label data-i18n="maps.lbl_area">Área / Línea Asignada*:</label>
+                                    <select id="map-input-area" class="form-control" required>
+                                        <option value="">-- Seleccionar Área --</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label data-i18n="maps.lbl_name">Nombre del Plano*:</label>
+                                    <input type="text" id="map-input-name" class="form-control" placeholder="Ej: Plano Principal SMT 1" required />
+                                </div>
+
+                                <div class="form-group">
+                                    <label data-i18n="maps.lbl_image">Imagen de Plano / Layout (PNG, JPG, SVG):</label>
+                                    <input type="file" id="map-input-file" class="form-control" accept="image/*" onchange="onMapFileSelected(event)" />
+                                    <input type="hidden" id="map-input-base64" value="" />
+                                    <input type="hidden" id="map-input-current-url" value="" />
+                                </div>
+
+                                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:8px;">
+                                    <div class="form-group">
+                                        <label data-i18n="maps.lbl_total_area">Área Total*:</label>
+                                        <input type="number" id="map-input-total-area" class="form-control" min="1" step="1" value="500" placeholder="500" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label data-i18n="maps.lbl_unit">Unidad:</label>
+                                        <select id="map-input-unit" class="form-control">
+                                            <option value="m2">m²</option>
+                                            <option value="ft2">ft²</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <hr style="border-color:var(--border-color); margin:14px 0;" />
+
+                                <!-- ACTION BUTTONS -->
+                                <div style="display:flex; flex-direction:column; gap:8px;">
+                                    <button type="button" class="btn-primary" style="background:#0891B2; font-size:12px;" onclick="generateAutoPointsNorm()" data-i18n="maps.btn_auto_points">
+                                        ⚡ Generar Puntos Automáticos (5 / 500 m²)
+                                    </button>
+                                    <button type="button" class="tab-btn" style="width:100%; font-size:12px;" onclick="addManualPointToCenter()" data-i18n="maps.btn_add_point">
+                                        ➕ Agregar Punto en Centro
+                                    </button>
+                                    <button type="button" class="tab-btn" style="width:100%; font-size:12px; color:var(--accent-rose);" onclick="clearAllEditorPoints()" data-i18n="maps.btn_clear_points">
+                                        🗑️ Limpiar Todos los Puntos
+                                    </button>
+                                </div>
+
+                                <div style="margin-top:16px;">
+                                    <button type="button" class="btn-primary" style="width:100%; font-size:13.5px; padding:10px;" onclick="saveMapConfigToServer()" data-i18n="maps.btn_save_map">
+                                        💾 Guardar Plano & Puntos
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT: INTERACTIVE MAP VIEWPORT -->
+                            <div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                                    <span style="font-size:12px; font-weight:700; color:var(--text-primary);" id="map-editor-status-text">
+                                        📍 Haz clic en cualquier parte del plano para crear un punto. Arrastra los pines para moverlos.
+                                    </span>
+                                    <span id="map-points-badge" class="badge-pass" style="background:var(--accent-blue-light); color:var(--accent-blue); font-size:11px;">0 Puntos Mapeados</span>
+                                </div>
+
+                                <div class="map-viewport-container" id="editor-map-container">
+                                    <div class="map-viewport-wrapper" id="editor-map-wrapper" onclick="onEditorMapClick(event)">
+                                        <img id="editor-floorplan-img" class="map-floorplan-img" src="/images/mockups/smt1_layout.svg" alt="Layout" />
+                                        <div id="editor-points-overlay" class="map-points-overlay"></div>
+                                    </div>
+                                </div>
+
+                                <!-- POINTS TABLE -->
+                                <div style="margin-top:16px;">
+                                    <h5 style="font-size:13px; font-weight:700; margin-bottom:8px;" data-i18n="maps.points_table_title">📋 Coordenadas de Puntos de Prueba</h5>
+                                    <div class="table-responsive" style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                                        <table class="data-table" style="margin:0; width:100%;">
+                                            <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                                                <tr>
+                                                    <th style="width:60px;">#</th>
+                                                    <th>Etiqueta / Nombre</th>
+                                                    <th style="width:90px; text-align:center;">X (%)</th>
+                                                    <th style="width:90px; text-align:center;">Y (%)</th>
+                                                    <th style="width:70px; text-align:center;">Acción</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="editor-points-tbody">
+                                                <tr><td colspan="5" style="text-align:center; color:var(--text-muted); font-size:12px;">Sin puntos en el mapa. Haz clic en el plano para agregar.</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1268,6 +1472,10 @@
                 if (opt.value === 'SiteAdmin') opt.disabled = !canSite;
             });
         }
+
+        const isSiteAdminOrAbove = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'CompanyAdmin' || sessionData.user_role === 'SiteAdmin' || sessionData.can_create_site);
+        const btnMapsTab = document.getElementById('set-tab-btn-maps');
+        if (btnMapsTab) btnMapsTab.style.display = isSiteAdminOrAbove ? 'inline-block' : 'none';
     }
 
     // --- I18N ENGINE LOGIC ---
@@ -2354,6 +2562,9 @@
         } catch(e) {
             console.error('Error loading floors:', e);
         }
+
+        // 3. Load Floor Maps for Viewer
+        await loadFloorMapsForViewer();
     }
 
     document.getElementById('form-infra-ground').onsubmit = async function(e) {
@@ -2864,10 +3075,12 @@
     function switchSettingsTab(tabName) {
         document.querySelectorAll('#mod-settings .tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('#mod-settings .tab-content').forEach(c => c.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        document.getElementById('set-tab-' + tabName).classList.add('active');
+        if (event && event.currentTarget) event.currentTarget.classList.add('active');
+        const tabEl = document.getElementById('set-tab-' + tabName);
+        if (tabEl) tabEl.classList.add('active');
 
         if (tabName === 'equipment') loadEquipmentTable();
+        if (tabName === 'maps') loadMapsEditor();
     }
 
     // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW & SETTINGS ---
@@ -3340,6 +3553,737 @@
         if (data.success) {
             alert('✅ Usuario eliminado.');
             loadUsersTable();
+        }
+    }
+
+    // ========================================================
+    // ESD FLOOR MAPS & 2D CONTINUOUS HEATMAP ENGINE
+    // ========================================================
+    let editorCurrentMap = null;
+    let editorPointsList = [];
+    let allMapsList = [];
+    let editorIsDragging = false;
+    let editorDraggedIdx = -1;
+
+    let currentViewerMap = null;
+    let activeHeatmapMode = 'mixed'; // 'mixed', 'heatmap', 'plan'
+    let activePointEditIdx = -1;
+
+    // --- MAP EDITOR IN SETTINGS ---
+    async function loadMapsEditor() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        try {
+            // 1. Load Area dropdown in editor
+            const areaSel = document.getElementById('map-input-area');
+            if (areaSel) {
+                const lineRes = await fetch(`/api/lines?siteId=${siteId}`);
+                if (lineRes.ok) {
+                    const lines = await lineRes.json();
+                    areaSel.innerHTML = '<option value="">-- Seleccionar Área / Línea --</option>';
+                    lines.forEach(l => {
+                        const name = l.nombre_linea || l.name;
+                        areaSel.innerHTML += `<option value="${name}">${name}</option>`;
+                    });
+                }
+            }
+
+            // 2. Fetch Maps
+            const res = await fetch(`/api/maps?siteId=${siteId}`);
+            if (res.ok) {
+                allMapsList = await res.json();
+                const sel = document.getElementById('map-select-edit');
+                if (sel) {
+                    sel.innerHTML = '<option value="">-- Crear Nuevo Plano --</option>';
+                    allMapsList.forEach(m => {
+                        sel.innerHTML += `<option value="${m.id}">${m.mapName || m.areaName} (${m.areaName})</option>`;
+                    });
+                }
+
+                if (allMapsList.length > 0 && (!editorCurrentMap || !allMapsList.some(m => m.id === editorCurrentMap.id))) {
+                    loadMapForEditing(allMapsList[0].id);
+                } else if (allMapsList.length === 0) {
+                    initNewMapEditor();
+                }
+            }
+        } catch(e) {
+            console.error('Error loading maps in editor:', e);
+        }
+    }
+
+    function initNewMapEditor() {
+        editorCurrentMap = null;
+        editorPointsList = [];
+        const sel = document.getElementById('map-select-edit');
+        if (sel) sel.value = '';
+
+        document.getElementById('map-input-name').value = '';
+        document.getElementById('map-input-area').value = '';
+        document.getElementById('map-input-total-area').value = '500';
+        document.getElementById('map-input-unit').value = 'm2';
+        document.getElementById('map-input-file').value = '';
+        document.getElementById('map-input-base64').value = '';
+        document.getElementById('map-input-current-url').value = '/images/mockups/smt1_layout.svg';
+        document.getElementById('editor-floorplan-img').src = '/images/mockups/smt1_layout.svg';
+
+        renderEditorPoints();
+    }
+
+    function loadMapForEditing(mapId) {
+        if (!mapId) {
+            initNewMapEditor();
+            return;
+        }
+        const map = allMapsList.find(m => m.id === mapId);
+        if (!map) return;
+
+        editorCurrentMap = map;
+        editorPointsList = JSON.parse(JSON.stringify(map.points || []));
+
+        const sel = document.getElementById('map-select-edit');
+        if (sel) sel.value = mapId;
+
+        document.getElementById('map-input-name').value = map.mapName || '';
+        document.getElementById('map-input-area').value = map.areaName || '';
+        document.getElementById('map-input-total-area').value = map.totalAreaValue || 500;
+        document.getElementById('map-input-unit').value = map.areaUnit || 'm2';
+        document.getElementById('map-input-file').value = '';
+        document.getElementById('map-input-base64').value = '';
+        document.getElementById('map-input-current-url').value = map.imageUrl || '/images/mockups/smt1_layout.svg';
+        document.getElementById('editor-floorplan-img').src = map.imageUrl || '/images/mockups/smt1_layout.svg';
+
+        renderEditorPoints();
+    }
+
+    function onMapFileSelected(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64 = e.target.result;
+            document.getElementById('map-input-base64').value = base64;
+            document.getElementById('editor-floorplan-img').src = base64;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function generateAutoPointsNorm() {
+        const rawArea = parseFloat(document.getElementById('map-input-total-area').value) || 500;
+        const unit = document.getElementById('map-input-unit').value || 'm2';
+        
+        // Convert to m2 if ft2 (1 m2 = 10.7639 ft2)
+        const areaM2 = unit === 'ft2' ? rawArea / 10.7639 : rawArea;
+        
+        // Rule: 5 points per each 500 m2 (Minimum 5 points)
+        const targetPoints = Math.max(5, Math.round(5 * (areaM2 / 500)));
+
+        editorPointsList = [];
+
+        if (targetPoints === 5) {
+            // Standard 5-point layout (4 corners + 1 center)
+            const coords = [
+                { x: 20, y: 25 },
+                { x: 80, y: 25 },
+                { x: 50, y: 50 },
+                { x: 20, y: 75 },
+                { x: 80, y: 75 }
+            ];
+            coords.forEach((c, idx) => {
+                editorPointsList.push({
+                    id: 'pt-' + (idx + 1) + '-' + Date.now(),
+                    code: (idx + 1).toString(),
+                    label: `Punto de Prueba ${idx + 1}`,
+                    xPercent: c.x,
+                    yPercent: c.y,
+                    lastResistanceOhms: null
+                });
+            });
+        } else {
+            // Regular grid pattern with 15% margins
+            const cols = Math.ceil(Math.sqrt(targetPoints * 1.4));
+            const rows = Math.ceil(targetPoints / cols);
+            let created = 0;
+
+            for (let r = 0; r < rows; r++) {
+                const y = rows === 1 ? 50 : 20 + (r * 60) / (rows - 1);
+                for (let c = 0; c < cols; c++) {
+                    if (created >= targetPoints) break;
+                    const x = cols === 1 ? 50 : 18 + (c * 64) / (cols - 1);
+                    created++;
+                    editorPointsList.push({
+                        id: 'pt-' + created + '-' + Date.now(),
+                        code: created.toString(),
+                        label: `Punto de Prueba ${created}`,
+                        xPercent: parseFloat(x.toFixed(1)),
+                        yPercent: parseFloat(y.toFixed(1)),
+                        lastResistanceOhms: null
+                    });
+                }
+            }
+        }
+
+        renderEditorPoints();
+        alert(`⚡ Generación normativa completada: ${targetPoints} puntos de prueba distribuidos según ${Math.round(areaM2)} m² (5 pts / 500 m²). Puedes arrastrarlos para ajustar.`);
+    }
+
+    function addManualPointToCenter() {
+        const nextCode = (editorPointsList.length + 1).toString();
+        editorPointsList.push({
+            id: 'pt-' + nextCode + '-' + Date.now(),
+            code: nextCode,
+            label: `Punto de Prueba ${nextCode}`,
+            xPercent: 50,
+            yPercent: 50,
+            lastResistanceOhms: null
+        });
+        renderEditorPoints();
+    }
+
+    function clearAllEditorPoints() {
+        if (editorPointsList.length === 0) return;
+        if (!confirm('¿Deseas limpiar todos los puntos del mapa?')) return;
+        editorPointsList = [];
+        renderEditorPoints();
+    }
+
+    function onEditorMapClick(event) {
+        if (editorIsDragging) return;
+        // Only trigger if clicked on the wrapper/image, not directly on an existing pin
+        if (event.target.classList.contains('floor-pin') || event.target.closest('.floor-pin')) return;
+
+        const wrapper = document.getElementById('editor-map-wrapper');
+        if (!wrapper) return;
+
+        const rect = wrapper.getBoundingClientRect();
+        const xPx = event.clientX - rect.left;
+        const yPx = event.clientY - rect.top;
+
+        const xPercent = Math.min(98, Math.max(2, parseFloat(((xPx / rect.width) * 100).toFixed(1))));
+        const yPercent = Math.min(98, Math.max(2, parseFloat(((yPx / rect.height) * 100).toFixed(1))));
+
+        const nextCode = (editorPointsList.length + 1).toString();
+        editorPointsList.push({
+            id: 'pt-' + nextCode + '-' + Date.now(),
+            code: nextCode,
+            label: `Punto ${nextCode}`,
+            xPercent: xPercent,
+            yPercent: yPercent,
+            lastResistanceOhms: null
+        });
+
+        renderEditorPoints();
+    }
+
+    function renderEditorPoints() {
+        const overlay = document.getElementById('editor-points-overlay');
+        const tbody = document.getElementById('editor-points-tbody');
+        const badge = document.getElementById('map-points-badge');
+
+        if (badge) badge.innerText = `${editorPointsList.length} Puntos Mapeados`;
+        if (overlay) overlay.innerHTML = '';
+        if (tbody) tbody.innerHTML = '';
+
+        if (!editorPointsList || editorPointsList.length === 0) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); font-size:12px;">Sin puntos en el mapa. Haz clic en el plano o presiona "Generar Puntos Automáticos".</td></tr>';
+            return;
+        }
+
+        editorPointsList.forEach((pt, idx) => {
+            // 1. Render Pin on Overlay
+            if (overlay) {
+                const pin = document.createElement('div');
+                pin.className = 'floor-pin';
+                pin.style.left = `${pt.xPercent}%`;
+                pin.style.top = `${pt.yPercent}%`;
+                pin.setAttribute('data-idx', idx);
+                pin.title = `${pt.label || 'Punto ' + pt.code} (X: ${pt.xPercent}%, Y: ${pt.yPercent}%)`;
+                pin.innerHTML = `${pt.code || (idx + 1)}<div class="pin-tooltip">${pt.label || 'Punto ' + (idx + 1)}</div>`;
+
+                // Drag and drop event listeners
+                pin.addEventListener('mousedown', (e) => startDragPin(e, idx));
+                pin.addEventListener('touchstart', (e) => startDragPin(e, idx), { passive: false });
+
+                overlay.appendChild(pin);
+            }
+
+            // 2. Render Table Row
+            if (tbody) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:700; text-align:center;">${pt.code || (idx + 1)}</td>
+                    <td>
+                        <input type="text" class="form-control" style="padding:4px 8px; font-size:12px;" value="${pt.label || 'Punto ' + (idx + 1)}" onchange="updateEditorPointLabel(${idx}, this.value)" />
+                    </td>
+                    <td style="text-align:center; font-family:monospace; font-weight:700;" id="pt-coord-x-${idx}">${pt.xPercent}%</td>
+                    <td style="text-align:center; font-family:monospace; font-weight:700;" id="pt-coord-y-${idx}">${pt.yPercent}%</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn-primary" style="background:var(--accent-rose); padding:3px 7px; font-size:11px;" onclick="deleteEditorPoint(${idx})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        });
+    }
+
+    function updateEditorPointLabel(idx, newLabel) {
+        if (editorPointsList[idx]) {
+            editorPointsList[idx].label = newLabel;
+        }
+    }
+
+    function deleteEditorPoint(idx) {
+        editorPointsList.splice(idx, 1);
+        // Renumber codes sequentially
+        editorPointsList.forEach((p, i) => { p.code = (i + 1).toString(); });
+        renderEditorPoints();
+    }
+
+    // --- DRAGGING PIN LOGIC FOR MAP EDITOR ---
+    function startDragPin(e, idx) {
+        e.stopPropagation();
+        if (e.type === 'touchstart') e.preventDefault();
+
+        editorIsDragging = true;
+        editorDraggedIdx = idx;
+
+        const pin = e.currentTarget;
+        pin.classList.add('dragging');
+
+        const onMove = (moveEvt) => {
+            if (!editorIsDragging || editorDraggedIdx < 0) return;
+            const clientX = moveEvt.clientX || (moveEvt.touches && moveEvt.touches[0].clientX);
+            const clientY = moveEvt.clientY || (moveEvt.touches && moveEvt.touches[0].clientY);
+            if (clientX === undefined || clientY === undefined) return;
+
+            const wrapper = document.getElementById('editor-map-wrapper');
+            if (!wrapper) return;
+            const rect = wrapper.getBoundingClientRect();
+
+            const xPx = clientX - rect.left;
+            const yPx = clientY - rect.top;
+
+            const xPercent = Math.min(98, Math.max(2, parseFloat(((xPx / rect.width) * 100).toFixed(1))));
+            const yPercent = Math.min(98, Math.max(2, parseFloat(((yPx / rect.height) * 100).toFixed(1))));
+
+            editorPointsList[editorDraggedIdx].xPercent = xPercent;
+            editorPointsList[editorDraggedIdx].yPercent = yPercent;
+
+            pin.style.left = `${xPercent}%`;
+            pin.style.top = `${yPercent}%`;
+
+            const xCell = document.getElementById(`pt-coord-x-${editorDraggedIdx}`);
+            const yCell = document.getElementById(`pt-coord-y-${editorDraggedIdx}`);
+            if (xCell) xCell.innerText = `${xPercent}%`;
+            if (yCell) yCell.innerText = `${yPercent}%`;
+        };
+
+        const onEnd = () => {
+            editorIsDragging = false;
+            editorDraggedIdx = -1;
+            pin.classList.remove('dragging');
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onEnd);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onEnd);
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+    }
+
+    async function saveMapConfigToServer() {
+        const areaName = document.getElementById('map-input-area').value;
+        const mapName = document.getElementById('map-input-name').value.trim();
+        const totalArea = parseFloat(document.getElementById('map-input-total-area').value) || 500;
+        const unit = document.getElementById('map-input-unit').value || 'm2';
+        const base64 = document.getElementById('map-input-base64').value;
+        const currentUrl = document.getElementById('map-input-current-url').value;
+
+        if (!areaName) {
+            alert('Por favor selecciona el Área / Línea asignada.');
+            return;
+        }
+        if (!mapName) {
+            alert('Por favor ingresa un nombre para el plano.');
+            return;
+        }
+
+        const mapId = editorCurrentMap ? editorCurrentMap.id : '';
+        const siteId = (sessionData && sessionData.site_id) || '';
+
+        const payload = {
+            id: mapId,
+            siteId: siteId,
+            areaName: areaName,
+            mapName: mapName,
+            totalAreaValue: totalArea,
+            areaUnit: unit,
+            imageBase64: base64,
+            imageUrl: base64 ? '' : currentUrl,
+            points: editorPointsList
+        };
+
+        try {
+            const res = await fetch('/api/maps/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Id': (sessionData && sessionData.user_id) || '',
+                    'X-User-Role': (sessionData && sessionData.user_role) || ''
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(`✅ Plano "${mapName}" con ${editorPointsList.length} puntos guardado exitosamente.`);
+                await loadMapsEditor();
+                if (data.map && data.map.id) {
+                    loadMapForEditing(data.map.id);
+                }
+            } else {
+                alert(data.message || '❌ Error al guardar el plano.');
+            }
+        } catch(e) {
+            console.error('Error saving map:', e);
+            alert('❌ Error de conexión al guardar el plano.');
+        }
+    }
+
+    // ========================================================
+    // ESD FLOORING MAP VIEWER & CONTINUOUS 2D HEATMAP ENGINE
+    // ========================================================
+    async function loadFloorMapsForViewer() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        const sel = document.getElementById('fl-map-select');
+        if (!sel) return;
+
+        try {
+            const res = await fetch(`/api/maps?siteId=${siteId}`);
+            if (res.ok) {
+                allMapsList = await res.json();
+                sel.innerHTML = '<option value="">-- Seleccionar Plano de Línea --</option>';
+                allMapsList.forEach(m => {
+                    sel.innerHTML += `<option value="${m.id}">${m.mapName || m.areaName} (${m.areaName})</option>`;
+                });
+
+                if (allMapsList.length > 0 && !currentViewerMap) {
+                    sel.value = allMapsList[0].id;
+                    onFloorMapViewerSelected(allMapsList[0].id);
+                }
+            }
+        } catch(e) {
+            console.error('Error loading maps for viewer:', e);
+        }
+    }
+
+    function onFloorMapViewerSelected(mapId) {
+        const card = document.getElementById('floor-map-viewer-card');
+        if (!mapId) {
+            if (card) card.style.display = 'none';
+            currentViewerMap = null;
+            return;
+        }
+
+        currentViewerMap = allMapsList.find(m => m.id === mapId);
+        if (!currentViewerMap) return;
+
+        if (card) card.style.display = 'block';
+
+        const img = document.getElementById('viewer-floorplan-img');
+        if (img) {
+            img.src = currentViewerMap.imageUrl || '/images/mockups/smt1_layout.svg';
+            img.onload = () => {
+                renderViewerPoints();
+                renderFloor2DHeatmap();
+            };
+        }
+
+        renderViewerPoints();
+        setTimeout(renderFloor2DHeatmap, 80);
+    }
+
+    function setHeatmapMode(mode) {
+        activeHeatmapMode = mode;
+        document.getElementById('btn-hm-mode-mixed').classList.toggle('active', mode === 'mixed');
+        document.getElementById('btn-hm-mode-heatmap').classList.toggle('active', mode === 'heatmap');
+        document.getElementById('btn-hm-mode-plan').classList.toggle('active', mode === 'plan');
+
+        const canvas = document.getElementById('viewer-heatmap-canvas');
+        const img = document.getElementById('viewer-floorplan-img');
+
+        if (canvas && img) {
+            if (mode === 'mixed') {
+                canvas.style.opacity = '0.6';
+                canvas.style.display = 'block';
+                img.style.opacity = '1';
+            } else if (mode === 'heatmap') {
+                canvas.style.opacity = '1';
+                canvas.style.display = 'block';
+                img.style.opacity = '0.15';
+            } else if (mode === 'plan') {
+                canvas.style.opacity = '0';
+                canvas.style.display = 'none';
+                img.style.opacity = '1';
+            }
+        }
+    }
+
+    function renderViewerPoints() {
+        const overlay = document.getElementById('viewer-points-overlay');
+        if (!overlay || !currentViewerMap || !currentViewerMap.points) return;
+
+        overlay.innerHTML = '';
+        let total = currentViewerMap.points.length;
+        let measured = 0;
+        let pass = 0;
+        let fail = 0;
+
+        currentViewerMap.points.forEach((pt, idx) => {
+            const pin = document.createElement('div');
+            pin.className = 'floor-pin';
+            pin.style.left = `${pt.xPercent}%`;
+            pin.style.top = `${pt.yPercent}%`;
+
+            let resText = 'N/D';
+            if (pt.lastResistanceOhms != null && !isNaN(pt.lastResistanceOhms)) {
+                measured++;
+                const ohms = parseFloat(pt.lastResistanceOhms);
+                resText = ohms < 1000 ? `${ohms.toFixed(1)} Ω` : ohms.toExponential(2).toUpperCase() + ' Ω';
+
+                if (ohms <= 1.0e8) {
+                    pin.classList.add('pin-pass');
+                    pass++;
+                } else if (ohms <= 1.0e9) {
+                    pin.classList.add('pin-warning');
+                    pass++;
+                } else {
+                    pin.classList.add('pin-fail');
+                    fail++;
+                }
+            }
+
+            pin.innerHTML = `${pt.code || (idx + 1)}<div class="pin-tooltip"><b>${pt.label || 'Punto ' + (idx + 1)}</b>: ${resText}</div>`;
+            pin.addEventListener('click', () => openPointMeasurementModal(idx));
+            overlay.appendChild(pin);
+        });
+
+        document.getElementById('v-total-pts').innerText = total;
+        document.getElementById('v-measured-pts').innerText = measured;
+        document.getElementById('v-pass-pts').innerText = pass;
+        document.getElementById('v-fail-pts').innerText = fail;
+    }
+
+    function openPointMeasurementModal(pointIdx) {
+        if (!currentViewerMap || !currentViewerMap.points || !currentViewerMap.points[pointIdx]) return;
+        activePointEditIdx = pointIdx;
+
+        const pt = currentViewerMap.points[pointIdx];
+        document.getElementById('pt-modal-title').innerText = `📍 ${pt.label || 'Punto ' + pt.code} (Punto #${pt.code || (pointIdx + 1)})`;
+        const resInput = document.getElementById('pt-modal-resistance');
+        resInput.value = pt.lastResistanceOhms != null ? pt.lastResistanceOhms.toExponential(2) : '4.5e7';
+
+        updatePointModalBadge(resInput.value);
+        document.getElementById('modal-point-measurement').style.display = 'flex';
+        setTimeout(() => resInput.focus(), 50);
+    }
+
+    function closePointMeasurementModal() {
+        document.getElementById('modal-point-measurement').style.display = 'none';
+        activePointEditIdx = -1;
+    }
+
+    function updatePointModalBadge(valStr) {
+        const badge = document.getElementById('pt-modal-badge');
+        if (!badge) return;
+
+        const ohms = parseFloat(valStr);
+        if (isNaN(ohms) || ohms < 0) {
+            badge.className = 'badge-pending';
+            badge.innerText = 'VALOR INVÁLIDO';
+            return;
+        }
+
+        if (ohms <= 1.0e8) {
+            badge.className = 'badge-pass';
+            badge.innerText = `🟢 PASS (≤ 1.0e8 Ω / Conforme Óptimo)`;
+        } else if (ohms <= 1.0e9) {
+            badge.className = 'badge-pending';
+            badge.innerText = `🟠 ADVERTENCIA (1.01e8 - 0.99e9 Ω)`;
+        } else {
+            badge.className = 'badge-fail';
+            badge.innerText = `🔴 FAIL (> 1.0e9 Ω / Fuera de Límite)`;
+        }
+    }
+
+    function applyPointMeasurement() {
+        if (activePointEditIdx < 0 || !currentViewerMap || !currentViewerMap.points[activePointEditIdx]) return;
+
+        const valStr = document.getElementById('pt-modal-resistance').value.trim();
+        const ohms = parseFloat(valStr);
+
+        if (isNaN(ohms) || ohms < 0) {
+            alert('Por favor ingresa un valor de resistencia numérico válido en Ohms (ej: 4.5e7 o 45000000).');
+            return;
+        }
+
+        currentViewerMap.points[activePointEditIdx].lastResistanceOhms = ohms;
+        currentViewerMap.points[activePointEditIdx].measuredAt = new Date().toISOString();
+
+        closePointMeasurementModal();
+        renderViewerPoints();
+        renderFloor2DHeatmap();
+    }
+
+    // --- 2D CONTINUOUS INVERSE DISTANCE WEIGHTING (IDW) HEATMAP ENGINE ---
+    function renderFloor2DHeatmap() {
+        const canvas = document.getElementById('viewer-heatmap-canvas');
+        const img = document.getElementById('viewer-floorplan-img');
+        if (!canvas || !img || !currentViewerMap || !currentViewerMap.points || currentViewerMap.points.length === 0) return;
+
+        const width = img.naturalWidth || img.clientWidth || 800;
+        const height = img.naturalHeight || img.clientHeight || 520;
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Filter points with measurements
+        const pts = currentViewerMap.points.filter(p => p.lastResistanceOhms != null && !isNaN(p.lastResistanceOhms));
+        if (pts.length === 0) return;
+
+        const step = 4; // 4px spatial resolution for smooth continuous rendering
+        const cols = Math.ceil(width / step);
+        const rows = Math.ceil(height / step);
+
+        const imgData = ctx.createImageData(width, height);
+        const data = imgData.data;
+
+        // Convert points to pixel coordinates & log10(R)
+        const pData = pts.map(p => {
+            const px = (p.xPercent / 100) * width;
+            const py = (p.yPercent / 100) * height;
+            const res = Math.max(1, p.lastResistanceOhms);
+            const logR = Math.log10(res);
+            return { px, py, res, logR };
+        });
+
+        for (let r = 0; r < rows; r++) {
+            const y = r * step;
+            for (let c = 0; c < cols; c++) {
+                const x = c * step;
+
+                // IDW Calculation with p=2
+                let sumWeights = 0;
+                let sumLogR = 0;
+                let exactMatch = null;
+
+                for (let i = 0; i < pData.length; i++) {
+                    const p = pData[i];
+                    const dx = x - p.px;
+                    const dy = y - p.py;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < 1) {
+                        exactMatch = p.res;
+                        break;
+                    }
+
+                    const w = 1.0 / (distSq + 0.001);
+                    sumWeights += w;
+                    sumLogR += w * p.logR;
+                }
+
+                let interpolatedRes;
+                if (exactMatch !== null) {
+                    interpolatedRes = exactMatch;
+                } else if (sumWeights > 0) {
+                    interpolatedRes = Math.pow(10, sumLogR / sumWeights);
+                } else {
+                    interpolatedRes = 1.0e7;
+                }
+
+                // Smooth color transition based on requirements:
+                // <= 1.0e8: Verde (#10B981)
+                // 1.01e8 - 0.99e9: Naranja (#F59E0B)
+                // >= 1.0e9: Rojo (#EF4444)
+                let red, green, blue;
+                if (interpolatedRes <= 1.0e8) {
+                    const t = Math.min(1, Math.max(0, (Math.log10(interpolatedRes) - 6) / 2));
+                    red = Math.round(16 + (200 - 16) * t * 0.4);
+                    green = Math.round(185 + (200 - 185) * t);
+                    blue = Math.round(129 * (1 - t * 0.5));
+                } else if (interpolatedRes < 1.0e9) {
+                    const t = Math.min(1, Math.max(0, (Math.log10(interpolatedRes) - 8) / 1));
+                    red = Math.round(245 + (239 - 245) * t);
+                    green = Math.round(158 * (1 - t * 0.45));
+                    blue = 11;
+                } else {
+                    red = 239;
+                    green = 68;
+                    blue = 68;
+                }
+
+                const alpha = 145; // ~57% alpha for rich blended overlay
+
+                for (let dy = 0; dy < step && (y + dy) < height; dy++) {
+                    for (let dx = 0; dx < step && (x + dx) < width; dx++) {
+                        const idx = ((y + dy) * width + (x + dx)) * 4;
+                        data[idx] = red;
+                        data[idx + 1] = green;
+                        data[idx + 2] = blue;
+                        data[idx + 3] = alpha;
+                    }
+                }
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    async function saveFloorMapBatchMeasurements() {
+        if (!currentViewerMap) return;
+
+        const measuredCount = currentViewerMap.points.filter(p => p.lastResistanceOhms != null).length;
+        if (measuredCount === 0) {
+            alert('Por favor captura al menos una medición en los puntos del plano antes de guardar.');
+            return;
+        }
+
+        const payload = {
+            mapId: currentViewerMap.id,
+            siteId: currentViewerMap.siteId || (sessionData && sessionData.site_id) || '',
+            areaName: currentViewerMap.areaName || '',
+            temperature: 23.5,
+            humidity: 45.0,
+            notes: `Verificación por plano ${currentViewerMap.mapName || currentViewerMap.areaName}`,
+            points: currentViewerMap.points
+        };
+
+        try {
+            const res = await fetch('/api/maps/measurements', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Id': (sessionData && sessionData.user_id) || '',
+                    'X-User-Role': (sessionData && sessionData.user_role) || ''
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(`✅ Lote de ${measuredCount} mediciones de piso guardado exitosamente y registrado en el historial.`);
+                loadInfraData();
+            } else {
+                alert(data.message || '❌ Error al guardar las mediciones de piso.');
+            }
+        } catch(e) {
+            console.error('Error saving floor measurements batch:', e);
+            alert('❌ Error de conexión al guardar el lote de mediciones.');
         }
     }
 </script>

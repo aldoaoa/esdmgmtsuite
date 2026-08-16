@@ -1,5 +1,6 @@
 using ESDSuite.Core.Services;
 using ESDSuite.Services.Supabase;
+using ESDSuite.Services.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,7 @@ var supabaseConfig = new SupabaseConfig
 builder.Services.AddSingleton(supabaseConfig);
 builder.Services.AddHttpClient<SupabaseService>();
 builder.Services.AddSingleton<I18nService>();
+builder.Services.AddSingleton(sp => new FloorMapStorageService(builder.Environment.ContentRootPath, builder.Environment.WebRootPath));
 
 var app = builder.Build();
 

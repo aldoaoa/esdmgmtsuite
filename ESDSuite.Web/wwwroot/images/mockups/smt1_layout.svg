@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" width="100%" height="100%">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E2E8F0" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="machineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="ovenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="zoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#EDF2F7" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Floor Grid -->
+  <rect width="1000" height="650" fill="#F8FAFC"/>
+  <rect width="1000" height="650" fill="url(#grid)"/>
+
+  <!-- Outer Walls -->
+  <rect x="30" y="30" width="940" height="590" rx="12" fill="none" stroke="url(#wallGrad)" stroke-width="8"/>
+
+  <!-- EPA Cleanroom Zone 1 (SMT Bay 1) -->
+  <rect x="50" y="50" width="430" height="550" rx="8" fill="url(#zoneGrad)" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="6,6"/>
+  <text x="70" y="80" font-family="'Montserrat', sans-serif" font-weight="800" font-size="16" fill="#1E293B">⚡ EPA CLEANROOM AREA - SMT 1</text>
+  <text x="70" y="100" font-family="'Inter', sans-serif" font-size="12" fill="#64748B">ANSI/ESD S20.20 Floor Qualification Area (500 m²)</text>
+
+  <!-- SMT 1 Machinery Line -->
+  <!-- Screen Printer -->
+  <rect x="80" y="140" width="100" height="140" rx="6" fill="url(#machineGrad)" stroke="#1E40AF" stroke-width="2"/>
+  <text x="130" y="215" font-family="'Montserrat', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">SCREEN PRINTER</text>
+
+  <!-- Conveyor 1 -->
+  <rect x="190" y="180" width="40" height="60" rx="3" fill="#64748B"/>
+  <text x="210" y="215" font-family="'Montserrat', sans-serif" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">CV</text>
+
+  <!-- Pick and Place 1 -->
+  <rect x="240" y="130" width="110" height="160" rx="6" fill="url(#machineGrad)" stroke="#1E40AF" stroke-width="2"/>
+  <text x="295" y="210" font-family="'Montserrat', sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">PICK &amp; PLACE</text>
+  <text x="295" y="225" font-family="'Montserrat', sans-serif" font-size="10" fill="#BFDBFE" text-anchor="middle">CHIP SHOOTER</text>
+
+  <!-- Conveyor 2 -->
+  <rect x="360" y="180" width="40" height="60" rx="3" fill="#64748B"/>
+
+  <!-- Reflow Oven -->
+  <rect x="80" y="380" width="220" height="150" rx="8" fill="url(#ovenGrad)" stroke="#B45309" stroke-width="2"/>
+  <text x="190" y="455" font-family="'Montserrat', sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">REFLOW OVEN (10 ZONES)</text>
+  <text x="190" y="475" font-family="'Montserrat', sans-serif" font-size="11" fill="#FEF3C7" text-anchor="middle">HIGH TEMP HEATING CHAMBER</text>
+
+  <!-- AOI Inspection -->
+  <rect x="330" y="390" width="120" height="130" rx="6" fill="url(#machineGrad)" stroke="#1E40AF" stroke-width="2"/>
+  <text x="390" y="455" font-family="'Montserrat', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">AOI 3D OPTICAL</text>
+  <text x="390" y="475" font-family="'Montserrat', sans-serif" font-size="10" fill="#BFDBFE" text-anchor="middle">INSPECTION</text>
+
+  <!-- Central Aisle Corridor -->
+  <rect x="490" y="50" width="20" height="550" fill="#E2E8F0"/>
+  <text x="500" y="325" font-family="'Montserrat', sans-serif" font-size="11" font-weight="700" fill="#94A3B8" text-anchor="middle" transform="rotate(-90 500 325)">AISLE / PASILLO CENTRAL</text>
+
+  <!-- EPA Cleanroom Zone 2 (Manual Assembly & Test) -->
+  <rect x="520" y="50" width="430" height="550" rx="8" fill="url(#zoneGrad)" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="6,6"/>
+  <text x="540" y="80" font-family="'Montserrat', sans-serif" font-weight="800" font-size="16" fill="#1E293B">⚡ EPA ASSEMBLY &amp; TESTING</text>
+
+  <!-- Workstations -->
+  <rect x="550" y="140" width="160" height="80" rx="4" fill="#0EA5E9" stroke="#0284C7" stroke-width="2"/>
+  <text x="630" y="185" font-family="'Montserrat', sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">WORKBENCH 01 (ESD)</text>
+
+  <rect x="740" y="140" width="160" height="80" rx="4" fill="#0EA5E9" stroke="#0284C7" stroke-width="2"/>
+  <text x="820" y="185" font-family="'Montserrat', sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">WORKBENCH 02 (ESD)</text>
+
+  <!-- ICT / FCT Test Stations -->
+  <rect x="550" y="380" width="160" height="140" rx="6" fill="#6366F1" stroke="#4F46E5" stroke-width="2"/>
+  <text x="630" y="445" font-family="'Montserrat', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">ICT / IN-CIRCUIT</text>
+  <text x="630" y="465" font-family="'Montserrat', sans-serif" font-size="11" fill="#E0E7FF" text-anchor="middle">TEST FIXTURES</text>
+
+  <!-- Flashing / Packaging -->
+  <rect x="740" y="380" width="160" height="140" rx="6" fill="#10B981" stroke="#059669" stroke-width="2"/>
+  <text x="820" y="445" font-family="'Montserrat', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">PACKAGING &amp; ESD</text>
+  <text x="820" y="465" font-family="'Montserrat', sans-serif" font-size="11" fill="#D1FAE5" text-anchor="middle">SHIELDING BAGS</text>
+
+  <!-- Entrance Door -->
+  <rect x="200" y="24" width="80" height="12" fill="#10B981"/>
+  <text x="240" y="20" font-family="'Montserrat', sans-serif" font-size="10" font-weight="800" fill="#059669" text-anchor="middle">ENTRANCE / DOOR 1</text>
+
+  <rect x="700" y="24" width="80" height="12" fill="#10B981"/>
+  <text x="740" y="20" font-family="'Montserrat', sans-serif" font-size="10" font-weight="800" fill="#059669" text-anchor="middle">ENTRANCE / DOOR 2</text>
+</svg>

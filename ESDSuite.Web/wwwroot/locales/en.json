@@ -371,6 +371,35 @@
     "col_last_cal": "Last Calibration",
     "col_next_cal": "Expiration",
     "col_status_cal": "Calibration Status",
-    "col_actions_eq": "Actions"
+    "col_actions_eq": "Actions",
+    "tab_maps": "ESD Layouts & Maps"
+  },
+  "maps": {
+    "editor_title": "ESD Floorplan Configuration & Mapping",
+    "editor_sub": "Upload line or room layout, define total area and generate or interactively position test points (5 points per 500 m² per ANSI/ESD standard).",
+    "btn_new_map": "➕ New Floorplan",
+    "properties_title": "📐 Floorplan Properties",
+    "lbl_select_existing": "Edit Existing Floorplan:",
+    "lbl_area": "Assigned Area / Line*",
+    "lbl_name": "Floorplan Name*",
+    "lbl_image": "Floorplan Image / Layout (PNG, JPG, SVG):",
+    "lbl_total_area": "Total Area*",
+    "lbl_unit": "Unit:",
+    "btn_auto_points": "⚡ Generate Auto Points (5 / 500 m²)",
+    "btn_add_point": "➕ Add Point at Center",
+    "btn_clear_points": "🗑️ Clear All Points",
+    "btn_save_map": "💾 Save Floorplan & Points",
+    "points_table_title": "📋 Test Point Coordinates",
+    "hm_mixed": "Mixed Mode (Heatmap + Plan)",
+    "hm_heat_only": "2D Heatmap Only",
+    "hm_plan_only": "Floorplan Only",
+    "lbl_total_points": "Total Points:",
+    "lbl_measured_points": "Measured:",
+    "lbl_pass_points": "Pass:",
+    "lbl_fail_points": "Fail:",
+    "btn_recalc_hm": "🔄 Recalculate Heatmap",
+    "btn_save_batch": "💾 Save Floor Measurements",
+    "saved_success": "Floorplan saved successfully.",
+    "batch_saved_success": "Floor measurement batch saved and synced."
   }
 }

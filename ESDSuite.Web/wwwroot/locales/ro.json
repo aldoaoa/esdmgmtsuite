@@ -371,6 +371,35 @@
     "col_last_cal": "Ultima Calibrare",
     "col_next_cal": "Expirare",
     "col_status_cal": "Statut Calibrare",
-    "col_actions_eq": "Acțiuni"
+    "col_actions_eq": "Acțiuni",
+    "tab_maps": "Planuri & Hărți ESD"
+  },
+  "maps": {
+    "editor_title": "Configurare & Mapare Planuri ESD",
+    "editor_sub": "Încărcați planul liniei sau încăperii, definiți suprafața totală și generați sau poziționați interactiv punctele de testare (5 puncte la fiecare 500 m² conform ANSI/ESD).",
+    "btn_new_map": "➕ Plan Nou",
+    "properties_title": "📐 Proprietăți Plan",
+    "lbl_select_existing": "Editare Plan Existent:",
+    "lbl_area": "Zonă / Linie Alocată*",
+    "lbl_name": "Nume Plan*",
+    "lbl_image": "Imagine Plan / Layout (PNG, JPG, SVG):",
+    "lbl_total_area": "Suprafață Totală*",
+    "lbl_unit": "Unitate:",
+    "btn_auto_points": "⚡ Generare Puncte Automate (5 / 500 m²)",
+    "btn_add_point": "➕ Adăugare Punct în Centru",
+    "btn_clear_points": "🗑️ Ștergere Toate Punctele",
+    "btn_save_map": "💾 Salvare Plan & Puncte",
+    "points_table_title": "📋 Coordonate Puncte de Test",
+    "hm_mixed": "Mod Mixt (Heatmap + Plan)",
+    "hm_heat_only": "Doar Heatmap 2D",
+    "hm_plan_only": "Doar Plan",
+    "lbl_total_points": "Total Puncte:",
+    "lbl_measured_points": "Măsurate:",
+    "lbl_pass_points": "Conforme:",
+    "lbl_fail_points": "Neconforme:",
+    "btn_recalc_hm": "🔄 Recalculare Heatmap",
+    "btn_save_batch": "💾 Salvare Măsurători Podea",
+    "saved_success": "Plan salvat cu succes.",
+    "batch_saved_success": "Lot de măsurători salvat și sincronizat."
   }
 }

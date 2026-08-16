@@ -7,6 +7,8 @@ using ESDSuite.Core.Models;
 using ESDSuite.Services.Auth;
 using ESDSuite.Services.Supabase;
 
+using ESDSuite.Services.Storage;
+
 namespace ESDSuite.Web.Controllers;
 
 [ApiController]
@@ -14,6 +16,7 @@ namespace ESDSuite.Web.Controllers;
 public class ApiController : ControllerBase
 {
     private readonly SupabaseService _supabase;
+    private readonly FloorMapStorageService _mapStorage;
     private const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
     private const string DefaultAuditorId = "84d85bea-272c-42d1-ad14-35eb702f1e56";
 
@@ -61,9 +64,10 @@ public class ApiController : ControllerBase
         }
     }
 
-    public ApiController(SupabaseService supabase)
+    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage)
     {
         _supabase = supabase;
+        _mapStorage = mapStorage;
     }
 
     [HttpPost("login")]
@@ -1542,5 +1546,164 @@ public class ApiController : ControllerBase
         }
         bool success = await _supabase.DeleteUserAsync(id);
         return Ok(new { success });
+    }
+
+    // --- ESD FLOOR MAPS & HEATMAP ENGINE ---
+    [HttpGet("maps")]
+    public async Task<IActionResult> GetFloorMaps([FromQuery] string? siteId)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var maps = await _mapStorage.GetMapsAsync(targetSite);
+        return Ok(maps);
+    }
+
+    [HttpGet("maps/{id}")]
+    public async Task<IActionResult> GetFloorMapById(string id)
+    {
+        var map = await _mapStorage.GetMapByIdAsync(id);
+        if (map == null) return NotFound(new { success = false, message = "Mapa no encontrado" });
+        return Ok(map);
+    }
+
+    [HttpPost("maps/upload")]
+    public async Task<IActionResult> SaveFloorMap([FromBody] JsonObject payload)
+    {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para configurar mapas de planta." });
+        }
+
+        string mapId = payload["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        string siteId = payload["siteId"]?.ToString() ?? CurrentUserSiteId;
+        string areaName = payload["areaName"]?.ToString() ?? "Área General";
+        string mapName = payload["mapName"]?.ToString() ?? $"Plano {areaName}";
+        string imageBase64 = payload["imageBase64"]?.ToString() ?? "";
+        string imageUrl = payload["imageUrl"]?.ToString() ?? "";
+        double totalArea = payload["totalAreaValue"]?.GetValue<double>() ?? 500.0;
+        string unit = payload["areaUnit"]?.ToString() ?? "m2";
+
+        if (!string.IsNullOrEmpty(imageBase64))
+        {
+            string savedUrl = await _mapStorage.SaveImageFromBase64Async(mapName, imageBase64);
+            if (!string.IsNullOrEmpty(savedUrl))
+            {
+                imageUrl = savedUrl;
+            }
+        }
+
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            imageUrl = "/images/mockups/smt1_layout.svg";
+        }
+
+        var points = new List<FloorMapPoint>();
+        if (payload["points"] is JsonArray pArr)
+        {
+            foreach (var pNode in pArr)
+            {
+                if (pNode is JsonObject pObj)
+                {
+                    points.Add(new FloorMapPoint
+                    {
+                        Id = pObj["id"]?.ToString() ?? Guid.NewGuid().ToString(),
+                        Code = pObj["code"]?.ToString() ?? (points.Count + 1).ToString(),
+                        Label = pObj["label"]?.ToString() ?? $"Punto {points.Count + 1}",
+                        XPercent = pObj["xPercent"]?.GetValue<double>() ?? 0,
+                        YPercent = pObj["yPercent"]?.GetValue<double>() ?? 0,
+                        LastResistanceOhms = pObj["lastResistanceOhms"] != null ? pObj["lastResistanceOhms"]!.GetValue<double>() : null
+                    });
+                }
+            }
+        }
+
+        var mapConfig = new FloorMapConfig
+        {
+            Id = mapId,
+            SiteId = siteId,
+            AreaName = areaName,
+            AreaId = areaName,
+            MapName = mapName,
+            ImageUrl = imageUrl,
+            TotalAreaValue = totalArea,
+            AreaUnit = unit,
+            Points = points
+        };
+
+        var saved = await _mapStorage.SaveMapAsync(mapConfig);
+        return Ok(new { success = true, map = saved });
+    }
+
+    [HttpPost("maps/points")]
+    public async Task<IActionResult> SaveFloorMapPoints([FromBody] SaveMapPointsDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.MapId)) return BadRequest(new { success = false, message = "ID de mapa requerido" });
+        bool ok = await _mapStorage.SaveMapPointsAsync(dto.MapId, dto.Points);
+        return Ok(new { success = ok });
+    }
+
+    [HttpDelete("maps/{id}")]
+    public async Task<IActionResult> DeleteFloorMap(string id)
+    {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar mapas." });
+        }
+        bool ok = await _mapStorage.DeleteMapAsync(id);
+        return Ok(new { success = ok });
+    }
+
+    [HttpPost("maps/measurements")]
+    public async Task<IActionResult> SaveFloorMeasurementsBatch([FromBody] SaveFloorMeasurementBatchDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.MapId)) return BadRequest(new { success = false, message = "ID de mapa requerido" });
+
+        var map = await _mapStorage.GetMapByIdAsync(dto.MapId);
+        if (map == null) return NotFound(new { success = false, message = "Mapa no encontrado" });
+
+        string siteId = !string.IsNullOrEmpty(dto.SiteId) ? dto.SiteId : map.SiteId;
+        string auditorId = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        string areaName = !string.IsNullOrEmpty(dto.AreaName) ? dto.AreaName : map.AreaName;
+
+        // 1. Update map points in storage
+        foreach (var p in dto.Points)
+        {
+            var match = map.Points.FirstOrDefault(mp => mp.Id.Equals(p.Id, StringComparison.OrdinalIgnoreCase) || mp.Code.Equals(p.Code, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                match.LastResistanceOhms = p.LastResistanceOhms;
+                match.MeasuredAt = DateTime.UtcNow;
+            }
+            else
+            {
+                p.MeasuredAt = DateTime.UtcNow;
+                map.Points.Add(p);
+            }
+
+            // 2. Also register individual log in Supabase floor_validation_logs
+            if (p.LastResistanceOhms.HasValue)
+            {
+                double ohms = p.LastResistanceOhms.Value;
+                var logPayload = new JsonObject
+                {
+                    ["site_id"] = siteId,
+                    ["auditor_id"] = auditorId,
+                    ["room_name"] = areaName,
+                    ["location"] = areaName,
+                    ["point_number"] = int.TryParse(p.Code, out int pNum) ? pNum : 1,
+                    ["point_id"] = p.Label ?? $"Punto {p.Code}",
+                    ["ptp_resistance"] = ohms.ToString("E2"),
+                    ["resistance_ohms"] = ohms,
+                    ["temp_hum"] = $"{dto.Temperature}°C / {dto.Humidity}%",
+                    ["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL",
+                    ["measured_at"] = DateTime.UtcNow.ToString("o")
+                };
+
+                await _supabase.InsertFloorValidationLogAsync(logPayload);
+            }
+        }
+
+        await _mapStorage.SaveMapAsync(map);
+
+        return Ok(new { success = true, map });
     }
 }

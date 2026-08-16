@@ -371,6 +371,35 @@
     "col_last_cal": "Última Calibración",
     "col_next_cal": "Vencimiento",
     "col_status_cal": "Estatus Calibración",
-    "col_actions_eq": "Acciones"
+    "col_actions_eq": "Acciones",
+    "tab_maps": "Planos & Mapas ESD"
+  },
+  "maps": {
+    "editor_title": "Configuración & Mapeo de Planos ESD",
+    "editor_sub": "Carga el layout de la línea o cuarto, define el área total y genera o coloca interactivamente los puntos de prueba (5 puntos por cada 500 m² según norma ANSI/ESD).",
+    "btn_new_map": "➕ Nuevo Plano",
+    "properties_title": "📐 Parámetros del Plano",
+    "lbl_select_existing": "Editar Plano Existente:",
+    "lbl_area": "Área / Línea Asignada*",
+    "lbl_name": "Nombre del Plano*",
+    "lbl_image": "Imagen de Plano / Layout (PNG, JPG, SVG):",
+    "lbl_total_area": "Área Total*",
+    "lbl_unit": "Unidad:",
+    "btn_auto_points": "⚡ Generar Puntos Automáticos (5 / 500 m²)",
+    "btn_add_point": "➕ Agregar Punto en Centro",
+    "btn_clear_points": "🗑️ Limpiar Todos los Puntos",
+    "btn_save_map": "💾 Guardar Plano & Puntos",
+    "points_table_title": "📋 Coordenadas de Puntos de Prueba",
+    "hm_mixed": "Modo Mixto (Heatmap + Plano)",
+    "hm_heat_only": "Solo Heatmap 2D",
+    "hm_plan_only": "Solo Plano",
+    "lbl_total_points": "Total Puntos:",
+    "lbl_measured_points": "Medidos:",
+    "lbl_pass_points": "Conformes:",
+    "lbl_fail_points": "No Conformes:",
+    "btn_recalc_hm": "🔄 Recalcular Heatmap",
+    "btn_save_batch": "💾 Guardar Mediciones de Piso",
+    "saved_success": "Plano guardado exitosamente.",
+    "batch_saved_success": "Lote de mediciones de piso guardado y sincronizado."
   }
 }

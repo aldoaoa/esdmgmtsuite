@@ -371,6 +371,35 @@
     "col_last_cal": "Letzte Kalibrierung",
     "col_next_cal": "Ablaufdatum",
     "col_status_cal": "Kalibrierstatus",
-    "col_actions_eq": "Aktionen"
+    "col_actions_eq": "Aktionen",
+    "tab_maps": "ESD-Pläne & Karten"
+  },
+  "maps": {
+    "editor_title": "ESD-Layout-Konfiguration & Zuordnung",
+    "editor_sub": "Laden Sie den Linien- oder Raumplan hoch, definieren Sie die Gesamtfläche und generieren oder positionieren Sie interaktiv Testpunkte (5 Punkte pro 500 m² gemäß ANSI/ESD).",
+    "btn_new_map": "➕ Neuer Plan",
+    "properties_title": "📐 Planeigenschaften",
+    "lbl_select_existing": "Bestehenden Plan bearbeiten:",
+    "lbl_area": "Zugewiesener Bereich / Linie*",
+    "lbl_name": "Planname*",
+    "lbl_image": "Planbild / Layout (PNG, JPG, SVG):",
+    "lbl_total_area": "Gesamtfläche*",
+    "lbl_unit": "Einheit:",
+    "btn_auto_points": "⚡ Automatische Punkte (5 / 500 m²)",
+    "btn_add_point": "➕ Punkt im Zentrum hinzufügen",
+    "btn_clear_points": "🗑️ Alle Punkte löschen",
+    "btn_save_map": "💾 Plan & Punkte speichern",
+    "points_table_title": "📋 Koordinaten der Testpunkte",
+    "hm_mixed": "Gemischter Modus (Heatmap + Plan)",
+    "hm_heat_only": "Nur 2D-Heatmap",
+    "hm_plan_only": "Nur Plan",
+    "lbl_total_points": "Gesamtpunkte:",
+    "lbl_measured_points": "Gemessen:",
+    "lbl_pass_points": "Bestanden:",
+    "lbl_fail_points": "Fehlerhaft:",
+    "btn_recalc_hm": "🔄 Heatmap neu berechnen",
+    "btn_save_batch": "💾 Bodenmessungen speichern",
+    "saved_success": "Plan erfolgreich gespeichert.",
+    "batch_saved_success": "Bodenmessungscharge gespeichert und synchronisiert."
   }
 }

@@ -983,3 +983,141 @@ h1, h2, h3, h4, h5, h6 {
         width: 100% !important;
     }
 }
+
+/* ========================================================
+   FLOOR MAPS, INTERACTIVE TEST POINTS & HEATMAP 2D
+   ======================================================== */
+.map-viewport-container {
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    background: #0F172A;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    user-select: none;
+    touch-action: none;
+}
+
+.map-viewport-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 380px;
+}
+
+.map-floorplan-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.map-heatmap-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    transition: opacity 0.25s ease;
+}
+
+.map-points-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+}
+
+.floor-pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2563EB;
+    color: #FFFFFF;
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.9);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+    z-index: 10;
+}
+
+.floor-pin:hover {
+    transform: translate(-50%, -50%) scale(1.18);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.45), 0 0 0 4px #FFFFFF;
+    z-index: 20;
+}
+
+.floor-pin.dragging {
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(1.25);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5), 0 0 0 4px #FFFFFF;
+    z-index: 30;
+}
+
+.floor-pin.pin-pass {
+    background: #10B981;
+    color: #FFFFFF;
+}
+
+.floor-pin.pin-warning {
+    background: #F59E0B;
+    color: #FFFFFF;
+}
+
+.floor-pin.pin-fail {
+    background: #EF4444;
+    color: #FFFFFF;
+    animation: pinPulseFail 1.8s infinite;
+}
+
+.floor-pin.pin-selected {
+    outline: 3px solid #38BDF8;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.8), 0 0 0 4px #FFFFFF;
+}
+
+@keyframes pinPulseFail {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.pin-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(4px);
+    color: #FFFFFF;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.floor-pin:hover .pin-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px);
+}

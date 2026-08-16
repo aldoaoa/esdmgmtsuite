@@ -371,6 +371,35 @@
     "col_last_cal": "上次校准",
     "col_next_cal": "到期日",
     "col_status_cal": "校准状态",
-    "col_actions_eq": "操作"
+    "col_actions_eq": "操作",
+    "tab_maps": "ESD平面图与地图"
+  },
+  "maps": {
+    "editor_title": "ESD平面图配置与测点绘制",
+    "editor_sub": "上传生产线或车间平面图，定义总面积并自动生成或交互放置测试点（根据ANSI/ESD标准每500平方米布设5个测点）。",
+    "btn_new_map": "➕ 新建平面图",
+    "properties_title": "📐 平面图参数",
+    "lbl_select_existing": "编辑已有平面图:",
+    "lbl_area": "分配区域 / 线体*",
+    "lbl_name": "平面图名称*",
+    "lbl_image": "平面图图片 / 布局 (PNG, JPG, SVG):",
+    "lbl_total_area": "总面积*",
+    "lbl_unit": "单位:",
+    "btn_auto_points": "⚡ 自动布点 (5点 / 500 m²)",
+    "btn_add_point": "➕ 在中心添加测点",
+    "btn_clear_points": "🗑️ 清空所有测点",
+    "btn_save_map": "💾 保存平面图与测点",
+    "points_table_title": "📋 测试点坐标表",
+    "hm_mixed": "混合模式 (热力图 + 平面图)",
+    "hm_heat_only": "仅2D热力图",
+    "hm_plan_only": "仅平面图",
+    "lbl_total_points": "总测点:",
+    "lbl_measured_points": "已测量:",
+    "lbl_pass_points": "合格:",
+    "lbl_fail_points": "不合格:",
+    "btn_recalc_hm": "🔄 重新计算热力图",
+    "btn_save_batch": "💾 保存地板测量数据",
+    "saved_success": "平面图保存成功。",
+    "batch_saved_success": "地板测量批次已保存并同步。"
   }
 }

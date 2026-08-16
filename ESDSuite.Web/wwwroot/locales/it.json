@@ -371,6 +371,35 @@
     "col_last_cal": "Ultima Taratura",
     "col_next_cal": "Scadenza",
     "col_status_cal": "Stato Taratura",
-    "col_actions_eq": "Azioni"
+    "col_actions_eq": "Azioni",
+    "tab_maps": "Planimetrie & Mappe ESD"
+  },
+  "maps": {
+    "editor_title": "Configurazione & Mappatura Planimetrie ESD",
+    "editor_sub": "Carica la planimetria della linea o stanza, definisci l'area totale e genera o posiziona interattivamente i punti di prova (5 punti ogni 500 m² secondo norma ANSI/ESD).",
+    "btn_new_map": "➕ Nuova Planimetria",
+    "properties_title": "📐 Proprietà Planimetria",
+    "lbl_select_existing": "Modifica Planimetria Esistente:",
+    "lbl_area": "Area / Linea Assegnata*",
+    "lbl_name": "Nome Planimetria*",
+    "lbl_image": "Immagine Planimetria / Layout (PNG, JPG, SVG):",
+    "lbl_total_area": "Area Totale*",
+    "lbl_unit": "Unità:",
+    "btn_auto_points": "⚡ Genera Punti Automatici (5 / 500 m²)",
+    "btn_add_point": "➕ Aggiungi Punto al Centro",
+    "btn_clear_points": "🗑️ Cancella Tutti i Punti",
+    "btn_save_map": "💾 Salva Planimetria & Punti",
+    "points_table_title": "📋 Coordinate Punti di Prova",
+    "hm_mixed": "Modalità Mista (Heatmap + Pianta)",
+    "hm_heat_only": "Solo Heatmap 2D",
+    "hm_plan_only": "Solo Pianta",
+    "lbl_total_points": "Punti Totali:",
+    "lbl_measured_points": "Misurati:",
+    "lbl_pass_points": "Conformi:",
+    "lbl_fail_points": "Non Conformi:",
+    "btn_recalc_hm": "🔄 Ricalcola Heatmap",
+    "btn_save_batch": "💾 Salva Misurazioni Pavimento",
+    "saved_success": "Planimetria salvata con successo.",
+    "batch_saved_success": "Lotto misurazioni pavimento salvato e sincronizzato."
   }
 }
