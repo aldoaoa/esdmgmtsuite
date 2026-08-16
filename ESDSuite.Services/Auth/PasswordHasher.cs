@@ -47,14 +47,35 @@ public static class PasswordHasher
                         int.TryParse(paramSub[3], out p);
                     }
 
-                    byte[] saltBytes = Encoding.UTF8.GetBytes(saltStr);
                     byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
                     int dkLen = expectedHashHex.Length / 2;
 
-                    byte[] derived = SCrypt.Generate(passwordBytes, saltBytes, n, r, p, dkLen);
-                    string computedHashHex = Convert.ToHexString(derived).ToLower();
+                    // Try UTF-8 salt
+                    byte[] saltBytesUtf8 = Encoding.UTF8.GetBytes(saltStr);
+                    byte[] derivedUtf8 = SCrypt.Generate(passwordBytes, saltBytesUtf8, n, r, p, dkLen);
+                    string computedHashHexUtf8 = Convert.ToHexString(derivedUtf8).ToLower();
+                    if (string.Equals(computedHashHexUtf8, expectedHashHex.ToLower(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
 
-                    return string.Equals(computedHashHex, expectedHashHex.ToLower(), StringComparison.OrdinalIgnoreCase);
+                    // Try Hex-decoded salt if valid hex
+                    if (IsHex(saltStr) && saltStr.Length % 2 == 0)
+                    {
+                        try
+                        {
+                            byte[] saltBytesHex = Convert.FromHexString(saltStr);
+                            byte[] derivedHex = SCrypt.Generate(passwordBytes, saltBytesHex, n, r, p, dkLen);
+                            string computedHashHexHex = Convert.ToHexString(derivedHex).ToLower();
+                            if (string.Equals(computedHashHexHex, expectedHashHex.ToLower(), StringComparison.OrdinalIgnoreCase))
+                            {
+                                return true;
+                            }
+                        }
+                        catch {}
+                    }
+
+                    return false;
                 }
             }
 
