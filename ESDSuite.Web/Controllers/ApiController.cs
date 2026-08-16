@@ -17,13 +17,49 @@ public class ApiController : ControllerBase
     private const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
     private const string DefaultAuditorId = "84d85bea-272c-42d1-ad14-35eb702f1e56";
 
-    private string CurrentUserRole => HttpContext.Session.GetString("user_role") ?? "Auditor";
+    private string CurrentUserRole
+    {
+        get
+        {
+            string? role = HttpContext.Session.GetString("user_role");
+            if (string.IsNullOrEmpty(role))
+            {
+                role = Request.Headers["X-User-Role"].FirstOrDefault();
+            }
+            return !string.IsNullOrWhiteSpace(role) ? role : "Auditor";
+        }
+    }
     private string? CurrentUserCompanyId => HttpContext.Session.GetString("company_id");
     private string CurrentUserSiteId => HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
 
-    private bool IsSuperAdmin => string.Equals(CurrentUserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
-    private bool IsCompanyAdmin => IsSuperAdmin || string.Equals(CurrentUserRole, "CompanyAdmin", StringComparison.OrdinalIgnoreCase);
-    private bool IsSiteAdmin => IsCompanyAdmin || string.Equals(CurrentUserRole, "SiteAdmin", StringComparison.OrdinalIgnoreCase);
+    private bool IsSuperAdmin
+    {
+        get
+        {
+            string r = CurrentUserRole.Trim().ToLower().Replace("_", "").Replace(" ", "").Replace("-", "");
+            return r == "superadmin" || r == "root";
+        }
+    }
+
+    private bool IsCompanyAdmin
+    {
+        get
+        {
+            if (IsSuperAdmin) return true;
+            string r = CurrentUserRole.Trim().ToLower().Replace("_", "").Replace(" ", "").Replace("-", "");
+            return r == "companyadmin";
+        }
+    }
+
+    private bool IsSiteAdmin
+    {
+        get
+        {
+            if (IsCompanyAdmin) return true;
+            string r = CurrentUserRole.Trim().ToLower().Replace("_", "").Replace(" ", "").Replace("-", "");
+            return r == "siteadmin" || r == "admin" || r == "administrador";
+        }
+    }
 
     public ApiController(SupabaseService supabase)
     {
