@@ -423,6 +423,11 @@ public class SupabaseService
         return await UpdateAsync("assets", $"id=eq.{id}", data);
     }
 
+    public async Task<bool> DeleteAssetAsync(string id)
+    {
+        return await DeleteAsync("assets", $"id=eq.{id}");
+    }
+
     public async Task<JsonArray> GetEventMeterLogsAsync(string? siteId = null)
     {
         string query = "measurements?extra_data->>type=eq.event_meter";

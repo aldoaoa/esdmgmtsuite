@@ -1128,14 +1128,53 @@ public class ApiController : ControllerBase
                 string customId = aObj["custom_id"]?.ToString().Trim() ?? "";
                 if (string.IsNullOrEmpty(customId)) continue;
 
+                string rawClass = aObj["classification"]?.ToString() ?? "";
+                string assetName = customId;
+                string subtype = aObj["category"]?.ToString() ?? "Mobiliario ESD";
+                string assetArea = "";
+                string periodicity = "1m";
+                string notes = "";
+
+                if (rawClass.StartsWith("{") && rawClass.EndsWith("}"))
+                {
+                    try
+                    {
+                        var classObj = JsonNode.Parse(rawClass) as JsonObject;
+                        if (classObj != null)
+                        {
+                            if (classObj["name"] != null && !string.IsNullOrWhiteSpace(classObj["name"]?.ToString())) assetName = classObj["name"]?.ToString()!;
+                            if (classObj["subtype"] != null && !string.IsNullOrWhiteSpace(classObj["subtype"]?.ToString())) subtype = classObj["subtype"]?.ToString()!;
+                            if (classObj["area"] != null && !string.IsNullOrWhiteSpace(classObj["area"]?.ToString())) assetArea = classObj["area"]?.ToString()!;
+                            if (classObj["periodicity"] != null && !string.IsNullOrWhiteSpace(classObj["periodicity"]?.ToString())) periodicity = classObj["periodicity"]?.ToString()!;
+                            if (classObj["notes"] != null) notes = classObj["notes"]?.ToString() ?? "";
+                        }
+                    }
+                    catch { }
+                }
+                else if (!string.IsNullOrEmpty(rawClass))
+                {
+                    subtype = rawClass;
+                }
+
+                string loc = aObj["location"]?.ToString() ?? "N/A";
+                if (string.IsNullOrEmpty(assetArea) && loc.Contains("->"))
+                {
+                    assetArea = loc.Split("->")[0].Trim();
+                }
+
                 assetMap[customId] = new JsonObject
                 {
                     ["id"] = aObj["id"]?.ToString(),
                     ["asset_id"] = customId,
                     ["custom_id"] = customId,
+                    ["name"] = string.IsNullOrEmpty(assetName) ? customId : assetName,
                     ["category"] = aObj["category"]?.ToString() ?? "Mobiliario ESD",
-                    ["sub_category"] = aObj["sub_category"]?.ToString() ?? aObj["category"]?.ToString() ?? "Mobiliario ESD",
-                    ["location"] = aObj["location"]?.ToString() ?? "N/A",
+                    ["sub_category"] = subtype,
+                    ["location"] = loc,
+                    ["area"] = string.IsNullOrEmpty(assetArea) ? "General" : assetArea,
+                    ["periodicity"] = periodicity,
+                    ["notes"] = notes,
+                    ["created_at"] = aObj["created_at"]?.ToString() ?? DateTime.UtcNow.ToString("o"),
                     ["status"] = aObj["status"]?.ToString() ?? "ACTIVE",
                     ["last_verification"] = null,
                     ["next_verification"] = null,
@@ -1267,6 +1306,425 @@ public class ApiController : ControllerBase
         {
             return Ok(new JsonArray());
         }
+    }
+
+    [HttpPost("inventory/assets")]
+    public async Task<IActionResult> AddAsset([FromBody] JsonObject payload)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Sesión no válida." });
+        }
+
+        string customId = payload["custom_id"]?.ToString().Trim() ?? "";
+        if (string.IsNullOrEmpty(customId))
+        {
+            return BadRequest(new { success = false, message = "El ID / Código del activo es obligatorio." });
+        }
+
+        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+        string category = payload["category"]?.ToString() ?? "Mobiliario ESD";
+        string subtype = payload["subtype"]?.ToString() ?? payload["sub_category"]?.ToString() ?? category;
+        string name = payload["name"]?.ToString() ?? customId;
+        string location = payload["location"]?.ToString() ?? "N/A";
+        string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "General");
+        string periodicity = payload["periodicity"]?.ToString() ?? "1m";
+        string notes = payload["notes"]?.ToString() ?? "";
+        string createdAt = payload["created_at"]?.ToString() ?? DateTime.UtcNow.ToString("o");
+
+        JsonObject classObj = new JsonObject
+        {
+            ["name"] = name,
+            ["subtype"] = subtype,
+            ["area"] = area,
+            ["periodicity"] = periodicity,
+            ["notes"] = notes
+        };
+
+        var insertPayload = new JsonObject
+        {
+            ["site_id"] = targetSite,
+            ["custom_id"] = customId,
+            ["category"] = category,
+            ["classification"] = classObj.ToJsonString(),
+            ["location"] = location,
+            ["status"] = "ACTIVE",
+            ["created_at"] = createdAt
+        };
+
+        var result = await _supabase.InsertAssetAsync(insertPayload);
+
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
+            $"Alta de nuevo activo '{customId}' ({name}) en ubicación '{location}' con periodicidad '{periodicity}'.",
+            new { customId, name, category, subtype, location, area, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        return Ok(new { success = result != null, data = result });
+    }
+
+    [HttpPut("inventory/assets/{id}")]
+    public async Task<IActionResult> UpdateAsset(string id, [FromBody] JsonObject payload)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Sesión no válida." });
+        }
+
+        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+        string customId = payload["custom_id"]?.ToString() ?? "";
+        string category = payload["category"]?.ToString() ?? "Mobiliario ESD";
+        string subtype = payload["subtype"]?.ToString() ?? payload["sub_category"]?.ToString() ?? category;
+        string name = payload["name"]?.ToString() ?? customId;
+        string location = payload["location"]?.ToString() ?? "N/A";
+        string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "General");
+        string periodicity = payload["periodicity"]?.ToString() ?? "1m";
+        string notes = payload["notes"]?.ToString() ?? "";
+
+        JsonObject classObj = new JsonObject
+        {
+            ["name"] = name,
+            ["subtype"] = subtype,
+            ["area"] = area,
+            ["periodicity"] = periodicity,
+            ["notes"] = notes
+        };
+
+        var updatePayload = new JsonObject
+        {
+            ["category"] = category,
+            ["classification"] = classObj.ToJsonString(),
+            ["location"] = location
+        };
+
+        if (payload["status"] != null) updatePayload["status"] = payload["status"]?.ToString();
+
+        bool success = await _supabase.UpdateAssetAsync(id, updatePayload);
+
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
+            $"Modificación de activo ID '{id}' ({customId} - {name}) en ubicación '{location}'.",
+            new { id, customId, name, location, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        return Ok(new { success });
+    }
+
+    [HttpDelete("inventory/assets/{id}")]
+    public async Task<IActionResult> DeleteAsset(string id)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Sesión no válida." });
+        }
+
+        bool success = await _supabase.DeleteAssetAsync(id);
+        await _supabase.LogAuditEventAsync(currentUserId, CurrentUserSiteId, "AUDIT", "AssetDirectory",
+            $"Eliminación de activo ID '{id}'.",
+            new { id, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        return Ok(new { success });
+    }
+
+    // --- SCHEDULE VALIDATIONS & DUE DATES ---
+    [HttpGet("schedule/assets-due")]
+    public async Task<IActionResult> GetScheduleAssetsDue([FromQuery] string? siteId = null, [FromQuery] string? area = null, [FromQuery] string? line = null, [FromQuery] string? search = null, [FromQuery] string? status = null)
+    {
+        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        
+        var assets = await _supabase.GetAssetsAsync(activeSiteId);
+        var measurements = await _supabase.GetMeasurementsForSiteAsync(activeSiteId);
+        
+        var assetMap = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Populate registered assets from assets table
+        foreach (var node in assets)
+        {
+            if (node is JsonObject aObj)
+            {
+                string customId = aObj["custom_id"]?.ToString().Trim() ?? "";
+                if (string.IsNullOrEmpty(customId)) continue;
+
+                string rawClass = aObj["classification"]?.ToString() ?? "";
+                string assetName = customId;
+                string subtype = aObj["category"]?.ToString() ?? "Mobiliario ESD";
+                string assetArea = "";
+                string periodicity = "1m";
+                string notes = "";
+
+                if (rawClass.StartsWith("{") && rawClass.EndsWith("}"))
+                {
+                    try
+                    {
+                        var classObj = JsonNode.Parse(rawClass) as JsonObject;
+                        if (classObj != null)
+                        {
+                            if (classObj["name"] != null && !string.IsNullOrWhiteSpace(classObj["name"]?.ToString())) assetName = classObj["name"]?.ToString()!;
+                            if (classObj["subtype"] != null && !string.IsNullOrWhiteSpace(classObj["subtype"]?.ToString())) subtype = classObj["subtype"]?.ToString()!;
+                            if (classObj["area"] != null && !string.IsNullOrWhiteSpace(classObj["area"]?.ToString())) assetArea = classObj["area"]?.ToString()!;
+                            if (classObj["periodicity"] != null && !string.IsNullOrWhiteSpace(classObj["periodicity"]?.ToString())) periodicity = classObj["periodicity"]?.ToString()!;
+                            if (classObj["notes"] != null) notes = classObj["notes"]?.ToString() ?? "";
+                        }
+                    }
+                    catch { }
+                }
+                else if (!string.IsNullOrEmpty(rawClass))
+                {
+                    subtype = rawClass;
+                }
+
+                string loc = aObj["location"]?.ToString() ?? "N/A";
+                if (string.IsNullOrEmpty(assetArea) && loc.Contains("->"))
+                {
+                    assetArea = loc.Split("->")[0].Trim();
+                }
+                else if (string.IsNullOrEmpty(assetArea))
+                {
+                    assetArea = "General";
+                }
+
+                string createdAt = aObj["created_at"]?.ToString() ?? DateTime.UtcNow.ToString("o");
+
+                assetMap[customId] = new JsonObject
+                {
+                    ["id"] = aObj["id"]?.ToString(),
+                    ["asset_id"] = customId,
+                    ["custom_id"] = customId,
+                    ["name"] = string.IsNullOrEmpty(assetName) ? customId : assetName,
+                    ["category"] = aObj["category"]?.ToString() ?? "Mobiliario ESD",
+                    ["sub_category"] = subtype,
+                    ["location"] = loc,
+                    ["area"] = assetArea,
+                    ["periodicity"] = periodicity,
+                    ["notes"] = notes,
+                    ["created_at"] = createdAt,
+                    ["last_verification"] = null,
+                    ["next_verification"] = null,
+                    ["auditor"] = null,
+                    ["status_result"] = "PENDING",
+                    ["status_schedule"] = "PENDING",
+                    ["days_left"] = 0,
+                    ["overdue_days"] = 0,
+                    ["resistance_value"] = null,
+                    ["static_field_value"] = null,
+                    ["extra_points"] = new JsonArray(),
+                    ["total_audits"] = 0
+                };
+            }
+        }
+
+        // 2. Populate measurements and index audit assets
+        foreach (var node in measurements)
+        {
+            if (node is not JsonObject mObj) continue;
+
+            string idElem = "";
+            if (mObj["extra_data"] is JsonObject ed)
+            {
+                idElem = ed["id_elemento"]?.ToString().Trim() ?? "";
+            }
+
+            if (string.IsNullOrEmpty(idElem) && mObj["asset_id"] != null)
+            {
+                string aId = mObj["asset_id"]?.ToString() ?? "";
+                var matched = assetMap.Values.FirstOrDefault(x => x["id"]?.ToString() == aId);
+                if (matched != null) idElem = matched["custom_id"]?.ToString() ?? "";
+            }
+
+            if (string.IsNullOrEmpty(idElem)) continue;
+
+            if (!assetMap.TryGetValue(idElem, out var entry))
+            {
+                string loc = mObj["ubicacion"]?.ToString() ?? (mObj["extra_data"] as JsonObject)?["ubicacion"]?.ToString() ?? "N/A";
+                string assetArea = loc.Contains("->") ? loc.Split("->")[0].Trim() : "General";
+                entry = new JsonObject
+                {
+                    ["id"] = mObj["asset_id"]?.ToString() ?? Guid.NewGuid().ToString(),
+                    ["asset_id"] = idElem,
+                    ["custom_id"] = idElem,
+                    ["name"] = idElem,
+                    ["category"] = "Mobiliario ESD",
+                    ["sub_category"] = "Mobiliario ESD",
+                    ["location"] = loc,
+                    ["area"] = assetArea,
+                    ["periodicity"] = "1m",
+                    ["notes"] = "",
+                    ["created_at"] = mObj["measured_at"]?.ToString() ?? DateTime.UtcNow.ToString("o"),
+                    ["last_verification"] = null,
+                    ["next_verification"] = null,
+                    ["auditor"] = null,
+                    ["status_result"] = "PASS",
+                    ["status_schedule"] = "PENDING",
+                    ["days_left"] = 0,
+                    ["overdue_days"] = 0,
+                    ["resistance_value"] = null,
+                    ["static_field_value"] = null,
+                    ["extra_points"] = new JsonArray(),
+                    ["total_audits"] = 0
+                };
+                assetMap[idElem] = entry;
+            }
+
+            int count = entry["total_audits"]?.GetValue<int>() ?? 0;
+            entry["total_audits"] = count + 1;
+
+            string measuredAt = mObj["measured_at"]?.ToString() ?? "";
+            string existingLast = entry["last_verification"]?.ToString() ?? "";
+
+            if (string.IsNullOrEmpty(existingLast) || string.Compare(measuredAt, existingLast) > 0)
+            {
+                entry["last_verification"] = measuredAt;
+                entry["status_result"] = mObj["status_result"]?.ToString() ?? "PASS";
+                
+                if (mObj["auditor_id"] != null) entry["auditor"] = mObj["auditor_id"]?.ToString();
+                if (mObj["resistance_value"] != null) entry["resistance_value"] = mObj["resistance_value"]?.GetValue<double>();
+                if (mObj["static_field_value"] != null) entry["static_field_value"] = mObj["static_field_value"]?.GetValue<double>();
+
+                if (mObj["extra_data"] is JsonObject edObj)
+                {
+                    if (edObj["tipo_equipo"] != null) entry["category"] = edObj["tipo_equipo"]?.ToString();
+                    if (edObj["subtipo_elemento"] != null) entry["sub_category"] = edObj["subtipo_elemento"]?.ToString();
+                    if (edObj["ubicacion"] != null) entry["location"] = edObj["ubicacion"]?.ToString();
+                    if (edObj["auditor"] != null) entry["auditor"] = edObj["auditor"]?.ToString();
+                    if (edObj["tiempo_descarga"] != null) entry["tiempo_descarga"] = edObj["tiempo_descarga"]?.GetValue<double>();
+                    if (edObj["voltaje_balance"] != null) entry["voltaje_balance"] = edObj["voltaje_balance"]?.GetValue<int>();
+                    if (edObj["mediciones_extra"] is JsonArray extraArr) entry["extra_points"] = extraArr.DeepClone();
+                }
+            }
+        }
+
+        // 3. Compute Schedule, Next Dates, and Compliance Status
+        var now = DateTime.UtcNow.Date;
+        var computedList = new List<JsonObject>();
+        var distinctAreas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var distinctLines = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        int overdueCount = 0;
+        int dueSoonCount = 0;
+        int compliantCount = 0;
+        int permanentCount = 0;
+
+        foreach (var entry in assetMap.Values)
+        {
+            string loc = entry["location"]?.ToString() ?? "N/A";
+            string aArea = entry["area"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(aArea))
+            {
+                aArea = loc.Contains("->") ? loc.Split("->")[0].Trim() : "General";
+                entry["area"] = aArea;
+            }
+
+            if (!string.IsNullOrEmpty(aArea)) distinctAreas.Add(aArea);
+            if (!string.IsNullOrEmpty(loc) && loc != "N/A") distinctLines.Add(loc);
+
+            string periodicity = entry["periodicity"]?.ToString() ?? "1m";
+            string lastDateStr = entry["last_verification"]?.ToString() ?? "";
+            string baseDateStr = !string.IsNullOrEmpty(lastDateStr) ? lastDateStr : entry["created_at"]?.ToString() ?? "";
+
+            DateTime baseDate = DateTime.TryParse(baseDateStr, out var bdt) ? bdt.Date : now;
+            DateTime? nextDate = CalculateNextDueDate(baseDate, periodicity);
+
+            if (periodicity == "permanent" || nextDate == null)
+            {
+                entry["next_verification"] = null;
+                entry["status_schedule"] = "PERMANENT";
+                entry["days_left"] = 9999;
+                entry["overdue_days"] = 0;
+                permanentCount++;
+            }
+            else
+            {
+                entry["next_verification"] = nextDate.Value.ToString("yyyy-MM-dd");
+                int diffDays = (int)(nextDate.Value.Date - now).TotalDays;
+                entry["days_left"] = diffDays;
+
+                if (diffDays < 0)
+                {
+                    entry["status_schedule"] = "OVERDUE";
+                    entry["overdue_days"] = Math.Abs(diffDays);
+                    overdueCount++;
+                }
+                else if (diffDays <= 7)
+                {
+                    entry["status_schedule"] = "DUE_SOON";
+                    entry["overdue_days"] = 0;
+                    dueSoonCount++;
+                }
+                else
+                {
+                    entry["status_schedule"] = "COMPLIANT";
+                    entry["overdue_days"] = 0;
+                    compliantCount++;
+                }
+            }
+
+            computedList.Add(entry);
+        }
+
+        // Apply filters
+        var filteredList = computedList.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string sLower = search.Trim().ToLower();
+            filteredList = filteredList.Where(x =>
+                (x["name"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["asset_id"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["sub_category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["location"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["area"]?.ToString().ToLower().Contains(sLower) ?? false)
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(area) && area != "all")
+        {
+            filteredList = filteredList.Where(x => x["area"]?.ToString().Equals(area, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        if (!string.IsNullOrWhiteSpace(line) && line != "all")
+        {
+            filteredList = filteredList.Where(x => x["location"]?.ToString().Equals(line, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && status != "all")
+        {
+            filteredList = filteredList.Where(x => x["status_schedule"]?.ToString().Equals(status, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        var results = filteredList.OrderBy(x => x["days_left"]?.GetValue<int>() ?? 0).ToList();
+
+        return Ok(new
+        {
+            summary = new
+            {
+                total_assets = computedList.Count,
+                overdue_count = overdueCount,
+                due_soon_count = dueSoonCount,
+                compliant_count = compliantCount,
+                permanent_count = permanentCount
+            },
+            areas = distinctAreas.OrderBy(x => x).ToList(),
+            lines = distinctLines.OrderBy(x => x).ToList(),
+            assets = results,
+            overdue_assets = computedList.Where(x => x["status_schedule"]?.ToString() == "OVERDUE").OrderByDescending(x => x["overdue_days"]?.GetValue<int>() ?? 0).Take(10).ToList(),
+            due_soon_assets = computedList.Where(x => x["status_schedule"]?.ToString() == "DUE_SOON").OrderBy(x => x["days_left"]?.GetValue<int>() ?? 0).Take(10).ToList()
+        });
+    }
+
+    private static DateTime? CalculateNextDueDate(DateTime baseDate, string periodicity)
+    {
+        return periodicity?.ToLowerInvariant() switch
+        {
+            "1d" or "daily" or "diario" => baseDate.AddDays(1),
+            "1w" or "weekly" or "semanal" => baseDate.AddDays(7),
+            "2w" or "biweekly" or "quincenal" => baseDate.AddDays(14),
+            "1m" or "monthly" or "mensual" => baseDate.AddMonths(1),
+            "3m" or "quarterly" or "trimestral" => baseDate.AddMonths(3),
+            "6m" or "semiannual" or "semestral" => baseDate.AddMonths(6),
+            "1y" or "annual" or "anual" => baseDate.AddYears(1),
+            "permanent" or "permanente" => null,
+            _ => baseDate.AddMonths(1)
+        };
     }
 
     // --- SENSITIVITY LAB ---

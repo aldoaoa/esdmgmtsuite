@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.1</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.1.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.1.0</span>
             </div>
         </div>
     </aside>
@@ -1065,34 +1065,233 @@
             <!-- MODULE 4: CRONOGRAMA & REPORTES -->
             <div id="mod-schedule" class="module-view" style="display:none;">
                 <div class="glass-panel">
-                    <h3 style="display:flex; align-items:center; gap:8px;">
-                        <img src="/images/icons/icon-schedule.svg" class="ui-icon-3d" alt="" />
-                        <span data-i18n="schedule.heading">Generador de Reporte Oficial de Auditoría de Línea</span>
-                    </h3>
-                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:18px;">Emisión de Certificados de Línea Folio <b>BCS-LV-XXX-YY</b> según norma ANSI/ESD S20.20</p>
-                    
-                    <div class="glass-card" style="margin-bottom:20px;">
-                        <h4 data-i18n="schedule.heading">Emisión de Reporte Oficial de Línea</h4>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
-                            <div class="form-group">
-                                <label data-i18n="schedule.lbl_line">Línea / Ubicación a Certificar*</label>
-                                <select id="rep-linea" class="form-control" required>
-                                    <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label data-i18n="schedule.lbl_auditor">Auditor / Coordinador Responsable*</label>
-                                <input id="rep-auditor" class="form-control" placeholder="Ej: Auditor ESD" />
-                            </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label data-i18n="schedule.lbl_comments">Comentarios / Observaciones de la Línea</label>
-                                <input id="rep-comments" class="form-control" placeholder="La línea cumple satisfactoriamente con los límites de resistencia ANSI/ESD S20.20." />
-                            </div>
+                    <!-- HEADER -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                        <div>
+                            <h3 style="display:flex; align-items:center; gap:8px; margin:0 0 4px 0;">
+                                <img src="/images/icons/icon-schedule.svg" class="ui-icon-3d" alt="" />
+                                <span data-i18n="schedule.title">Validaciones &amp; Cronograma</span>
+                            </h3>
+                            <p style="font-size:12.5px; color:var(--text-muted); margin:0;" data-i18n="schedule.subtitle">Control de próximas fechas de verificación, alertas de vencimiento y reportes oficiales</p>
                         </div>
-                        <button class="btn-primary" onclick="generateOfficialLineReport()" data-i18n="schedule.btn_generate">🖨️ Generar y Previsualizar Reporte Oficial (PDF / HTML)</button>
                     </div>
 
-                    <div id="official-report-preview" style="display:none; margin-top:18px;"></div>
+                    <!-- SUB-TABS (Schedule vs Reports) -->
+                    <div class="tab-container" style="margin-bottom:16px;">
+                        <button type="button" class="tab-btn active" id="tab-btn-sched-calendar" onclick="switchScheduleSubTab('calendar')">
+                            <span data-i18n="schedule.tab_schedule">📅 Validaciones &amp; Cronograma</span>
+                        </button>
+                        <button type="button" class="tab-btn" id="tab-btn-sched-reports" onclick="switchScheduleSubTab('reports')">
+                            <span data-i18n="schedule.tab_reports">📊 Reportes Oficiales de Línea</span>
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: SCHEDULE & CALENDAR & ALERTS -->
+                    <div id="sec-schedule-calendar">
+                        <!-- TOP PRIORITY ALERT METRIC CARDS (SIEMPRE A LA VISTA EN LA PARTE SUPERIOR) -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
+                            <!-- CARD 1: OVERDUE (VENCIDOS) -->
+                            <div class="glass-card" style="cursor:pointer; background:#FFF1F2; border:1.5px solid #FECDD3; border-radius:10px; padding:14px 16px; transition:transform 0.15s ease;" onclick="filterScheduleByStatus('OVERDUE')">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:12px; font-weight:700; color:#BE123C;" data-i18n="schedule.alert_overdue">Activos Vencidos</span>
+                                    <span style="font-size:18px;">🔴</span>
+                                </div>
+                                <div style="font-size:24px; font-weight:800; color:#9F1239; margin-top:6px;" id="sched-count-overdue">0</div>
+                                <div style="font-size:11px; color:#E11D48; margin-top:2px;">Requieren validación inmediata</div>
+                            </div>
+
+                            <!-- CARD 2: DUE SOON (POR VENCER) -->
+                            <div class="glass-card" style="cursor:pointer; background:#FEFCE8; border:1.5px solid #FEF08A; border-radius:10px; padding:14px 16px; transition:transform 0.15s ease;" onclick="filterScheduleByStatus('DUE_SOON')">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:12px; font-weight:700; color:#A16207;" data-i18n="schedule.alert_due_soon">Por Vencer (≤ 7 días)</span>
+                                    <span style="font-size:18px;">🟡</span>
+                                </div>
+                                <div style="font-size:24px; font-weight:800; color:#854D0E; margin-top:6px;" id="sched-count-duesoon">0</div>
+                                <div style="font-size:11px; color:#CA8A04; margin-top:2px;">Próximos a vencer esta semana</div>
+                            </div>
+
+                            <!-- CARD 3: COMPLIANT (AL DIA) -->
+                            <div class="glass-card" style="cursor:pointer; background:#F0FDF4; border:1.5px solid #BBF7D0; border-radius:10px; padding:14px 16px; transition:transform 0.15s ease;" onclick="filterScheduleByStatus('COMPLIANT')">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:12px; font-weight:700; color:#15803D;" data-i18n="schedule.alert_compliant">Activos al Día</span>
+                                    <span style="font-size:18px;">🟢</span>
+                                </div>
+                                <div style="font-size:24px; font-weight:800; color:#166534; margin-top:6px;" id="sched-count-compliant">0</div>
+                                <div style="font-size:11px; color:#16A34A; margin-top:2px;">Validaciones vigentes</div>
+                            </div>
+
+                            <!-- CARD 4: TOTAL ASSETS -->
+                            <div class="glass-card" style="cursor:pointer; background:#F8FAFC; border:1.5px solid #E2E8F0; border-radius:10px; padding:14px 16px; transition:transform 0.15s ease;" onclick="filterScheduleByStatus('all')">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span style="font-size:12px; font-weight:700; color:var(--text-primary);" data-i18n="schedule.alert_total">Total Monitoreados</span>
+                                    <span style="font-size:18px;">📦</span>
+                                </div>
+                                <div style="font-size:24px; font-weight:800; color:var(--accent-blue); margin-top:6px;" id="sched-count-total">0</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Activos en catálogo</div>
+                            </div>
+                        </div>
+
+                        <!-- URGENT OVERDUE NOTIFICATION STRIP -->
+                        <div id="sched-urgent-alert-bar" style="display:none; background:#FFF1F2; border:1.5px solid #FDA4AF; border-radius:8px; padding:10px 16px; margin-bottom:16px; align-items:center; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#9F1239;">
+                                <span style="font-size:16px;">⚠️</span>
+                                <div><b>Atención de Auditoría:</b> Hay <span id="sched-urgent-count">0</span> activos con validación vencida que requieren inspección inmediata en piso.</div>
+                            </div>
+                            <button type="button" class="tab-btn" style="background:#E11D48; color:#FFFFFF; border:none; padding:4px 10px; font-size:11px; font-weight:700; border-radius:4px;" onclick="filterScheduleByStatus('OVERDUE')">Ver Vencidos</button>
+                        </div>
+
+                        <!-- SEARCH & FILTER TOOLBAR -->
+                        <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:12px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                            <!-- SEARCH BY ASSET NAME / CODE -->
+                            <div style="flex:1; min-width:240px; position:relative;">
+                                <input type="text" id="sched-search-input" class="form-control" placeholder="Buscar por Nombre de Activo o ID..." data-i18n-placeholder="schedule.ph_search_asset" style="padding-left:34px;" oninput="handleScheduleSearchInput(this.value)" />
+                                <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none;">🔍</span>
+                            </div>
+
+                            <!-- FILTER BY AREA -->
+                            <div style="min-width:170px;">
+                                <select id="sched-filter-area" class="form-control" onchange="applyScheduleFilters()">
+                                    <option value="all" data-i18n="schedule.all_areas">-- Todas las Áreas --</option>
+                                </select>
+                            </div>
+
+                            <!-- FILTER BY LINE -->
+                            <div style="min-width:180px;">
+                                <select id="sched-filter-line" class="form-control" onchange="applyScheduleFilters()">
+                                    <option value="all" data-i18n="schedule.all_lines">-- Todas las Líneas --</option>
+                                </select>
+                            </div>
+
+                            <!-- FILTER BY STATUS -->
+                            <div style="min-width:150px;">
+                                <select id="sched-filter-status" class="form-control" onchange="applyScheduleFilters()">
+                                    <option value="all" data-i18n="schedule.all_statuses">-- Todos los Estatus --</option>
+                                    <option value="OVERDUE" data-i18n="schedule.st_overdue">🔴 Vencidos</option>
+                                    <option value="DUE_SOON" data-i18n="schedule.st_due_soon">🟡 Por Vencer</option>
+                                    <option value="COMPLIANT" data-i18n="schedule.st_compliant">🟢 Al Día</option>
+                                    <option value="PERMANENT" data-i18n="schedule.st_permanent">⚪ Permanente</option>
+                                </select>
+                            </div>
+
+                            <!-- RESET FILTERS -->
+                            <button type="button" class="tab-btn" style="padding:8px 12px; font-size:12.5px;" onclick="resetScheduleFilters()" data-i18n="inventory.btn_reset">🔄 Limpiar</button>
+                        </div>
+
+                        <!-- DUAL VIEW CONTAINER -->
+                        <div id="sched-views-wrapper">
+                            <!-- VIEW A: SPECIFIC ASSET VALIDATION CARD (Rendered on asset search / click) -->
+                            <div id="sched-single-asset-view" style="display:none; margin-bottom:20px;">
+                                <div class="glass-card" style="background:#FFFFFF; border:1.5px solid var(--accent-blue); border-radius:12px; padding:20px; box-shadow:0 10px 25px rgba(37,99,235,0.08);">
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px; border-bottom:1px solid #F1F5F9; padding-bottom:12px;">
+                                        <div style="display:flex; align-items:center; gap:12px;">
+                                            <div style="font-size:32px; background:var(--accent-blue-light); width:54px; height:54px; border-radius:12px; display:flex; align-items:center; justify-content:center;" id="sched-card-icon">📦</div>
+                                            <div>
+                                                <div style="display:flex; align-items:center; gap:8px;">
+                                                    <h3 id="sched-card-name" style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary);">Nombre del Activo</h3>
+                                                    <span id="sched-card-id" class="badge-pass" style="font-size:11px; padding:2px 8px; font-weight:800;">ID-001</span>
+                                                </div>
+                                                <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">
+                                                    <span id="sched-card-cat-sub">Mobiliario ESD &bull; Mesa de Trabajo</span> &bull; 
+                                                    <span id="sched-card-area-line" style="font-weight:600; color:var(--text-primary);">SMT -&gt; Línea 1</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <button type="button" class="tab-btn" style="padding:6px 12px; font-size:11.5px;" onclick="closeSingleAssetCard()">✕ Volver al Calendario</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- METRICS GRID -->
+                                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:18px;">
+                                        <!-- PERIODICITY -->
+                                        <div style="background:#F8FAFC; border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                                            <div style="font-size:11px; color:var(--text-muted); font-weight:700;" data-i18n="schedule.card_periodicity">Periodicidad de Validación:</div>
+                                            <div id="sched-card-periodicity" style="font-size:14px; font-weight:800; color:var(--text-primary); margin-top:4px;">1 Mes (Mensual)</div>
+                                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Frecuencia establecida para este activo</div>
+                                        </div>
+
+                                        <!-- LAST VERIFICATION -->
+                                        <div style="background:#F8FAFC; border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                                            <div style="font-size:11px; color:var(--text-muted); font-weight:700;" data-i18n="schedule.card_last_date">Última Verificación:</div>
+                                            <div id="sched-card-last-date" style="font-size:14px; font-weight:800; color:var(--text-primary); margin-top:4px;">-</div>
+                                            <div id="sched-card-last-detail" style="font-size:11px; color:var(--text-secondary); margin-top:2px;">Auditor: -</div>
+                                        </div>
+
+                                        <!-- NEXT VERIFICATION (HIGHLIGHTED) -->
+                                        <div style="background:var(--accent-blue-light); border:1.5px solid rgba(37,99,235,0.3); border-radius:8px; padding:12px;">
+                                            <div style="font-size:11px; color:var(--accent-blue); font-weight:700;" data-i18n="schedule.card_next_date">Próxima Fecha de Validación:</div>
+                                            <div id="sched-card-next-date" style="font-size:16px; font-weight:800; color:var(--accent-blue); margin-top:4px;">-</div>
+                                            <div id="sched-card-countdown" class="badge-pass" style="margin-top:4px; font-size:11px; display:inline-block;">-</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ACTION BUTTONS -->
+                                    <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;">
+                                        <button type="button" class="tab-btn" style="padding:8px 14px; font-size:12px; font-weight:600;" id="sched-card-btn-history" onclick="viewAssetHistoryFromCard()">📜 Ver Historial Completo</button>
+                                        <button type="button" class="btn-primary" style="padding:8px 16px; font-size:12px; font-weight:700;" id="sched-card-btn-audit" onclick="goToAuditForAsset()">⚡ Realizar Auditoría en Floor Audit</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- VIEW B: INTERACTIVE CALENDAR & UPCOMING LIST -->
+                            <div id="sched-calendar-view" style="display:grid; grid-template-columns: 1.35fr 1fr; gap:18px; align-items:start;">
+                                <!-- CALENDAR CONTAINER -->
+                                <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+                                    <!-- CALENDAR NAV HEADER -->
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #F1F5F9;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <button type="button" class="tab-btn" style="padding:4px 8px; font-size:12px;" onclick="prevScheduleMonth()">◀</button>
+                                            <h4 id="sched-cal-month-label" style="margin:0; font-size:14.5px; font-weight:800; color:var(--text-primary); min-width:140px; text-align:center;">Agosto 2026</h4>
+                                            <button type="button" class="tab-btn" style="padding:4px 8px; font-size:12px;" onclick="nextScheduleMonth()">▶</button>
+                                        </div>
+                                        <button type="button" class="tab-btn" style="padding:4px 10px; font-size:11.5px; font-weight:700;" onclick="goToScheduleToday()" data-i18n="schedule.cal_btn_today">Hoy</button>
+                                    </div>
+
+                                    <!-- CALENDAR GRID -->
+                                    <div id="sched-calendar-grid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; text-align:center;">
+                                        <!-- Generated dynamically by JS -->
+                                    </div>
+                                </div>
+
+                                <!-- UPCOMING VALIDATIONS / DAY DETAILS PANEL -->
+                                <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:12px; padding:16px; max-height:600px; overflow-y:auto;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid #F1F5F9;">
+                                        <h4 id="sched-panel-title" style="margin:0; font-size:13px; font-weight:800; color:var(--text-primary);" data-i18n="schedule.upcoming_list_title">📋 Próximas Validaciones Programadas</h4>
+                                        <span id="sched-panel-count" class="badge-pass" style="font-size:10.5px; padding:2px 7px;">0</span>
+                                    </div>
+                                    <div id="sched-panel-items" style="display:flex; flex-direction:column; gap:8px;">
+                                        <!-- Generated dynamically by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: OFFICIAL REPORTS GENERATOR -->
+                    <div id="sec-schedule-reports" style="display:none;">
+                        <div class="glass-card" style="margin-bottom:20px;">
+                            <h4 data-i18n="schedule.heading">Emisión de Reporte Oficial de Línea</h4>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
+                                <div class="form-group">
+                                    <label data-i18n="schedule.lbl_line">Línea / Ubicación a Certificar*</label>
+                                    <select id="rep-linea" class="form-control" required>
+                                        <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="schedule.lbl_auditor">Auditor / Coordinador Responsable*</label>
+                                    <input id="rep-auditor" class="form-control" placeholder="Ej: Auditor ESD" />
+                                </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label data-i18n="schedule.lbl_comments">Comentarios / Observaciones de la Línea</label>
+                                    <input id="rep-comments" class="form-control" placeholder="La línea cumple satisfactoriamente con los límites de resistencia ANSI/ESD S20.20." />
+                                </div>
+                            </div>
+                            <button class="btn-primary" onclick="generateOfficialLineReport()" data-i18n="schedule.btn_generate">🖨️ Generar y Previsualizar Reporte Oficial (PDF / HTML)</button>
+                        </div>
+
+                        <div id="official-report-preview" style="display:none; margin-top:18px;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -1108,6 +1307,7 @@
                             <p style="margin:0; font-size:12.5px; color:var(--text-muted);" data-i18n="inventory.subtitle">Catálogo centralizado de activos de protección electrostática y trazabilidad de mediciones</p>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" class="btn-primary" style="padding:6px 14px; font-size:12px; font-weight:700;" onclick="openNewAssetModal()" data-i18n="inventory.btn_add_asset">➕ Alta de Nuevo Activo</button>
                             <span id="inv-count-badge" class="badge-pass" style="font-size:11.5px; padding:4px 10px; font-weight:700;">0 Activos</span>
                         </div>
                     </div>
@@ -1124,6 +1324,8 @@
                                 <option value="Mobiliario ESD" data-i18n="audit.cat_furniture">Mobiliario ESD</option>
                                 <option value="Maquinaria y equipo" data-i18n="audit.cat_machinery">Maquinaria y equipo</option>
                                 <option value="Sistema de ionización" data-i18n="audit.cat_ionizer">Sistema de ionización</option>
+                                <option value="Puntos de Tierra / Grounding" data-i18n="audit.cat_grounding">Puntos de Tierra / Grounding</option>
+                                <option value="Pisos y Calzado" data-i18n="audit.cat_floors">Pisos y Calzado</option>
                             </select>
                         </div>
                         <div style="min-width:150px;">
@@ -1145,15 +1347,16 @@
                                     <th style="min-width:110px;" data-i18n="inventory.col_asset_id">ID Activo</th>
                                     <th style="min-width:180px;" data-i18n="inventory.col_category_subtype">Categoría &amp; Subtipo</th>
                                     <th style="min-width:140px;" data-i18n="inventory.col_location">Línea / Ubicación</th>
+                                    <th style="min-width:110px;" data-i18n="inventory.col_periodicity">Periodicidad</th>
                                     <th style="min-width:90px;" data-i18n="inventory.col_status">Estatus</th>
                                     <th style="min-width:120px;" data-i18n="inventory.col_last_test">Última Verificación</th>
                                     <th style="min-width:120px;" data-i18n="inventory.col_next_test">Próxima Verificación</th>
-                                    <th style="min-width:240px;" data-i18n="inventory.col_measurements">Valores de Medición</th>
+                                    <th style="min-width:220px;" data-i18n="inventory.col_measurements">Valores de Medición</th>
                                     <th style="min-width:110px; text-align:center;" data-i18n="inventory.col_actions">Historial</th>
                                 </tr>
                             </thead>
                             <tbody id="inventory-table-body">
-                                <tr><td colspan="8" style="text-align:center; padding:24px;" data-i18n="inventory.loading">Cargando activos...</td></tr>
+                                <tr><td colspan="9" style="text-align:center; padding:24px;" data-i18n="inventory.loading">Cargando activos...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2115,7 +2318,10 @@
             loadEventMeterHistory();
         }
         if (modName === 'infra') loadInfraData();
-        if (modName === 'schedule') loadInfraLinesSelect();
+        if (modName === 'schedule') {
+            loadInfraLinesSelect();
+            loadScheduleData();
+        }
         if (modName === 'inventory') loadInventory();
         if (modName === 'lab') loadLab();
         if (modName === 'routes') loadRoutes();
@@ -2859,7 +3065,7 @@
     }
 
     async function loadInfraLinesSelect() {
-        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'chk-loc', 'rep-linea'];
+        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'chk-loc', 'rep-linea', 'inv-new-line'];
         try {
             const siteId = (sessionData && sessionData.site_id) || '';
             const res = await fetch(`/api/lines?siteId=${siteId}`);
@@ -3972,6 +4178,496 @@
         }
     };
 
+    // --- SCHEDULE & VALIDATIONS ENGINE ---
+    let scheduleData = null;
+    let currentCalendarYear = new Date().getFullYear();
+    let currentCalendarMonth = new Date().getMonth(); // 0-indexed
+    let selectedCalendarDate = null;
+    let selectedAssetForCard = null;
+
+    function switchScheduleSubTab(tab) {
+        const btnCal = document.getElementById('tab-btn-sched-calendar');
+        const btnRep = document.getElementById('tab-btn-sched-reports');
+        const secCal = document.getElementById('sec-schedule-calendar');
+        const secRep = document.getElementById('sec-schedule-reports');
+
+        if (tab === 'calendar') {
+            if (btnCal) btnCal.classList.add('active');
+            if (btnRep) btnRep.classList.remove('active');
+            if (secCal) secCal.style.display = 'block';
+            if (secRep) secRep.style.display = 'none';
+            loadScheduleData();
+        } else {
+            if (btnCal) btnCal.classList.remove('active');
+            if (btnRep) btnRep.classList.add('active');
+            if (secCal) secCal.style.display = 'none';
+            if (secRep) secRep.style.display = 'block';
+            loadInfraLinesSelect();
+        }
+    }
+
+    async function loadScheduleData() {
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const search = (document.getElementById('sched-search-input')?.value || '').trim();
+            const area = document.getElementById('sched-filter-area')?.value || 'all';
+            const line = document.getElementById('sched-filter-line')?.value || 'all';
+            const status = document.getElementById('sched-filter-status')?.value || 'all';
+
+            const query = new URLSearchParams({ siteId, search, area, line, status });
+            const res = await fetch(`/api/schedule/assets-due?${query.toString()}`);
+            if (!res.ok) throw new Error('Error al cargar datos del cronograma');
+            scheduleData = await res.json();
+
+            // 1. Update Metrics Cards
+            if (scheduleData.summary) {
+                const overdueEl = document.getElementById('sched-count-overdue');
+                const dueSoonEl = document.getElementById('sched-count-duesoon');
+                const compliantEl = document.getElementById('sched-count-compliant');
+                const totalEl = document.getElementById('sched-count-total');
+
+                if (overdueEl) overdueEl.innerText = scheduleData.summary.overdue_count || 0;
+                if (dueSoonEl) dueSoonEl.innerText = scheduleData.summary.due_soon_count || 0;
+                if (compliantEl) compliantEl.innerText = scheduleData.summary.compliant_count || 0;
+                if (totalEl) totalEl.innerText = scheduleData.summary.total_assets || 0;
+
+                const urgentBar = document.getElementById('sched-urgent-alert-bar');
+                const urgentCount = document.getElementById('sched-urgent-count');
+                if (urgentBar) {
+                    if (scheduleData.summary.overdue_count > 0) {
+                        urgentBar.style.display = 'flex';
+                        if (urgentCount) urgentCount.innerText = scheduleData.summary.overdue_count;
+                    } else {
+                        urgentBar.style.display = 'none';
+                    }
+                }
+            }
+
+            // 2. Populate Filters (if not already populated)
+            populateScheduleAreaFilter(scheduleData.areas || []);
+            populateScheduleLineFilter(scheduleData.lines || []);
+
+            // 3. Render Calendar
+            renderScheduleCalendar(currentCalendarYear, currentCalendarMonth);
+
+            // 4. Render Upcoming / Day details panel
+            if (selectedCalendarDate) {
+                filterScheduleByDate(selectedCalendarDate);
+            } else {
+                renderScheduleUpcomingPanel(scheduleData.assets || [], t('schedule.upcoming_list_title', '📋 Próximas Validaciones Programadas'));
+            }
+
+        } catch (e) {
+            console.error('Error loading schedule data:', e);
+        }
+    }
+
+    function populateScheduleAreaFilter(areas) {
+        const sel = document.getElementById('sched-filter-area');
+        if (!sel) return;
+        const current = sel.value;
+        const defaultText = t('schedule.all_areas', '-- Todas las Áreas --');
+        let html = `<option value="all">${defaultText}</option>`;
+        areas.forEach(a => {
+            if (a && a !== 'all') {
+                html += `<option value="${a}">${a}</option>`;
+            }
+        });
+        sel.innerHTML = html;
+        if (current && areas.includes(current)) sel.value = current;
+    }
+
+    function populateScheduleLineFilter(lines) {
+        const sel = document.getElementById('sched-filter-line');
+        if (!sel) return;
+        const current = sel.value;
+        const defaultText = t('schedule.all_lines', '-- Todas las Líneas --');
+        let html = `<option value="all">${defaultText}</option>`;
+        lines.forEach(l => {
+            if (l && l !== 'all') {
+                html += `<option value="${l}">${l}</option>`;
+            }
+        });
+        sel.innerHTML = html;
+        if (current && lines.includes(current)) sel.value = current;
+    }
+
+    function handleScheduleSearchInput(val) {
+        const q = (val || '').trim().toLowerCase();
+        if (!q) {
+            closeSingleAssetCard();
+            loadScheduleData();
+            return;
+        }
+
+        if (!scheduleData || !scheduleData.assets) return;
+
+        // Check if there is an exact or single strong match
+        const matched = scheduleData.assets.filter(a => 
+            (a.custom_id && a.custom_id.toLowerCase().includes(q)) ||
+            (a.name && a.name.toLowerCase().includes(q))
+        );
+
+        if (matched.length === 1) {
+            showSingleAssetCard(matched[0]);
+        } else {
+            // Apply filter
+            loadScheduleData();
+        }
+    }
+
+    function showSingleAssetCard(asset) {
+        selectedAssetForCard = asset;
+        const singleView = document.getElementById('sched-single-asset-view');
+        const calView = document.getElementById('sched-calendar-view');
+
+        if (!singleView) return;
+
+        const nameEl = document.getElementById('sched-card-name');
+        const idEl = document.getElementById('sched-card-id');
+        const catSubEl = document.getElementById('sched-card-cat-sub');
+        const areaLineEl = document.getElementById('sched-card-area-line');
+        const perEl = document.getElementById('sched-card-periodicity');
+        const lastDateEl = document.getElementById('sched-card-last-date');
+        const lastDetailEl = document.getElementById('sched-card-last-detail');
+        const nextDateEl = document.getElementById('sched-card-next-date');
+        const countdownEl = document.getElementById('sched-card-countdown');
+
+        const assetName = asset.name || asset.custom_id || asset.asset_id || 'Activo ESD';
+        const assetId = asset.custom_id || asset.asset_id || '';
+        const cat = asset.category || 'Mobiliario ESD';
+        const subCat = asset.sub_category || cat;
+        const loc = asset.location || 'N/A';
+        const area = asset.area || (loc.includes('->') ? loc.split('->')[0].trim() : 'General');
+        const per = asset.periodicity || '1m';
+        const lastDate = asset.last_verification ? asset.last_verification.split('T')[0] : (asset.created_at ? 'Alta: ' + asset.created_at.split('T')[0] : 'N/D');
+        const nextDate = asset.next_verification || (per === 'permanent' ? t('schedule.card_permanent_note', 'Sin vencimiento (Permanente)') : 'N/D');
+
+        if (nameEl) nameEl.innerText = assetName;
+        if (idEl) idEl.innerText = assetId;
+        if (catSubEl) catSubEl.innerHTML = `${cat} &bull; <i>${subCat}</i>`;
+        if (areaLineEl) areaLineEl.innerText = `${area} -> ${loc}`;
+
+        const perMap = {
+            '1d': '1 Día (Diario)',
+            '1w': '1 Semana (Semanal)',
+            '2w': '2 Semanas (Quincenal)',
+            '1m': '1 Mes (Mensual)',
+            '3m': '3 Meses (Trimestral)',
+            '6m': '6 Meses (Semestral)',
+            '1y': '1 Año (Anual)',
+            'permanent': 'Permanente (Sin vencimiento)'
+        };
+        if (perEl) perEl.innerText = t('periodicity.' + per, perMap[per] || per);
+
+        if (lastDateEl) lastDateEl.innerText = lastDate;
+        if (lastDetailEl) {
+            if (asset.auditor) {
+                lastDetailEl.innerText = `Auditor: ${asset.auditor}`;
+            } else {
+                lastDetailEl.innerText = `Registrado el: ${asset.created_at ? asset.created_at.split('T')[0] : '-'}`;
+            }
+        }
+
+        if (nextDateEl) nextDateEl.innerText = nextDate;
+
+        if (countdownEl) {
+            if (per === 'permanent' || asset.status_schedule === 'PERMANENT') {
+                countdownEl.className = 'badge-pass';
+                countdownEl.style.background = '#F1F5F9';
+                countdownEl.style.color = '#475569';
+                countdownEl.style.borderColor = '#CBD5E1';
+                countdownEl.innerText = t('schedule.card_permanent_note', '⚪ Sin vencimiento programado');
+            } else if (asset.status_schedule === 'OVERDUE') {
+                countdownEl.className = 'badge-fail';
+                countdownEl.style.background = '#FEE2E2';
+                countdownEl.style.color = '#991B1B';
+                countdownEl.style.borderColor = '#FECDD3';
+                countdownEl.innerText = `🔴 ${t('schedule.card_days_overdue', `Vencido hace ${asset.overdue_days || 1} días`).replace('{0}', asset.overdue_days || 1)}`;
+            } else if (asset.status_schedule === 'DUE_SOON') {
+                countdownEl.className = 'badge-pass';
+                countdownEl.style.background = '#FEF3C7';
+                countdownEl.style.color = '#B45309';
+                countdownEl.style.borderColor = '#FDE68A';
+                if (asset.days_left === 0) {
+                    countdownEl.innerText = `🟡 ${t('schedule.card_days_today', '¡Vence HOY!')}`;
+                } else {
+                    countdownEl.innerText = `🟡 ${t('schedule.card_days_left', `Vence en ${asset.days_left} días`).replace('{0}', asset.days_left)}`;
+                }
+            } else {
+                countdownEl.className = 'badge-pass';
+                countdownEl.style.background = '#D1FAE5';
+                countdownEl.style.color = '#065F46';
+                countdownEl.style.borderColor = '#A7F3D0';
+                countdownEl.innerText = `🟢 ${t('schedule.card_days_left', `Vence en ${asset.days_left} días`).replace('{0}', asset.days_left)}`;
+            }
+        }
+
+        singleView.style.display = 'block';
+    }
+
+    function closeSingleAssetCard() {
+        selectedAssetForCard = null;
+        const singleView = document.getElementById('sched-single-asset-view');
+        if (singleView) singleView.style.display = 'none';
+    }
+
+    const monthNamesEs = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const dayHeaders = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+    function renderScheduleCalendar(year, month) {
+        const grid = document.getElementById('sched-calendar-grid');
+        const monthLabel = document.getElementById('sched-cal-month-label');
+        if (!grid) return;
+
+        if (monthLabel) {
+            monthLabel.innerText = `${monthNamesEs[month]} ${year}`;
+        }
+
+        grid.innerHTML = '';
+
+        // 1. Day headers
+        dayHeaders.forEach(dh => {
+            grid.innerHTML += `<div style="font-size:11px; font-weight:700; color:var(--text-muted); padding:6px 2px; border-bottom:1px solid #F1F5F9;">${dh}</div>`;
+        });
+
+        const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+        const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+        const prevMonthDays = new Date(year, month, 0).getDate();
+
+        // Map assets by due date string "YYYY-MM-DD"
+        const eventsByDate = {};
+        if (scheduleData && scheduleData.assets) {
+            scheduleData.assets.forEach(a => {
+                if (a.next_verification) {
+                    const dateKey = a.next_verification;
+                    if (!eventsByDate[dateKey]) eventsByDate[dateKey] = [];
+                    eventsByDate[dateKey].push(a);
+                }
+            });
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Padding before 1st day
+        for (let i = firstDayIndex - 1; i >= 0; i--) {
+            const dNum = prevMonthDays - i;
+            grid.innerHTML += `<div style="padding:8px 4px; min-height:54px; opacity:0.35; font-size:11px; color:var(--text-muted); border-radius:6px;">${dNum}</div>`;
+        }
+
+        // Days of current month
+        for (let d = 1; d <= totalDaysInMonth; d++) {
+            const monthStr = String(month + 1).padStart(2, '0');
+            const dayStr = String(d).padStart(2, '0');
+            const dateKey = `${year}-${monthStr}-${dayStr}`;
+
+            const dayAssets = eventsByDate[dateKey] || [];
+            const isToday = dateKey === todayStr;
+            const isSelected = dateKey === selectedCalendarDate;
+
+            let borderStyle = isSelected ? '2px solid var(--accent-blue)' : (isToday ? '1.5px solid var(--accent-blue)' : '1px solid #F1F5F9');
+            let bgStyle = isSelected ? 'var(--accent-blue-light)' : (isToday ? '#EFF6FF' : '#FFFFFF');
+
+            // Build chips
+            let chipsHtml = '';
+            if (dayAssets.length > 0) {
+                const hasOverdue = dayAssets.some(x => x.status_schedule === 'OVERDUE');
+                const hasDueSoon = dayAssets.some(x => x.status_schedule === 'DUE_SOON');
+
+                let chipColor = '#10B981';
+                let chipBg = '#D1FAE5';
+                let chipText = '#065F46';
+
+                if (hasOverdue) {
+                    chipColor = '#EF4444';
+                    chipBg = '#FEE2E2';
+                    chipText = '#991B1B';
+                } else if (hasDueSoon) {
+                    chipColor = '#F59E0B';
+                    chipBg = '#FEF3C7';
+                    chipText = '#92400E';
+                }
+
+                chipsHtml = `<div style="background:${chipBg}; color:${chipText}; border:1px solid ${chipColor}; border-radius:4px; font-size:9.5px; font-weight:800; padding:1px 4px; margin-top:2px; display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${dayAssets.length} activos programados">
+                    ${dayAssets.length} ${dayAssets.length === 1 ? 'activo' : 'activos'}
+                </div>`;
+            }
+
+            grid.innerHTML += `
+                <div style="background:${bgStyle}; border:${borderStyle}; border-radius:6px; padding:6px 2px; min-height:58px; cursor:pointer; display:flex; flex-direction:column; align-items:center; transition:all 0.15s ease;" onclick="onScheduleDayClick('${dateKey}')">
+                    <span style="font-size:12px; font-weight:${isToday || isSelected ? '800' : '600'}; color:${isToday ? 'var(--accent-blue)' : 'var(--text-primary)'};">${d}</span>
+                    ${chipsHtml}
+                </div>
+            `;
+        }
+
+        // Trailing padding to fill 35 or 42 grid cells
+        const totalRendered = firstDayIndex + totalDaysInMonth;
+        const remaining = totalRendered <= 35 ? (35 - totalRendered) : (42 - totalRendered);
+        for (let j = 1; j <= remaining; j++) {
+            grid.innerHTML += `<div style="padding:8px 4px; min-height:54px; opacity:0.35; font-size:11px; color:var(--text-muted); border-radius:6px;">${j}</div>`;
+        }
+    }
+
+    function prevScheduleMonth() {
+        currentCalendarMonth--;
+        if (currentCalendarMonth < 0) {
+            currentCalendarMonth = 11;
+            currentCalendarYear--;
+        }
+        renderScheduleCalendar(currentCalendarYear, currentCalendarMonth);
+    }
+
+    function nextScheduleMonth() {
+        currentCalendarMonth++;
+        if (currentCalendarMonth > 11) {
+            currentCalendarMonth = 0;
+            currentCalendarYear++;
+        }
+        renderScheduleCalendar(currentCalendarYear, currentCalendarMonth);
+    }
+
+    function goToScheduleToday() {
+        currentCalendarYear = new Date().getFullYear();
+        currentCalendarMonth = new Date().getMonth();
+        selectedCalendarDate = new Date().toISOString().split('T')[0];
+        renderScheduleCalendar(currentCalendarYear, currentCalendarMonth);
+        filterScheduleByDate(selectedCalendarDate);
+    }
+
+    function onScheduleDayClick(dateStr) {
+        selectedCalendarDate = dateStr;
+        renderScheduleCalendar(currentCalendarYear, currentCalendarMonth);
+        filterScheduleByDate(dateStr);
+    }
+
+    function filterScheduleByDate(dateStr) {
+        if (!scheduleData || !scheduleData.assets) return;
+        const matching = scheduleData.assets.filter(a => a.next_verification === dateStr);
+        const titleText = `📅 Validaciones para el ${dateStr}`;
+        renderScheduleUpcomingPanel(matching, titleText);
+    }
+
+    function renderScheduleUpcomingPanel(items, titleText) {
+        const container = document.getElementById('sched-panel-items');
+        const titleEl = document.getElementById('sched-panel-title');
+        const countEl = document.getElementById('sched-panel-count');
+        if (!container) return;
+
+        if (titleEl && titleText) titleEl.innerText = titleText;
+        if (countEl) countEl.innerText = `${items.length} activos`;
+
+        if (!items || items.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:24px; color:var(--text-muted); font-size:12px;">ℹ️ ${t('schedule.cal_no_events', 'No hay activos programados para esta selección.')}</div>`;
+            return;
+        }
+
+        let html = '';
+        items.slice(0, 25).forEach((a, idx) => {
+            const assetName = a.name || a.custom_id || a.asset_id || 'Activo';
+            const assetId = a.custom_id || a.asset_id || '';
+            const loc = a.location || 'N/A';
+            const nextDate = a.next_verification || (a.periodicity === 'permanent' ? 'Permanente' : 'N/D');
+
+            let badgeStatusHtml = '';
+            if (a.status_schedule === 'OVERDUE') {
+                badgeStatusHtml = `<span class="badge-fail" style="font-size:10px; padding:2px 6px;">🔴 Vencido (${a.overdue_days}d)</span>`;
+            } else if (a.status_schedule === 'DUE_SOON') {
+                badgeStatusHtml = `<span class="badge-pass" style="background:#FEF3C7; color:#B45309; border-color:#FDE68A; font-size:10px; padding:2px 6px;">🟡 Vence en ${a.days_left}d</span>`;
+            } else if (a.status_schedule === 'PERMANENT') {
+                badgeStatusHtml = `<span class="badge-pass" style="background:#F1F5F9; color:#475569; border-color:#CBD5E1; font-size:10px; padding:2px 6px;">⚪ Permanente</span>`;
+            } else {
+                badgeStatusHtml = `<span class="badge-pass" style="font-size:10px; padding:2px 6px;">🟢 Al día (${a.days_left}d)</span>`;
+            }
+
+            html += `
+                <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; cursor:pointer; transition:transform 0.1s ease;" onclick="openScheduleAssetDetailByIdx(${idx})">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <div>
+                            <div style="font-weight:700; font-size:12.5px; color:var(--text-primary);">${assetName}</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                                <span style="color:var(--accent-blue); font-weight:700;">${assetId}</span> &bull; <span>${loc}</span>
+                            </div>
+                        </div>
+                        <div>${badgeStatusHtml}</div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:10.5px; color:var(--text-muted); border-top:1px solid #F8FAFC; padding-top:4px;">
+                        <span>Próxima: <b>${nextDate}</b></span>
+                        <span style="color:var(--accent-blue); font-weight:600;">Ver Ficha 🔍</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function openScheduleAssetDetailByIdx(idx) {
+        if (!scheduleData || !scheduleData.assets || !scheduleData.assets[idx]) return;
+        showSingleAssetCard(scheduleData.assets[idx]);
+    }
+
+    function applyScheduleFilters() {
+        selectedCalendarDate = null;
+        loadScheduleData();
+    }
+
+    function filterScheduleByStatus(status) {
+        const sel = document.getElementById('sched-filter-status');
+        if (sel) sel.value = status;
+        applyScheduleFilters();
+    }
+
+    function resetScheduleFilters() {
+        const sInp = document.getElementById('sched-search-input');
+        const aSel = document.getElementById('sched-filter-area');
+        const lSel = document.getElementById('sched-filter-line');
+        const stSel = document.getElementById('sched-filter-status');
+        if (sInp) sInp.value = '';
+        if (aSel) aSel.value = 'all';
+        if (lSel) lSel.value = 'all';
+        if (stSel) stSel.value = 'all';
+        selectedCalendarDate = null;
+        closeSingleAssetCard();
+        loadScheduleData();
+    }
+
+    function goToAuditForAsset() {
+        if (!selectedAssetForCard) return;
+        const cat = selectedAssetForCard.category || 'Mobiliario ESD';
+        const loc = selectedAssetForCard.location || '';
+        const idElem = selectedAssetForCard.custom_id || selectedAssetForCard.asset_id || '';
+
+        switchModule('audit');
+
+        // Pre-populate Floor Audit
+        const catSel = document.getElementById('audit-tipo-equipo');
+        if (catSel) {
+            catSel.value = cat;
+            populateElementSubtypes(cat);
+        }
+        const locSel = document.getElementById('audit-ubicacion-select') || document.getElementById('audit-linea-select');
+        if (locSel && loc) {
+            for (let i = 0; i < locSel.options.length; i++) {
+                if (locSel.options[i].value === loc) {
+                    locSel.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        const idInp = document.getElementById('audit-id-elemento');
+        if (idInp) idInp.value = idElem;
+    }
+
+    function viewAssetHistoryFromCard() {
+        if (!selectedAssetForCard) return;
+        const assetId = selectedAssetForCard.custom_id || selectedAssetForCard.asset_id || '';
+        const cat = selectedAssetForCard.category || 'Mobiliario ESD';
+        const loc = selectedAssetForCard.location || '';
+        openAssetHistoryModal(assetId, cat, loc);
+    }
+
+    // --- OFFICIAL LINE REPORTS GENERATOR ---
     async function generateOfficialLineReport() {
         const linea = document.getElementById('rep-linea').value;
         const auditor = document.getElementById('rep-auditor').value;
@@ -3990,12 +4686,119 @@
         }
     }
 
+    // --- ASSET DIRECTORY & REGISTRATION ---
+    function openNewAssetModal() {
+        const modal = document.getElementById('modal-new-asset');
+        if (!modal) return;
+
+        // Reset all text inputs to empty as per rule
+        document.getElementById('inv-new-id').value = '';
+        document.getElementById('inv-new-name').value = '';
+        document.getElementById('inv-new-area').value = '';
+        document.getElementById('inv-new-notes').value = '';
+        document.getElementById('inv-new-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('inv-new-periodicity').value = '1m';
+
+        // Populate lines select
+        loadInfraLinesSelect();
+
+        // Populate subtypes
+        onNewAssetCategoryChange(document.getElementById('inv-new-category').value);
+
+        modal.style.display = 'flex';
+        applyTranslations();
+    }
+
+    function closeNewAssetModal() {
+        const modal = document.getElementById('modal-new-asset');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function onNewAssetCategoryChange(category) {
+        const subSel = document.getElementById('inv-new-subtype');
+        if (!subSel) return;
+        subSel.innerHTML = '';
+        const group = getCategoryGroup(category);
+        const keys = ELEMENT_SUBTYPES_DEF[group] || ELEMENT_SUBTYPES_DEF["furniture"];
+        keys.forEach(k => {
+            const label = t('audit.subtypes.' + k, k);
+            const opt = document.createElement('option');
+            opt.value = label;
+            opt.textContent = label;
+            subSel.appendChild(opt);
+        });
+    }
+
+    function onNewAssetLineChange(lineVal) {
+        const areaInp = document.getElementById('inv-new-area');
+        if (areaInp && lineVal && lineVal.includes('->')) {
+            areaInp.value = lineVal.split('->')[0].trim();
+        }
+    }
+
+    async function submitNewAsset() {
+        const custom_id = document.getElementById('inv-new-id').value.trim();
+        const name = document.getElementById('inv-new-name').value.trim();
+        const category = document.getElementById('inv-new-category').value;
+        const subtype = document.getElementById('inv-new-subtype').value;
+        const location = document.getElementById('inv-new-line').value;
+        const area = document.getElementById('inv-new-area').value.trim();
+        const periodicity = document.getElementById('inv-new-periodicity').value;
+        const created_at = document.getElementById('inv-new-date').value;
+        const notes = document.getElementById('inv-new-notes').value.trim();
+
+        if (!custom_id) {
+            alert('Por favor ingresa el Código / ID único del activo.');
+            return;
+        }
+        if (!name) {
+            alert('Por favor ingresa el Nombre / Descripción del activo.');
+            return;
+        }
+        if (!location) {
+            alert('Por favor selecciona una Línea / Ubicación.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/inventory/assets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    custom_id,
+                    name,
+                    category,
+                    subtype,
+                    location,
+                    area: area || (location.includes('->') ? location.split('->')[0].trim() : 'General'),
+                    periodicity,
+                    created_at: created_at ? new Date(created_at).toISOString() : new Date().toISOString(),
+                    notes,
+                    site_id: (sessionData && sessionData.site_id) || ''
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ Activo registrado y configurado exitosamente.');
+                closeNewAssetModal();
+                loadInventory();
+                if (currentModule === 'schedule') loadScheduleData();
+            } else {
+                alert('❌ ' + (data.message || 'Error al registrar el activo.'));
+            }
+        } catch(e) {
+            console.error('Error submitting new asset:', e);
+            alert('❌ Error de conexión al guardar el activo.');
+        }
+    }
+
     async function loadInventory() {
         const tbody = document.getElementById('inventory-table-body');
         const countBadge = document.getElementById('inv-count-badge');
         if (!tbody) return;
         
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px;">${t('inventory.loading', 'Cargando activos...')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:24px;">${t('inventory.loading', 'Cargando activos...')}</td></tr>`;
 
         try {
             const siteId = (sessionData && sessionData.site_id) || '';
@@ -4012,15 +4815,29 @@
             if (countBadge) countBadge.innerText = `${data.length} ${t('sidebar.inventory', 'Activos')}`;
 
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">ℹ️ ${t('inventory.no_assets', 'No se encontraron activos para los criterios seleccionados.')}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:32px; color:var(--text-muted);">ℹ️ ${t('inventory.no_assets', 'No se encontraron activos para los criterios seleccionados.')}</td></tr>`;
                 return;
             }
 
+            const perLabels = {
+                '1d': '1 Día',
+                '1w': '1 Semana',
+                '2w': '2 Semanas',
+                '1m': '1 Mes',
+                '3m': '3 Meses',
+                '6m': '6 Meses',
+                '1y': '1 Año',
+                'permanent': 'Permanente'
+            };
+
             data.forEach(a => {
                 const assetId = a.custom_id || a.asset_id || a.id || 'N/A';
+                const assetName = a.name && a.name !== assetId ? a.name : '';
                 const cat = a.category || 'Mobiliario ESD';
                 const subCat = a.sub_category || a.category || '';
                 const loc = a.location || 'N/A';
+                const per = a.periodicity || '1m';
+                const perLabel = t('periodicity.' + per, perLabels[per] || per);
                 const statusStr = (a.status === 'PASS' || a.status === 'PASA' || a.status === 'ACTIVE') ? 'PASS' : 'FAIL';
                 const badgeCls = statusStr === 'PASS' ? 'badge-pass' : 'badge-fail';
                 const lastDate = a.last_verification ? a.last_verification.split('T')[0] : 'N/D';
@@ -4050,11 +4867,13 @@
 
                 const catLabel = cat;
                 const subCatLabel = (subCat && subCat !== cat) ? `<div style="font-size:11px; color:var(--text-muted);">${subCat}</div>` : '';
+                const nameLabel = assetName ? `<div style="font-size:11px; color:var(--text-muted);">${assetName}</div>` : '';
 
                 tbody.innerHTML += `
                     <tr style="cursor:pointer;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')">
                         <td>
                             <strong style="color:var(--accent-blue); font-size:13px;">${assetId}</strong>
+                            ${nameLabel}
                         </td>
                         <td>
                             <div style="font-weight:600;">${catLabel}</div>
@@ -4062,6 +4881,9 @@
                         </td>
                         <td>
                             <span style="font-weight:600; color:var(--text-primary);">${loc}</span>
+                        </td>
+                        <td>
+                            <span class="badge-pass" style="background:#F8FAFC; color:var(--text-primary); border-color:#E2E8F0; font-size:11px; padding:2px 7px;">${perLabel}</span>
                         </td>
                         <td>
                             <span class="${badgeCls}">${statusStr}</span>
@@ -4084,7 +4906,7 @@
                 `;
             });
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--accent-rose); padding:20px;">❌ Error al cargar activos: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--accent-rose); padding:20px;">❌ Error al cargar activos: ${err.message}</td></tr>`;
         }
     }
 
@@ -5789,6 +6611,101 @@
         <!-- MODAL FOOTER -->
         <div style="padding:12px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; background:#F8FAFC; border-radius:0 0 14px 14px;">
             <button type="button" class="btn-primary" style="background:#475569; font-size:11.5px; padding:6px 16px; border-radius:6px;" onclick="document.getElementById('modal-checker-card').style.display='none'">✕ <span data-i18n="settings.chk_card_btn_close">Cerrar Ficha</span></button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: NEW ASSET REGISTRATION & PERIODICITY CONFIGURATION -->
+<div id="modal-new-asset" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9995; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeNewAssetModal()">
+    <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:14px; width:100%; max-width:680px; max-height:92vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.3); padding:0; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+        <!-- HEADER -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC; border-radius:14px 14px 0 0;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">📦</span>
+                <div>
+                    <h3 style="margin:0; font-size:15.5px; font-weight:800; color:var(--text-primary);" data-i18n="inventory.modal_new_title">Alta y Configuración de Activo ESD</h3>
+                    <p style="margin:2px 0 0 0; font-size:11.5px; color:var(--text-muted);">Registro de nuevo punto de control, ubicación y frecuencia de validación periódica.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-text" style="font-size:20px; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px;" onclick="closeNewAssetModal()">✕</button>
+        </div>
+
+        <!-- FORM BODY -->
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_custom_id">Código / ID Único del Activo*</label>
+                    <input type="text" id="inv-new-id" class="form-control" placeholder="Ej: WS-SMT-01 / ION-ICT-02" data-i18n-placeholder="inventory.ph_custom_id" required />
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_name">Nombre / Descripción del Activo*</label>
+                    <input type="text" id="inv-new-name" class="form-control" placeholder="Ej: Mesa de Trabajo Principal SMT 1" data-i18n-placeholder="inventory.ph_name" required />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_category">Tipo / Categoría de Activo*</label>
+                    <select id="inv-new-category" class="form-control" onchange="onNewAssetCategoryChange(this.value)">
+                        <option value="Mobiliario ESD" data-i18n="audit.cat_furniture">Mobiliario ESD</option>
+                        <option value="Sistema de ionización" data-i18n="audit.cat_ionizer">Sistema de ionización</option>
+                        <option value="Maquinaria y equipo" data-i18n="audit.cat_machinery">Maquinaria y equipo</option>
+                        <option value="Puntos de Tierra / Grounding" data-i18n="audit.cat_grounding">Puntos de Tierra / Grounding</option>
+                        <option value="Pisos y Calzado" data-i18n="audit.cat_floors">Pisos y Calzado</option>
+                        <option value="Prendas y Guantes" data-i18n="audit.cat_garments">Prendas y Guantes</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_subtype">Subtipo de Activo*</label>
+                    <select id="inv-new-subtype" class="form-control">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_line">Línea / Ubicación Asignada*</label>
+                    <select id="inv-new-line" class="form-control" onchange="onNewAssetLineChange(this.value)" required>
+                        <option value="">-- Seleccionar Línea --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_area">Área / Zona*</label>
+                    <input type="text" id="inv-new-area" class="form-control" placeholder="Ej: Backend, SMT, Almacén" />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_periodicity">Periodicidad de Validación*</label>
+                    <select id="inv-new-periodicity" class="form-control">
+                        <option value="1d" data-i18n="periodicity.1d">1 Día (Diario)</option>
+                        <option value="1w" data-i18n="periodicity.1w">1 Semana (Semanal)</option>
+                        <option value="2w" data-i18n="periodicity.2w">2 Semanas (Quincenal)</option>
+                        <option value="1m" selected data-i18n="periodicity.1m">1 Mes (Mensual)</option>
+                        <option value="3m" data-i18n="periodicity.3m">3 Meses (Trimestral)</option>
+                        <option value="6m" data-i18n="periodicity.6m">6 Meses (Semestral)</option>
+                        <option value="1y" data-i18n="periodicity.1y">1 Año (Anual)</option>
+                        <option value="permanent" data-i18n="periodicity.permanent">Permanente (N/A)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_created_at">Fecha de Instalación / Registro*</label>
+                    <input type="date" id="inv-new-date" class="form-control" required />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="inventory.lbl_notes">Notas / Observaciones Técnicas</label>
+                <input type="text" id="inv-new-notes" class="form-control" placeholder="Ej: Ubicada junto a estación de reflujo" />
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px; background:#F8FAFC; border-radius:0 0 14px 14px;">
+            <button type="button" class="tab-btn" style="padding:7px 16px; font-size:12px;" onclick="closeNewAssetModal()">✕ Cancelar</button>
+            <button type="button" class="btn-primary" style="padding:7px 20px; font-size:12.5px; font-weight:700;" onclick="submitNewAsset()" data-i18n="inventory.btn_save_asset">💾 Guardar Activo</button>
         </div>
     </div>
 </div>
