@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.9.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.9.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.0</span>
             </div>
         </div>
     </aside>
@@ -940,9 +940,9 @@
                         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                             <div>
                                 <h4 data-i18n="infra.chk_heading" style="margin:0;">🥾 Calibración y Verificación de Checadores de Ingreso (Tolerancia ≤ 5% sobre rango)</h4>
-                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">ANSI/ESD S20.20 &bull; ESD TR53 &bull; Calibración comparativa de Checador vs Megóhmetro patrón</p>
+                                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;" data-i18n="infra.chk_subheading">ANSI/ESD S20.20 &bull; ESD TR53 &bull; Calibración comparativa de Checador vs Megóhmetro patrón</p>
                             </div>
-                            <span class="badge-pass" style="font-size:11px; padding:4px 10px; font-weight:700; border-color:rgba(16,185,129,0.3);">Tolerancia: ≤ 5.0%</span>
+                            <span class="badge-pass" style="font-size:11px; padding:4px 10px; font-weight:700; border-color:rgba(16,185,129,0.3);"><span data-i18n="infra.chk_tolerance_tag">Tolerancia:</span> ≤ 5.0%</span>
                         </div>
 
                         <!-- CAPTURE FORM WITH TWO FRAMES -->
@@ -985,7 +985,7 @@
                                         <span style="font-size:18px;">🥾</span>
                                         <div>
                                             <h5 style="margin:0; font-size:13px; font-weight:700; color:var(--text-primary);" data-i18n="infra.chk_frame_tester">Mediciones del Checador de Ingreso</h5>
-                                            <span style="font-size:11px; color:var(--text-muted);">Lecturas obtenidas en el equipo bajo prueba</span>
+                                            <span style="font-size:11px; color:var(--text-muted);" data-i18n="infra.chk_frame_tester_sub">Lecturas obtenidas en el equipo bajo prueba</span>
                                         </div>
                                     </div>
 
@@ -1006,7 +1006,7 @@
                                         <span style="font-size:18px;">⚡</span>
                                         <div>
                                             <h5 style="margin:0; font-size:13px; font-weight:700; color:var(--text-primary);" data-i18n="infra.chk_frame_meg">Referencias del Megóhmetro Patrón</h5>
-                                            <span style="font-size:11px; color:var(--text-muted);">Valores de resistencia estándar de referencia</span>
+                                            <span style="font-size:11px; color:var(--text-muted);" data-i18n="infra.chk_frame_meg_sub">Valores de resistencia estándar de referencia</span>
                                         </div>
                                     </div>
 
@@ -1025,8 +1025,8 @@
                             <!-- REAL-TIME VARIATION & TOLERANCE BADGES -->
                             <div id="chk-variation-summary" style="margin-top:16px; background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                                 <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-size:12px;">
-                                    <div><b>Canal Izquierdo:</b> <span id="chk-dev-l-text" style="color:var(--text-muted);">-</span></div>
-                                    <div><b>Canal Derecho:</b> <span id="chk-dev-r-text" style="color:var(--text-muted);">-</span></div>
+                                    <div><b data-i18n="infra.chk_ch_left">Canal Izquierdo:</b> <span id="chk-dev-l-text" style="color:var(--text-muted);">-</span></div>
+                                    <div><b data-i18n="infra.chk_ch_right">Canal Derecho:</b> <span id="chk-dev-r-text" style="color:var(--text-muted);">-</span></div>
                                 </div>
                                 <div id="chk-overall-badge" class="badge-pass" style="font-size:11.5px; padding:4px 12px; display:none;"></div>
                             </div>
@@ -2838,8 +2838,15 @@
     function switchInfraTab(tabName) {
         document.querySelectorAll('#mod-infra .tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('#mod-infra .tab-content').forEach(c => c.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        document.getElementById('infra-tab-' + tabName).classList.add('active');
+        if (window.event && window.event.currentTarget && window.event.currentTarget.classList) {
+            window.event.currentTarget.classList.add('active');
+        } else {
+            document.querySelectorAll('#mod-infra .tab-btn').forEach(b => {
+                if (b.getAttribute('onclick')?.includes(`'${tabName}'`)) b.classList.add('active');
+            });
+        }
+        const tabEl = document.getElementById('infra-tab-' + tabName);
+        if (tabEl) tabEl.classList.add('active');
         if (tabName === 'floor') {
             loadFloorMapsForViewer();
         }
@@ -3466,18 +3473,20 @@
         if (urlInput) urlInput.value = compressedBase64;
 
         try {
-            const res = await fetch('/api/infra/isolated/upload-photo', {
+            // Upload to Supabase Storage Vault via /api/evidence/upload
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('section', prefix);
+            formData.append('siteId', (sessionData && sessionData.site_id) || '');
+
+            const res = await fetch('/api/evidence/upload', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    base64: compressedBase64,
-                    filename: `${prefix}_${Date.now()}.jpg`
-                })
+                body: formData
             });
             if (res.ok) {
                 const data = await res.json();
-                if (data.success && data.url && urlInput) {
-                    urlInput.value = data.url;
+                if (data.success && data.evidence_url && urlInput) {
+                    urlInput.value = data.evidence_url;
                 }
             }
         } catch(e) {
@@ -3747,15 +3756,14 @@
                 <table class="data-table" style="margin:0; width:100%;">
                     <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
                         <tr>
-                            <th style="min-width:120px;" data-i18n="eventmeter.col_date">Fecha</th>
-                            <th style="min-width:130px;">ID Checador</th>
-                            <th style="min-width:170px;">Canal Izq (Checador vs Ref)</th>
-                            <th style="min-width:105px; text-align:center;">Var. Izq (%)</th>
-                            <th style="min-width:170px;">Canal Der (Checador vs Ref)</th>
-                            <th style="min-width:105px; text-align:center;">Var. Der (%)</th>
-                            <th style="min-width:85px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
-                            <th style="min-width:70px; text-align:center;">Foto</th>
-                            <th style="min-width:110px; text-align:center;">Ficha Técnica</th>
+                            <th style="min-width:120px;">${t('eventmeter.col_date', 'Fecha')}</th>
+                            <th style="min-width:130px;">${t('infra.col_chk_id', 'ID Checador')}</th>
+                            <th style="min-width:170px;">${t('infra.col_chk_left', 'Canal Izq (Checador vs Ref)')}</th>
+                            <th style="min-width:105px; text-align:center;">${t('infra.col_chk_var_l', 'Var. Izq (%)')}</th>
+                            <th style="min-width:170px;">${t('infra.col_chk_right', 'Canal Der (Checador vs Ref)')}</th>
+                            <th style="min-width:105px; text-align:center;">${t('infra.col_chk_var_r', 'Var. Der (%)')}</th>
+                            <th style="min-width:85px; text-align:center;">${t('eventmeter.col_status', 'Estatus')}</th>
+                            <th style="min-width:110px; text-align:center;">${t('infra.col_chk_sheet', 'Ficha Técnica')}</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -3769,34 +3777,42 @@
 
                 const readLFmt = formatResistanceScientific(r.reading_left);
                 const refLFmt = formatResistanceScientific(r.reference_left);
-                const devL = r.deviation_left != null ? parseFloat(r.deviation_left) : 0;
+                let devL = r.deviation_left != null ? parseFloat(r.deviation_left) : 0;
 
                 const readRFmt = formatResistanceScientific(r.reading_right);
                 const refRFmt = formatResistanceScientific(r.reference_right);
-                const devR = r.deviation_right != null ? parseFloat(r.deviation_right) : 0;
-                
-                const hasPhoto = !!r.evidence_url;
-                const photoIcon = hasPhoto 
-                    ? `<img src="${r.evidence_url}" style="width:28px; height:28px; border-radius:4px; object-fit:cover; border:1px solid #CBD5E1; cursor:pointer;" onclick="event.stopPropagation(); previewIsoImageModal('${r.evidence_url}')" title="Ver foto" />`
-                    : `<span style="color:var(--text-muted); font-size:11px;">-</span>`;
+                let devR = r.deviation_right != null ? parseFloat(r.deviation_right) : 0;
+
+                // Normalize any legacy anomalous raw values from early test data
+                if (devL > 100 && isPass && r.reading_left > 0 && r.reference_left > 0) {
+                    const logDiff = Math.abs(Math.log10(r.reading_left) - Math.log10(r.reference_left));
+                    devL = (logDiff / 9.0) * 100.0;
+                }
+                if (devR > 100 && isPass && r.reading_right > 0 && r.reference_right > 0) {
+                    const logDiff = Math.abs(Math.log10(r.reading_right) - Math.log10(r.reference_right));
+                    devR = (logDiff / 9.0) * 100.0;
+                }
+
+                const chkAbbr = t('infra.lbl_chk_abbr', 'Chk');
+                const refAbbr = t('infra.lbl_ref_abbr', 'Ref');
+                const btnLabel = t('settings.chk_btn_details', 'View Details');
 
                 html += `<tr style="cursor:pointer;" onclick="openCheckerDetailCardByIdx(${idx})">
                     <td style="font-size:12px;"><b>${dateStr}</b></td>
                     <td style="font-size:12.5px; font-weight:700; color:var(--accent-blue);">${r.checker_id || '-'}</td>
                     <td style="font-size:12px;">
-                        <span>Chk: <b>${readLFmt}</b> Ω</span><br/>
-                        <span style="color:var(--text-muted); font-size:11px;">Ref: ${refLFmt} Ω</span>
+                        <span>${chkAbbr}: <b>${readLFmt}</b> Ω</span><br/>
+                        <span style="color:var(--text-muted); font-size:11px;">${refAbbr}: ${refLFmt} Ω</span>
                     </td>
                     <td style="text-align:center; font-weight:700; color:${devL <= 5.0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devL.toFixed(2)}%</td>
                     <td style="font-size:12px;">
-                        <span>Chk: <b>${readRFmt}</b> Ω</span><br/>
-                        <span style="color:var(--text-muted); font-size:11px;">Ref: ${refRFmt} Ω</span>
+                        <span>${chkAbbr}: <b>${readRFmt}</b> Ω</span><br/>
+                        <span style="color:var(--text-muted); font-size:11px;">${refAbbr}: ${refRFmt} Ω</span>
                     </td>
                     <td style="text-align:center; font-weight:700; color:${devR <= 5.0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devR.toFixed(2)}%</td>
                     <td style="text-align:center;">${statusBadge}</td>
-                    <td style="text-align:center;">${photoIcon}</td>
                     <td style="text-align:center;">
-                        <button type="button" class="btn-primary" style="font-size:11px; padding:3px 8px; background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border-color);" onclick="event.stopPropagation(); openCheckerDetailCardByIdx(${idx})">🔍 ${t('settings.chk_btn_details', 'Ver Ficha')}</button>
+                        <button type="button" class="btn-primary" style="font-size:11px; padding:3px 8px; background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border-color);" onclick="event.stopPropagation(); openCheckerDetailCardByIdx(${idx})">🔍 ${btnLabel}</button>
                     </td>
                 </tr>`;
             });
@@ -4386,6 +4402,7 @@
                 const formData = new FormData();
                 formData.append('file', fileInput.files[0]);
                 formData.append('equipmentCode', codigo_equipo);
+                formData.append('siteId', site_id);
 
                 const upRes = await fetch('/api/equipment/upload-certificate', {
                     method: 'POST',

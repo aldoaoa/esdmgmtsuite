@@ -200,7 +200,7 @@ public class SupabaseService
         var session = new UserSession
         {
             Id = userObj["id"]?.ToString() ?? Guid.NewGuid().ToString(),
-            Email = userObj["email"]?.ToString() ?? email,
+            Email = userObj["email"]?.ToString() ?? email ?? "user@esd.com",
             FullName = userObj["full_name"]?.ToString() ?? userObj["email"]?.ToString() ?? "Usuario",
             Role = userObj["role"]?.ToString() ?? "AUDITOR",
             CompanyId = companyId,
@@ -707,5 +707,108 @@ public class SupabaseService
     public async Task<bool> DeleteUserAsync(string id)
     {
         return await DeleteAsync("users", $"id=eq.{id}");
+    }
+
+    // --- SUPABASE STORAGE API (PRIVATE BUCKETS) ---
+    public async Task<(bool success, string key, string message)> UploadStorageObjectAsync(string bucket, string path, Stream stream, string contentType)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path.TrimStart('/')}");
+            request.Headers.Add("apikey", _config.Key);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+            request.Content = new StreamContent(stream);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                return (false, "", $"Storage upload error ({response.StatusCode}): {err}");
+            }
+            return (true, $"{bucket}/{path.TrimStart('/')}", "OK");
+        }
+        catch (Exception ex)
+        {
+            return (false, "", $"Storage upload exception: {ex.Message}");
+        }
+    }
+
+    public async Task<(bool success, string key, string message)> UploadStorageObjectAsync(string bucket, string path, byte[] data, string contentType)
+    {
+        using var ms = new MemoryStream(data);
+        return await UploadStorageObjectAsync(bucket, path, ms, contentType);
+    }
+
+    public async Task<(bool success, Stream? stream, string contentType, string message)> DownloadStorageObjectAsync(string bucket, string path)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{_config.Url.TrimEnd('/')}/storage/v1/object/authenticated/{bucket}/{path.TrimStart('/')}");
+            request.Headers.Add("apikey", _config.Key);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+
+            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+            {
+                using var fallbackReq = new HttpRequestMessage(HttpMethod.Get, $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path.TrimStart('/')}");
+                fallbackReq.Headers.Add("apikey", _config.Key);
+                fallbackReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+                var fallbackRes = await _http.SendAsync(fallbackReq, HttpCompletionOption.ResponseHeadersRead);
+                if (!fallbackRes.IsSuccessStatusCode)
+                {
+                    var err = await fallbackRes.Content.ReadAsStringAsync();
+                    return (false, null, "", $"Storage download error ({fallbackRes.StatusCode}): {err}");
+                }
+                var streamFallback = await fallbackRes.Content.ReadAsStreamAsync();
+                string ctFallback = fallbackRes.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                return (true, streamFallback, ctFallback, "OK");
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync();
+            string ct = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+            return (true, stream, ct, "OK");
+        }
+        catch (Exception ex)
+        {
+            return (false, null, "", $"Storage download exception: {ex.Message}");
+        }
+    }
+
+    public async Task<bool> DeleteStorageObjectAsync(string bucket, string path)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, $"{_config.Url.TrimEnd('/')}/storage/v1/object/{bucket}/{path.TrimStart('/')}");
+            request.Headers.Add("apikey", _config.Key);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+            var response = await _http.SendAsync(request);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    // --- AUDIT TRAIL / BITÁCORA DE AUDITORÍA ---
+    public async Task LogAuditEventAsync(string? userId, string? siteId, string level, string page, string message, object? details = null)
+    {
+        try
+        {
+            string detailsStr = details is string s ? s : JsonSerializer.Serialize(details);
+            var payload = new JsonObject
+            {
+                ["created_at"] = DateTime.UtcNow.ToString("o"),
+                ["level"] = level ?? "INFO",
+                ["page"] = page ?? "App",
+                ["message"] = message ?? "Action executed",
+                ["details"] = detailsStr,
+                ["user_id"] = string.IsNullOrEmpty(userId) ? null : userId,
+                ["site_id"] = string.IsNullOrEmpty(siteId) ? null : siteId
+            };
+            await InsertAsync("app_logs", payload);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AUDIT LOG EXCEPTION]: {ex.Message}");
+        }
     }
 }

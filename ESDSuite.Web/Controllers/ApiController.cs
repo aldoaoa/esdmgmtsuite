@@ -1472,7 +1472,7 @@ public class ApiController : ControllerBase
         return Ok(new { success = result != null, score, passed, data = result });
     }
 
-    // --- MEASUREMENT EQUIPMENT & SITE PHOTO POLICIES ---
+    // --- MEASUREMENT EQUIPMENT & SITE PHOTO POLICIES (SUPABASE STORAGE VAULT) ---
     [HttpGet("equipment")]
     [HttpGet("catalogo-equipos")]
     public async Task<IActionResult> GetEquipment([FromQuery] string? siteId)
@@ -1508,13 +1508,13 @@ public class ApiController : ControllerBase
                     string code = obj["codigo_equipo"]?.ToString() ?? "";
                     if (!string.IsNullOrEmpty(id) && certMap[id] != null)
                     {
-                        obj["certificado_url"] = certMap[id]?["url"]?.ToString() ?? certMap[id]?.ToString();
-                        obj["certificado_nombre"] = certMap[id]?["filename"]?.ToString();
+                        obj["certificado_url"] = $"/api/equipment/{id}/certificate";
+                        obj["certificado_nombre"] = certMap[id]?["filename"]?.ToString() ?? "Certificado.pdf";
                     }
                     else if (!string.IsNullOrEmpty(code) && certMap[code] != null)
                     {
-                        obj["certificado_url"] = certMap[code]?["url"]?.ToString() ?? certMap[code]?.ToString();
-                        obj["certificado_nombre"] = certMap[code]?["filename"]?.ToString();
+                        obj["certificado_url"] = $"/api/equipment/certificate-by-code/{Uri.EscapeDataString(code)}";
+                        obj["certificado_nombre"] = certMap[code]?["filename"]?.ToString() ?? "Certificado.pdf";
                     }
                 }
             }
@@ -1524,8 +1524,19 @@ public class ApiController : ControllerBase
     }
 
     [HttpPost("equipment/upload-certificate")]
-    public async Task<IActionResult> UploadEquipmentCertificate(IFormFile? file, [FromForm] string? equipmentId, [FromForm] string? equipmentCode)
+    public async Task<IActionResult> UploadEquipmentCertificate(IFormFile? file, [FromForm] string? equipmentId, [FromForm] string? equipmentCode, [FromForm] string? siteId)
     {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Sesión no válida o expirada." });
+        }
+
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para cargar certificados de calibración." });
+        }
+
         if (file == null || file.Length == 0)
         {
             return BadRequest(new { success = false, message = "Por favor selecciona un archivo PDF válido." });
@@ -1537,18 +1548,29 @@ public class ApiController : ControllerBase
             return BadRequest(new { success = false, message = "Solo se permiten archivos en formato PDF (.pdf)." });
         }
 
-        string uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "certificates");
-        Directory.CreateDirectory(uploadsDir);
-
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         string safeName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}.pdf";
-        string filePath = Path.Combine(uploadsDir, safeName);
+        string storagePath = $"{targetSite}/{safeName}";
 
-        using (var stream = new FileStream(filePath, FileMode.Create))
+        // Upload to Supabase Storage Private Bucket "equipment-certificates"
+        using var stream = file.OpenReadStream();
+        var (uploadSuccess, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("equipment-certificates", storagePath, stream, "application/pdf");
+        
+        if (!uploadSuccess)
         {
-            await file.CopyToAsync(stream);
+            // Fallback to local protected storage if network issue
+            string uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "certificates");
+            Directory.CreateDirectory(uploadsDir);
+            string localFilePath = Path.Combine(uploadsDir, safeName);
+            using (var localStream = new FileStream(localFilePath, FileMode.Create))
+            {
+                await file.CopyToAsync(localStream);
+            }
+            storageKey = $"local/{safeName}";
         }
 
-        string certUrl = $"/uploads/certificates/{safeName}";
+        string code = equipmentCode?.Trim() ?? "EQ-UNKNOWN";
+        string eqId = equipmentId?.Trim() ?? "";
 
         // Save index in data/equipment_certificates.json
         string dataDir = Path.Combine(_env.WebRootPath, "data");
@@ -1568,17 +1590,194 @@ public class ApiController : ControllerBase
 
         JsonObject certEntry = new JsonObject
         {
-            ["url"] = certUrl,
+            ["storage_key"] = storageKey,
             ["filename"] = file.FileName,
+            ["site_id"] = targetSite,
+            ["uploaded_by"] = currentUserId,
             ["uploaded_at"] = DateTime.UtcNow.ToString("o")
         };
 
-        if (!string.IsNullOrEmpty(equipmentId)) certMap[equipmentId] = certEntry;
-        if (!string.IsNullOrEmpty(equipmentCode)) certMap[equipmentCode] = certEntry;
+        if (!string.IsNullOrEmpty(eqId)) certMap[eqId] = certEntry;
+        if (!string.IsNullOrEmpty(code)) certMap[code] = certEntry;
 
         await System.IO.File.WriteAllTextAsync(certMapFile, certMap.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
 
-        return Ok(new { success = true, certificate_url = certUrl, filename = file.FileName });
+        // Log immutable audit event
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "CertificatesVault", 
+            $"Certificado de calibración '{file.FileName}' subido exitosamente para el equipo '{code}'.",
+            new { equipmentCode = code, equipmentId = eqId, filename = file.FileName, storageKey, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        string certUrl = !string.IsNullOrEmpty(eqId) 
+            ? $"/api/equipment/{eqId}/certificate" 
+            : $"/api/equipment/certificate-by-code/{Uri.EscapeDataString(code)}";
+
+        return Ok(new { success = true, certificate_url = certUrl, filename = file.FileName, storage_key = storageKey });
+    }
+
+    [HttpGet("equipment/{id}/certificate")]
+    [HttpGet("equipment/certificate-by-code/{code}")]
+    public async Task<IActionResult> DownloadEquipmentCertificate(string? id, string? code)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Debe iniciar sesión para acceder a los certificados de calibración." });
+        }
+
+        // Load mapping
+        string certMapFile = Path.Combine(_env.WebRootPath, "data", "equipment_certificates.json");
+        if (!System.IO.File.Exists(certMapFile))
+        {
+            return NotFound(new { success = false, message = "No se encontró el certificado solicitado." });
+        }
+
+        JsonObject? certMap = null;
+        try
+        {
+            string json = await System.IO.File.ReadAllTextAsync(certMapFile);
+            certMap = JsonNode.Parse(json) as JsonObject;
+        }
+        catch { }
+
+        JsonObject? entry = null;
+        if (!string.IsNullOrEmpty(id) && certMap?[id] is JsonObject e1) entry = e1;
+        else if (!string.IsNullOrEmpty(code) && certMap?[code] is JsonObject e2) entry = e2;
+
+        if (entry == null)
+        {
+            return NotFound(new { success = false, message = "Certificado no encontrado en el registro de equipos." });
+        }
+
+        string targetSite = entry["site_id"]?.ToString() ?? "";
+        string filename = entry["filename"]?.ToString() ?? "Certificado_Calibracion.pdf";
+        string storageKey = entry["storage_key"]?.ToString() ?? entry["url"]?.ToString() ?? "";
+
+        // Multi-tenant authorization check
+        if (!IsSuperAdmin)
+        {
+            if (!string.IsNullOrEmpty(targetSite) && targetSite != CurrentUserSiteId && !IsCompanyAdmin)
+            {
+                await _supabase.LogAuditEventAsync(currentUserId, targetSite, "SECURITY", "CertificatesVault", 
+                    $"Intento de acceso NO AUTORIZADO al certificado '{filename}'. Permisos insuficientes.",
+                    new { requestedSite = targetSite, userSite = CurrentUserSiteId, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+                
+                return StatusCode(403, new { success = false, message = "Acceso denegado: este certificado pertenece a otra empresa o planta." });
+            }
+        }
+
+        // Audit Trail: Log authorized download event
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "CertificatesVault", 
+            $"Descarga/consulta de certificado de calibración '{filename}' realizada por '{HttpContext.Session.GetString("user_name") ?? "Usuario"}'.",
+            new { filename, targetSite, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        // Retrieve from Supabase Storage
+        if (storageKey.StartsWith("equipment-certificates/"))
+        {
+            string path = storageKey.Substring("equipment-certificates/".Length);
+            var (success, stream, contentType, msg) = await _supabase.DownloadStorageObjectAsync("equipment-certificates", path);
+            if (success && stream != null)
+            {
+                Response.Headers["Content-Disposition"] = $"inline; filename=\"{filename}\"";
+                return File(stream, contentType ?? "application/pdf");
+            }
+        }
+
+        // Fallback to local files if present
+        if (storageKey.StartsWith("/uploads/") || storageKey.StartsWith("local/"))
+        {
+            string localRel = storageKey.Replace("local/", "/uploads/certificates/").TrimStart('/');
+            string localPath = Path.Combine(_env.WebRootPath, localRel);
+            if (System.IO.File.Exists(localPath))
+            {
+                Response.Headers["Content-Disposition"] = $"inline; filename=\"{filename}\"";
+                var bytes = await System.IO.File.ReadAllBytesAsync(localPath);
+                return File(bytes, "application/pdf");
+            }
+        }
+
+        return NotFound(new { success = false, message = "El archivo del certificado no se encuentra disponible en el almacenamiento seguro." });
+    }
+
+    [HttpPost("evidence/upload")]
+    public async Task<IActionResult> UploadEvidencePhoto(IFormFile? file, [FromForm] string? section, [FromForm] string? siteId)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Sesión no válida." });
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { success = false, message = "No se recibió ninguna imagen." });
+        }
+
+        string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp")
+        {
+            return BadRequest(new { success = false, message = "Formato de imagen no soportado (se requiere JPG, PNG o WEBP)." });
+        }
+
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        string safeName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}{ext}";
+        string storagePath = $"{targetSite}/{safeName}";
+        string contentType = ext == ".png" ? "image/png" : (ext == ".webp" ? "image/webp" : "image/jpeg");
+
+        // Upload to Supabase Storage Private Bucket "audit-evidence"
+        using var stream = file.OpenReadStream();
+        var (uploadSuccess, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, stream, contentType);
+
+        if (!uploadSuccess)
+        {
+            string uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "evidence");
+            Directory.CreateDirectory(uploadsDir);
+            string localFilePath = Path.Combine(uploadsDir, safeName);
+            using (var localStream = new FileStream(localFilePath, FileMode.Create))
+            {
+                await file.CopyToAsync(localStream);
+            }
+        }
+
+        string evidenceUrl = $"/api/evidence/{targetSite}/{safeName}";
+
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AuditEvidence", 
+            $"Evidencia fotográfica cargada para sección '{section ?? "General"}' (Archivo: {safeName}).",
+            new { section, filename = file.FileName, evidenceUrl, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        return Ok(new { success = true, evidence_url = evidenceUrl, storage_key = $"audit-evidence/{storagePath}" });
+    }
+
+    [HttpGet("evidence/{siteId}/{fileName}")]
+    public async Task<IActionResult> GetEvidencePhoto(string siteId, string fileName)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Autenticación requerida." });
+        }
+
+        // Multi-tenant authorization check
+        if (!IsSuperAdmin && !IsCompanyAdmin && siteId != CurrentUserSiteId)
+        {
+            return StatusCode(403, new { success = false, message = "Acceso denegado a evidencias de otra planta." });
+        }
+
+        string storagePath = $"{siteId}/{fileName}";
+        var (success, stream, contentType, msg) = await _supabase.DownloadStorageObjectAsync("audit-evidence", storagePath);
+        if (success && stream != null)
+        {
+            return File(stream, contentType ?? "image/jpeg");
+        }
+
+        // Fallback local
+        string localPath = Path.Combine(_env.WebRootPath, "uploads", "evidence", fileName);
+        if (System.IO.File.Exists(localPath))
+        {
+            var bytes = await System.IO.File.ReadAllBytesAsync(localPath);
+            return File(bytes, "image/jpeg");
+        }
+
+        return NotFound(new { success = false, message = "Evidencia no encontrada." });
     }
 
     [HttpGet("sites/{siteId}/photo-policy")]

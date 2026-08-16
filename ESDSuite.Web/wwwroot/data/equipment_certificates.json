@@ -8,5 +8,12 @@
     "url": "/uploads/certificates/20260816223350_fcb89d83.pdf",
     "filename": "sample_cert.pdf",
     "uploaded_at": "2026-08-16T22:33:50.8818010Z"
+  },
+  "MEG-PRO-2026": {
+    "storage_key": "equipment-certificates/eff70028-0759-4033-9c2b-41e1c1cc6efd/20260816231330_afe3f2ea.pdf",
+    "filename": "test_cert.pdf",
+    "site_id": "eff70028-0759-4033-9c2b-41e1c1cc6efd",
+    "uploaded_by": "84d85bea-272c-42d1-ad14-35eb702f1e56",
+    "uploaded_at": "2026-08-16T23:13:30.6131530Z"
   }
 }
