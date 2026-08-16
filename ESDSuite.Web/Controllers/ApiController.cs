@@ -376,24 +376,70 @@ public class ApiController : ControllerBase
 
     // --- EVENT METER ---
     [HttpGet("event-meter")]
-    public async Task<IActionResult> GetEventMeterLogs()
+    public async Task<IActionResult> GetEventMeterLogs([FromQuery] string? siteId = null)
     {
-        var data = await _supabase.GetEventMeterLogsAsync();
-        return Ok(data);
+        string targetSiteId = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var data = await _supabase.GetEventMeterLogsAsync(targetSiteId);
+        
+        var formatted = data.Select(item =>
+        {
+            var obj = item?.AsObject();
+            if (obj == null) return null;
+
+            var extra = obj["extra_data"]?.AsObject();
+            var assets = obj["assets"]?.AsObject();
+
+            string id = obj["id"]?.ToString() ?? "";
+            string measuredAt = obj["measured_at"]?.ToString() ?? "";
+            string statusResult = obj["status_result"]?.ToString() ?? "PASS";
+            string observaciones = obj["observaciones"]?.ToString() ?? "";
+            string auditorId = obj["auditor_id"]?.ToString() ?? "";
+            string assetId = assets?["asset_id"]?.ToString() ?? obj["asset_id"]?.ToString() ?? "";
+            string areaLine = extra?["linea_ubicacion"]?.ToString() ?? assets?["area_line"]?.ToString() ?? "";
+            string idOp = extra?["id_operacion"]?.ToString() ?? assetId;
+            string tipoContacto = extra?["tipo_contacto"]?.ToString() ?? "Maquinaria";
+            int cantEventos = extra?["cantidad_eventos"]?.GetValue<int>() ?? 0;
+            double voltMax = obj["static_field_value"]?.GetValue<double>() ?? extra?["voltaje_maximo"]?.GetValue<double>() ?? 0;
+            double? temp = extra?["temperatura"] != null ? extra["temperatura"]?.GetValue<double>() : null;
+            double? hum = extra?["humedad"] != null ? extra["humedad"]?.GetValue<double>() : null;
+
+            return new
+            {
+                id,
+                measured_at = measuredAt,
+                linea_ubicacion = areaLine,
+                id_operacion = idOp,
+                tipo_contacto = tipoContacto,
+                cantidad_eventos = cantEventos,
+                voltaje_maximo = voltMax,
+                temperatura = temp,
+                humedad = hum,
+                observaciones,
+                status_result = statusResult,
+                auditor_id = auditorId,
+                can_edit = IsSiteAdmin,
+                can_delete = IsSiteAdmin
+            };
+        }).Where(x => x != null);
+
+        return Ok(formatted);
     }
 
     [HttpPost("event-meter")]
     public async Task<IActionResult> AddEventMeterLog([FromBody] JsonObject payload)
     {
+        string linea = payload["linea_ubicacion"]?.ToString() ?? "SMT-01";
         string idOp = payload["id_operacion"]?.ToString() ?? "OP-01";
         string tipoContacto = payload["tipo_contacto"]?.ToString() ?? "Maquinaria";
         int cantEventos = payload["cantidad_eventos"]?.GetValue<int>() ?? 0;
         double voltMax = payload["voltaje_maximo"]?.GetValue<double>() ?? 0;
+        double? temp = payload["temperatura"] != null ? payload["temperatura"]?.GetValue<double>() : 23.5;
+        double? hum = payload["humedad"] != null ? payload["humedad"]?.GetValue<double>() : 45.0;
         string notas = payload["notas"]?.ToString() ?? "";
         string siteId = HttpContext.Session.GetString("site_id") ?? payload["site_id"]?.ToString() ?? DefaultSiteId;
         string auditorId = HttpContext.Session.GetString("user_id") ?? payload["auditor_id"]?.ToString() ?? DefaultAuditorId;
 
-        string assetId = await GetOrCreateAssetIdAsync(idOp, siteId, "Event Meter", "LINEA");
+        string assetId = await GetOrCreateAssetIdAsync(idOp, siteId, "Event Meter", linea);
 
         string estatus = AuditEvaluationEngine.EvaluateEventMeter(voltMax);
 
@@ -408,15 +454,105 @@ public class ApiController : ControllerBase
             extra_data = new
             {
                 id_operacion = idOp,
+                linea_ubicacion = linea,
                 tipo_contacto = tipoContacto,
                 cantidad_eventos = cantEventos,
+                voltaje_maximo = voltMax,
+                temperatura = temp,
+                humedad = hum,
                 type = "event_meter"
             },
             measured_at = DateTime.Now.ToString("o")
         };
 
         var result = await _supabase.InsertMeasurementAsync(dataToInsert);
-        return Ok(new { success = result != null, estatus = estatus, data = result });
+        return Ok(new { success = result != null, estatus, data = result });
+    }
+
+    [HttpPut("event-meter/{id}")]
+    public async Task<IActionResult> UpdateEventMeterLog(string id, [FromBody] JsonObject payload)
+    {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos de Administrador para modificar registros de Event Meter." });
+        }
+
+        string linea = payload["linea_ubicacion"]?.ToString() ?? "SMT-01";
+        string idOp = payload["id_operacion"]?.ToString() ?? "OP-01";
+        string tipoContacto = payload["tipo_contacto"]?.ToString() ?? "Maquinaria";
+        int cantEventos = payload["cantidad_eventos"]?.GetValue<int>() ?? 0;
+        double voltMax = payload["voltaje_maximo"]?.GetValue<double>() ?? 0;
+        double? temp = payload["temperatura"] != null ? payload["temperatura"]?.GetValue<double>() : 23.5;
+        double? hum = payload["humedad"] != null ? payload["humedad"]?.GetValue<double>() : 45.0;
+        string notas = payload["notas"]?.ToString() ?? "";
+        string siteId = HttpContext.Session.GetString("site_id") ?? payload["site_id"]?.ToString() ?? DefaultSiteId;
+
+        string assetId = await GetOrCreateAssetIdAsync(idOp, siteId, "Event Meter", linea);
+        string estatus = AuditEvaluationEngine.EvaluateEventMeter(voltMax);
+
+        var dataToUpdate = new
+        {
+            asset_id = assetId,
+            static_field_value = voltMax,
+            status_result = estatus == "APROBADO" ? "PASS" : "FAIL",
+            observaciones = notas,
+            extra_data = new
+            {
+                id_operacion = idOp,
+                linea_ubicacion = linea,
+                tipo_contacto = tipoContacto,
+                cantidad_eventos = cantEventos,
+                voltaje_maximo = voltMax,
+                temperatura = temp,
+                humedad = hum,
+                type = "event_meter"
+            }
+        };
+
+        bool ok = await _supabase.UpdateEventMeterLogAsync(id, dataToUpdate);
+        return Ok(new { success = ok, estatus });
+    }
+
+    [HttpDelete("event-meter/{id}")]
+    public async Task<IActionResult> DeleteEventMeterLog(string id)
+    {
+        if (!IsSiteAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos de Administrador para eliminar registros de Event Meter." });
+        }
+
+        bool ok = await _supabase.DeleteEventMeterLogAsync(id);
+        return Ok(new { success = ok });
+    }
+
+    [HttpGet("line-assets")]
+    public async Task<IActionResult> GetLineAssets([FromQuery] string? line = null, [FromQuery] string? siteId = null)
+    {
+        string targetSiteId = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var allAssets = await _supabase.GetAssetsAsync(targetSiteId);
+        
+        var filtered = allAssets.Where(a =>
+        {
+            var obj = a?.AsObject();
+            if (obj == null) return false;
+            if (string.IsNullOrEmpty(line)) return true;
+            string area = obj["area_line"]?.ToString() ?? "";
+            return string.Equals(area, line, StringComparison.OrdinalIgnoreCase) ||
+                   area.StartsWith(line + " ->", StringComparison.OrdinalIgnoreCase);
+        }).Select(a =>
+        {
+            var obj = a!.AsObject();
+            return new
+            {
+                id = obj["id"]?.ToString(),
+                asset_id = obj["asset_id"]?.ToString(),
+                element_type = obj["element_type"]?.ToString(),
+                element_subtype = obj["element_subtype"]?.ToString(),
+                area_line = obj["area_line"]?.ToString()
+            };
+        });
+
+        return Ok(filtered);
     }
 
     [HttpPost("evaluate-resistance")]

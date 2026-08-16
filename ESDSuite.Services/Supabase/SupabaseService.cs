@@ -402,9 +402,25 @@ public class SupabaseService
         return await InsertAsync("assets", data);
     }
 
-    public async Task<JsonArray> GetEventMeterLogsAsync()
+    public async Task<JsonArray> GetEventMeterLogsAsync(string? siteId = null)
     {
-        return await GetAsync("measurements?extra_data->>type=eq.event_meter&select=*&order=measured_at.desc");
+        string query = "measurements?extra_data->>type=eq.event_meter";
+        if (!string.IsNullOrEmpty(siteId))
+        {
+            query += $"&site_id=eq.{siteId}";
+        }
+        query += "&select=*,assets(asset_id,area_line,element_type,element_subtype)&order=measured_at.desc";
+        return await GetAsync(query);
+    }
+
+    public async Task<bool> UpdateEventMeterLogAsync(string id, object data)
+    {
+        return await UpdateAsync("measurements", $"id=eq.{id}", data);
+    }
+
+    public async Task<bool> DeleteEventMeterLogAsync(string id)
+    {
+        return await DeleteAsync("measurements", $"id=eq.{id}");
     }
 
     // --- INFRASTRUCTURE EPA ---
