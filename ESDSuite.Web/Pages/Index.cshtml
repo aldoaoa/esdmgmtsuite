@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.1</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.0.1</span>
             </div>
         </div>
     </aside>
@@ -3862,19 +3862,32 @@
         const statusBadgeEl = document.getElementById('chk-card-modal-status');
         if (isPass) {
             statusBadgeEl.className = 'badge-pass';
-            statusBadgeEl.innerHTML = '🟢 PASS (CALIBRACIÓN CONFORME ≤ 5.0%)';
+            statusBadgeEl.innerHTML = `🟢 PASS (${t('infra.chk_pass_tag', 'CALIBRACIÓN CONFORME ≤ 5.0%')})`;
         } else {
             statusBadgeEl.className = 'badge-fail';
-            statusBadgeEl.innerHTML = '🔴 FAIL (DESVIACIÓN SUPERIOR AL 5.0%)';
+            statusBadgeEl.innerHTML = `🔴 FAIL (${t('infra.chk_fail_tag', 'DESVIACIÓN SUPERIOR AL 5.0%')})`;
         }
 
-        document.getElementById('chk-card-modal-notes').innerText = item.observations || 'Sin notas adicionales.';
+        const notesText = item.observations && item.observations.trim() !== '' ? item.observations : t('settings.chk_card_no_notes', 'Sin notas adicionales.');
+        document.getElementById('chk-card-modal-notes').innerText = notesText;
 
         const photoContainer = document.getElementById('chk-card-modal-photo-box');
         const photoImg = document.getElementById('chk-card-modal-photo-img');
         const noPhotoMsg = document.getElementById('chk-card-modal-no-photo');
 
-        if (item.evidence_url) {
+        if (item.evidence_url && item.evidence_url.trim() !== '') {
+            photoImg.onerror = function() {
+                this.style.display = 'none';
+                if (noPhotoMsg) {
+                    noPhotoMsg.style.display = 'flex';
+                }
+            };
+            photoImg.onload = function() {
+                this.style.display = 'block';
+                if (noPhotoMsg) {
+                    noPhotoMsg.style.display = 'none';
+                }
+            };
             photoImg.src = item.evidence_url;
             photoImg.style.display = 'block';
             if (noPhotoMsg) noPhotoMsg.style.display = 'none';
@@ -3884,6 +3897,7 @@
         }
 
         modal.style.display = 'flex';
+        applyTranslations();
     }
 
     document.getElementById('form-infra-checkers').onsubmit = async function(e) {
@@ -5688,19 +5702,19 @@
                 <!-- TRACEABILITY METADATA -->
                 <div style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:12px; font-size:11.5px; display:flex; flex-direction:column; gap:6px;">
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
-                        <span style="color:var(--text-muted);">ID Checador:</span>
+                        <span style="color:var(--text-muted);" data-i18n="infra.col_chk_id">ID Checador:</span>
                         <b id="chk-card-modal-id" style="color:var(--accent-blue); font-size:12.5px;">-</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
-                        <span style="color:var(--text-muted);">Site / Planta:</span>
+                        <span style="color:var(--text-muted);" data-i18n="settings.lbl_site">Site / Planta:</span>
                         <b id="chk-card-modal-site">-</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
-                        <span style="color:var(--text-muted);">Ubicación / Línea:</span>
+                        <span style="color:var(--text-muted);" data-i18n="infra.gr_loc">Ubicación / Línea:</span>
                         <b id="chk-card-modal-loc">-</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
-                        <span style="color:var(--text-muted);">Fecha y Hora:</span>
+                        <span style="color:var(--text-muted);" data-i18n="settings.chk_card_date">Fecha y Hora:</span>
                         <b id="chk-card-modal-date">-</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
@@ -5753,7 +5767,7 @@
                 <!-- OVERALL STATUS & TOLERANCE -->
                 <div style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:12px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <span style="font-size:11.5px; color:var(--text-muted);">Desviación Máxima:</span>
+                        <span style="font-size:11.5px; color:var(--text-muted);" data-i18n="settings.chk_card_max_dev">Desviación Máxima:</span>
                         <b id="chk-card-modal-max-dev" style="font-size:15px;">-</b>
                     </div>
                     <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px;" data-i18n="settings.chk_card_limit">
@@ -5766,7 +5780,7 @@
 
                 <!-- OBSERVATIONS -->
                 <div style="background:#F8FAFC; border:1px solid var(--border-color); border-radius:8px; padding:10px;">
-                    <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:2px;">Observaciones:</div>
+                    <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:2px;" data-i18n="audit.lbl_obs">Observaciones:</div>
                     <div id="chk-card-modal-notes" style="font-size:11.5px; color:var(--text-primary); font-style:italic;">-</div>
                 </div>
             </div>
@@ -5774,7 +5788,7 @@
 
         <!-- MODAL FOOTER -->
         <div style="padding:12px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; background:#F8FAFC; border-radius:0 0 14px 14px;">
-            <button type="button" class="btn-primary" style="background:#475569; font-size:11.5px; padding:6px 16px; border-radius:6px;" onclick="document.getElementById('modal-checker-card').style.display='none'">✕ Cerrar Ficha</button>
+            <button type="button" class="btn-primary" style="background:#475569; font-size:11.5px; padding:6px 16px; border-radius:6px;" onclick="document.getElementById('modal-checker-card').style.display='none'">✕ <span data-i18n="settings.chk_card_btn_close">Cerrar Ficha</span></button>
         </div>
     </div>
 </div>

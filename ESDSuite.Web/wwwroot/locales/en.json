@@ -255,6 +255,8 @@
     "chk_frame_meg_sub": "Standard reference resistance values",
     "chk_ch_left": "Left Channel:",
     "chk_ch_right": "Right Channel:",
+    "chk_pass_tag": "CALIBRATION COMPLIANT ≤ 5.0%",
+    "chk_fail_tag": "DEVIATION EXCEEDS 5.0%",
     "btn_export_csv": "📥 Export Table to CSV",
     "no_records": "No infrastructure records found."
   },
@@ -383,6 +385,8 @@
     "btn_add_eq": "➕ Register Equipment",
     "form_add_eq": "📝 Add Measurement Equipment",
     "lbl_site_assigned": "Assigned Site / Plant*",
+    "lbl_site": "Site / Plant",
+    "lbl_company": "Company*",
     "lbl_eq_code": "Equipment Code / ID*",
     "lbl_eq_name": "Equipment Name / Description*",
     "lbl_eq_brand": "Brand & Model",
@@ -420,6 +424,10 @@
     "chk_card_date": "Measurement Date & Time",
     "chk_card_photo": "Photographic Evidence",
     "chk_card_no_photo": "No photographic evidence attached",
+    "chk_card_click_zoom": "Click to enlarge image",
+    "chk_card_max_dev": "Maximum Deviation:",
+    "chk_card_no_notes": "No additional notes.",
+    "chk_card_btn_close": "Close Technical Sheet",
     "chk_btn_details": "View Details",
     "tab_maps": "ESD Layouts & Maps"
   },

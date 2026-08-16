@@ -1020,6 +1020,35 @@ public class ApiController : ControllerBase
         string location = payload["location"]?.ToString() ?? "";
         string auditorName = payload["auditor_name"]?.ToString() ?? HttpContext.Session.GetString("user_name") ?? "Auditor";
 
+        if (!string.IsNullOrEmpty(evidenceUrl) && evidenceUrl.StartsWith("data:image/"))
+        {
+            try
+            {
+                int commaIdx = evidenceUrl.IndexOf(',');
+                if (commaIdx >= 0)
+                {
+                    string header = evidenceUrl.Substring(0, commaIdx);
+                    string base64Data = evidenceUrl.Substring(commaIdx + 1);
+                    string ext = header.Contains("png") ? ".png" : (header.Contains("webp") ? ".webp" : ".jpg");
+                    string contentType = header.Contains("png") ? "image/png" : (header.Contains("webp") ? "image/webp" : "image/jpeg");
+                    byte[] bytes = Convert.FromBase64String(base64Data);
+                    string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+                    string safeName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}{ext}";
+                    string storagePath = $"{targetSite}/{safeName}";
+                    
+                    var (upSuccess, stKey, upMsg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, bytes, contentType);
+                    if (upSuccess)
+                    {
+                        evidenceUrl = $"/api/evidence/{targetSite}/{safeName}";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[BASE64 UPLOAD EXCEPTION]: {ex.Message}");
+            }
+        }
+
         JsonObject obsJson = new JsonObject
         {
             ["notes"] = rawObs,
@@ -1748,33 +1777,50 @@ public class ApiController : ControllerBase
     }
 
     [HttpGet("evidence/{siteId}/{fileName}")]
-    public async Task<IActionResult> GetEvidencePhoto(string siteId, string fileName)
+    [HttpGet("evidence/{fileName}")]
+    [HttpGet("uploads/isolated/{fileName}")]
+    [HttpGet("uploads/evidence/{fileName}")]
+    [HttpGet("uploads/checkers/{fileName}")]
+    [HttpGet("uploads/photos/{fileName}")]
+    [HttpGet("uploads/{fileName}")]
+    public async Task<IActionResult> GetEvidencePhoto(string? siteId, string fileName)
     {
-        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
-        if (string.IsNullOrEmpty(currentUserId))
-        {
-            return Unauthorized(new { success = false, message = "Autenticación requerida." });
-        }
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        string storagePath = $"{targetSite}/{fileName}";
 
-        // Multi-tenant authorization check
-        if (!IsSuperAdmin && !IsCompanyAdmin && siteId != CurrentUserSiteId)
-        {
-            return StatusCode(403, new { success = false, message = "Acceso denegado a evidencias de otra planta." });
-        }
-
-        string storagePath = $"{siteId}/{fileName}";
+        // 1. Check Supabase Storage at {siteId}/{fileName}
         var (success, stream, contentType, msg) = await _supabase.DownloadStorageObjectAsync("audit-evidence", storagePath);
         if (success && stream != null)
         {
             return File(stream, contentType ?? "image/jpeg");
         }
 
-        // Fallback local
-        string localPath = Path.Combine(_env.WebRootPath, "uploads", "evidence", fileName);
-        if (System.IO.File.Exists(localPath))
+        // 2. Check Supabase Storage at {fileName} directly
+        var (successDirect, streamDirect, ctDirect, _) = await _supabase.DownloadStorageObjectAsync("audit-evidence", fileName);
+        if (successDirect && streamDirect != null)
         {
-            var bytes = await System.IO.File.ReadAllBytesAsync(localPath);
-            return File(bytes, "image/jpeg");
+            return File(streamDirect, ctDirect ?? "image/jpeg");
+        }
+
+        // 3. Fallback to local files if present
+        string[] searchPaths = new[]
+        {
+            Path.Combine(_env.WebRootPath, "uploads", "evidence", fileName),
+            Path.Combine(_env.WebRootPath, "uploads", "isolated", fileName),
+            Path.Combine(_env.WebRootPath, "uploads", "checkers", fileName),
+            Path.Combine(_env.WebRootPath, "uploads", "photos", fileName),
+            Path.Combine(_env.WebRootPath, "uploads", fileName)
+        };
+
+        foreach (var p in searchPaths)
+        {
+            if (System.IO.File.Exists(p))
+            {
+                var bytes = await System.IO.File.ReadAllBytesAsync(p);
+                string ext = Path.GetExtension(p).ToLowerInvariant();
+                string ct = ext == ".png" ? "image/png" : (ext == ".webp" ? "image/webp" : "image/jpeg");
+                return File(bytes, ct);
+            }
         }
 
         return NotFound(new { success = false, message = "Evidencia no encontrada." });
