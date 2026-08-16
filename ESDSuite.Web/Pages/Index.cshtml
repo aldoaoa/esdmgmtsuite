@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.8.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.9.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.8.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v1.9.0</span>
             </div>
         </div>
     </aside>
@@ -1485,10 +1485,14 @@
                                         <label data-i18n="settings.lbl_date_next">Fecha Próxima Calibración (Vencimiento)*</label>
                                         <input type="date" id="eq-date-next" class="form-control" required />
                                     </div>
+                                    <div class="form-group">
+                                        <label data-i18n="settings.lbl_certificate">Certificado de Calibración (.PDF)</label>
+                                        <input type="file" id="eq-cert-file" class="form-control" accept="application/pdf" style="font-size:12px; height:38px; padding:6px 10px;" />
+                                    </div>
                                 </div>
                                 <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
                                     <button type="button" class="btn-primary" style="background:var(--text-muted);" onclick="toggleAddEquipmentForm()" data-i18n="settings.btn_cancel">Cancelar</button>
-                                    <button type="submit" class="btn-primary" data-i18n="settings.btn_save_supabase">💾 Guardar Equipo</button>
+                                    <button type="submit" id="btn-save-eq-submit" class="btn-primary" data-i18n="settings.btn_save_supabase">💾 Guardar Equipo</button>
                                 </div>
                             </form>
                         </div>
@@ -1505,6 +1509,7 @@
                                         <th data-i18n="settings.col_last_cal">Última Calibración</th>
                                         <th data-i18n="settings.col_next_cal">Vencimiento</th>
                                         <th data-i18n="settings.col_status_cal">Estatus Calibración</th>
+                                        <th data-i18n="settings.col_cert">Certificado PDF</th>
                                         <th data-i18n="settings.col_actions_eq">Acciones</th>
                                     </tr>
                                 </thead>
@@ -3320,13 +3325,23 @@
                 const el = document.getElementById(selId);
                 if (!el) return;
                 const currentVal = el.value;
-                el.innerHTML = '<option value="">-- Seleccionar Equipo de Medición (Calibrado) --</option>';
+                el.innerHTML = `<option value="">-- ${t('audit.opt_select_eq', 'Seleccionar Equipo de Medición (Calibrado)')} --</option>`;
                 if (eqList && Array.isArray(eqList)) {
                     eqList.forEach(eq => {
                         const opt = document.createElement('option');
                         opt.value = eq.codigo_equipo || eq.id;
-                        const statusBadge = (eq.estatus === 'VENCIDO') ? ' [⚠️ VENCIDO]' : (eq.estatus === 'PROXIMO_VENCER' ? ' [⏳ POR VENCER]' : ' [✅ VIGENTE]');
-                        opt.text = `${eq.codigo_equipo || 'EQ'} - ${eq.nombre_equipo || ''} (${eq.marca_modelo || 'N/A'})${statusBadge}`;
+                        
+                        let statusText = t('settings.status_valid', 'VIGENTE');
+                        let statusEmoji = '✅';
+                        if (eq.estatus === 'VENCIDO') {
+                            statusText = t('settings.status_expired', 'VENCIDO');
+                            statusEmoji = '❌';
+                        } else if (eq.estatus === 'PROXIMO_VENCER') {
+                            statusText = t('settings.status_soon', 'POR VENCER');
+                            statusEmoji = '⚠️';
+                        }
+                        
+                        opt.text = `${eq.codigo_equipo || 'EQ'} - ${eq.nombre_equipo || ''} (${eq.marca_modelo || 'N/A'}) [${statusEmoji} ${statusText}]`;
                         opt.dataset.estatus = eq.estatus || 'VIGENTE';
                         el.appendChild(opt);
                     });
@@ -3710,6 +3725,8 @@
         }
     }
 
+    let lastCheckersList = [];
+
     async function loadCheckersHistory() {
         const siteId = (sessionData && sessionData.site_id) || '';
         const container = document.getElementById('checkers-history-table');
@@ -3719,6 +3736,7 @@
             const res = await fetch(`/api/infra/checkers?siteId=${siteId}`);
             if (!res.ok) return;
             const list = await res.json();
+            lastCheckersList = Array.isArray(list) ? list : [];
 
             if (!list || list.length === 0) {
                 container.innerHTML = `<div class="glass-card" style="text-align:center; padding:16px; color:var(--text-muted); font-size:13px;" data-i18n="infra.no_records">No hay registros de calibración de checadores para esta planta.</div>`;
@@ -3732,16 +3750,17 @@
                             <th style="min-width:120px;" data-i18n="eventmeter.col_date">Fecha</th>
                             <th style="min-width:130px;">ID Checador</th>
                             <th style="min-width:170px;">Canal Izq (Checador vs Ref)</th>
-                            <th style="min-width:110px; text-align:center;">Var. Izq (%)</th>
+                            <th style="min-width:105px; text-align:center;">Var. Izq (%)</th>
                             <th style="min-width:170px;">Canal Der (Checador vs Ref)</th>
-                            <th style="min-width:110px; text-align:center;">Var. Der (%)</th>
-                            <th style="min-width:90px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
-                            <th style="min-width:140px;">Observaciones</th>
+                            <th style="min-width:105px; text-align:center;">Var. Der (%)</th>
+                            <th style="min-width:85px; text-align:center;" data-i18n="eventmeter.col_status">Estatus</th>
+                            <th style="min-width:70px; text-align:center;">Foto</th>
+                            <th style="min-width:110px; text-align:center;">Ficha Técnica</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
-            list.forEach(r => {
+            list.forEach((r, idx) => {
                 const dateStr = r.measured_at ? new Date(r.measured_at).toLocaleDateString() + ' ' + new Date(r.measured_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
                 const isPass = r.status_result === 'PASS';
                 const statusBadge = isPass
@@ -3755,8 +3774,13 @@
                 const readRFmt = formatResistanceScientific(r.reading_right);
                 const refRFmt = formatResistanceScientific(r.reference_right);
                 const devR = r.deviation_right != null ? parseFloat(r.deviation_right) : 0;
+                
+                const hasPhoto = !!r.evidence_url;
+                const photoIcon = hasPhoto 
+                    ? `<img src="${r.evidence_url}" style="width:28px; height:28px; border-radius:4px; object-fit:cover; border:1px solid #CBD5E1; cursor:pointer;" onclick="event.stopPropagation(); previewIsoImageModal('${r.evidence_url}')" title="Ver foto" />`
+                    : `<span style="color:var(--text-muted); font-size:11px;">-</span>`;
 
-                html += `<tr>
+                html += `<tr style="cursor:pointer;" onclick="openCheckerDetailCardByIdx(${idx})">
                     <td style="font-size:12px;"><b>${dateStr}</b></td>
                     <td style="font-size:12.5px; font-weight:700; color:var(--accent-blue);">${r.checker_id || '-'}</td>
                     <td style="font-size:12px;">
@@ -3770,7 +3794,10 @@
                     </td>
                     <td style="text-align:center; font-weight:700; color:${devR <= 5.0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${devR.toFixed(2)}%</td>
                     <td style="text-align:center;">${statusBadge}</td>
-                    <td style="font-size:11.5px; color:var(--text-muted);">${r.observations || '-'}</td>
+                    <td style="text-align:center;">${photoIcon}</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn-primary" style="font-size:11px; padding:3px 8px; background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border-color);" onclick="event.stopPropagation(); openCheckerDetailCardByIdx(${idx})">🔍 ${t('settings.chk_btn_details', 'Ver Ficha')}</button>
+                    </td>
                 </tr>`;
             });
 
@@ -3779,6 +3806,68 @@
         } catch(e) {
             console.error('Error loading checkers history:', e);
         }
+    }
+
+    function openCheckerDetailCardByIdx(idx) {
+        if (!lastCheckersList || !lastCheckersList[idx]) return;
+        const item = lastCheckersList[idx];
+
+        const modal = document.getElementById('modal-checker-card');
+        if (!modal) return;
+
+        const isPass = item.status_result === 'PASS';
+        const dateStr = item.measured_at ? new Date(item.measured_at).toLocaleDateString() + ' ' + new Date(item.measured_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '-';
+
+        // Populate card fields
+        document.getElementById('chk-card-modal-id').innerText = item.checker_id || 'CHECKER';
+        document.getElementById('chk-card-modal-site').innerText = item.site_name || (sessionData && sessionData.site_name) || 'Planta Queretaro';
+        document.getElementById('chk-card-modal-loc').innerText = item.location || 'Acceso Principal ESD';
+        document.getElementById('chk-card-modal-date').innerText = dateStr;
+        document.getElementById('chk-card-modal-auditor').innerText = item.auditor_name || (sessionData && sessionData.user_name) || 'Auditor ESD';
+        document.getElementById('chk-card-modal-equipment').innerText = item.equipment_name || item.equipment_code || 'Megóhmetro Digital TR53 (Patrón de Calibración)';
+
+        const devL = item.deviation_left != null ? parseFloat(item.deviation_left) : 0;
+        const devR = item.deviation_right != null ? parseFloat(item.deviation_right) : 0;
+
+        document.getElementById('chk-card-modal-read-l').innerText = formatResistanceScientific(item.reading_left) + ' Ω';
+        document.getElementById('chk-card-modal-ref-l').innerText = formatResistanceScientific(item.reference_left) + ' Ω';
+        document.getElementById('chk-card-modal-dev-l').innerText = devL.toFixed(2) + '%';
+        document.getElementById('chk-card-modal-dev-l').style.color = devL <= 5.0 ? '#10B981' : '#EF4444';
+
+        document.getElementById('chk-card-modal-read-r').innerText = formatResistanceScientific(item.reading_right) + ' Ω';
+        document.getElementById('chk-card-modal-ref-r').innerText = formatResistanceScientific(item.reference_right) + ' Ω';
+        document.getElementById('chk-card-modal-dev-r').innerText = devR.toFixed(2) + '%';
+        document.getElementById('chk-card-modal-dev-r').style.color = devR <= 5.0 ? '#10B981' : '#EF4444';
+
+        const maxDev = Math.max(devL, devR);
+        document.getElementById('chk-card-modal-max-dev').innerText = maxDev.toFixed(2) + '%';
+        document.getElementById('chk-card-modal-max-dev').style.color = maxDev <= 5.0 ? '#10B981' : '#EF4444';
+
+        const statusBadgeEl = document.getElementById('chk-card-modal-status');
+        if (isPass) {
+            statusBadgeEl.className = 'badge-pass';
+            statusBadgeEl.innerHTML = '🟢 PASS (CALIBRACIÓN CONFORME ≤ 5.0%)';
+        } else {
+            statusBadgeEl.className = 'badge-fail';
+            statusBadgeEl.innerHTML = '🔴 FAIL (DESVIACIÓN SUPERIOR AL 5.0%)';
+        }
+
+        document.getElementById('chk-card-modal-notes').innerText = item.observations || 'Sin notas adicionales.';
+
+        const photoContainer = document.getElementById('chk-card-modal-photo-box');
+        const photoImg = document.getElementById('chk-card-modal-photo-img');
+        const noPhotoMsg = document.getElementById('chk-card-modal-no-photo');
+
+        if (item.evidence_url) {
+            photoImg.src = item.evidence_url;
+            photoImg.style.display = 'block';
+            if (noPhotoMsg) noPhotoMsg.style.display = 'none';
+        } else {
+            photoImg.style.display = 'none';
+            if (noPhotoMsg) noPhotoMsg.style.display = 'flex';
+        }
+
+        modal.style.display = 'flex';
     }
 
     document.getElementById('form-infra-checkers').onsubmit = async function(e) {
@@ -4216,13 +4305,13 @@
 
             tbody.innerHTML = '';
             if (!eqList || eqList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:18px; color:var(--text-muted);">No hay equipos de medición registrados en este site.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:18px; color:var(--text-muted);">No hay equipos de medición registrados en este site.</td></tr>';
                 return;
             }
 
             eqList.forEach(eq => {
                 const nextDateStr = eq.fecha_proxima_calibracion || eq.fecha_vencimiento || '';
-                let statusBadge = `<span class="badge-pass">🟢 Vigente</span>`;
+                let statusBadge = `<span class="badge-pass">🟢 ${t('settings.status_valid', 'Vigente')}</span>`;
                 
                 if (nextDateStr) {
                     const nextDate = new Date(nextDateStr);
@@ -4232,24 +4321,29 @@
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     
                     if (diffDays < 0) {
-                        statusBadge = `<span class="badge-fail">🔴 Vencido (${Math.abs(diffDays)}d atrás)</span>`;
+                        statusBadge = `<span class="badge-fail">🔴 ${t('settings.status_expired', 'Vencido')} (${Math.abs(diffDays)}d)</span>`;
                     } else if (diffDays <= 30) {
-                        statusBadge = `<span class="badge-pending">⚠️ Próximo a Vencer (${diffDays}d)</span>`;
+                        statusBadge = `<span class="badge-pending">⚠️ ${t('settings.status_soon', 'Por vencer')} (${diffDays}d)</span>`;
                     } else {
-                        statusBadge = `<span class="badge-pass">🟢 Vigente (${diffDays}d)</span>`;
+                        statusBadge = `<span class="badge-pass">🟢 ${t('settings.status_valid', 'Vigente')} (${diffDays}d)</span>`;
                     }
                 }
 
                 const canDelete = sessionData && sessionData.can_create_area; // SiteAdmin or higher
 
+                const certHtml = eq.certificado_url
+                    ? `<a href="${eq.certificado_url}" target="_blank" download class="btn-primary" style="background:#2563EB; padding:3px 8px; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Descargar / Abrir Certificado"><span data-i18n="settings.btn_view_cert">📄 ${t('settings.btn_view_cert', 'Ver PDF')}</span></a>`
+                    : `<span style="color:var(--text-muted); font-size:11px;" data-i18n="settings.no_cert">${t('settings.no_cert', 'Sin certificado')}</span>`;
+
                 tbody.innerHTML += `<tr>
-                    <td><b>${eq.codigo_equipo || 'N/A'}</b></td>
+                    <td><b style="${eq.certificado_url ? 'cursor:pointer; color:var(--accent-blue);' : ''}" onclick="${eq.certificado_url ? `window.open('${eq.certificado_url}', '_blank')` : ''}">${eq.codigo_equipo || 'N/A'}</b></td>
                     <td>${eq.nombre_equipo || 'Sin descripción'}</td>
                     <td>${eq.marca_modelo || eq.marca || 'N/A'}</td>
                     <td>${eq.numero_serie || 'N/A'}</td>
                     <td>${eq.fecha_ultima_calibracion || 'N/A'}</td>
                     <td><b>${nextDateStr || 'N/A'}</b></td>
                     <td>${statusBadge}</td>
+                    <td>${certHtml}</td>
                     <td>
                         ${canDelete ? `<button type="button" class="btn-primary" style="background:var(--accent-rose); padding:3px 7px; font-size:11px;" onclick="deleteEquipment('${eq.id}')">🗑️ Eliminar</button>` : '<span style="color:var(--text-muted); font-size:11px;">Lectura</span>'}
                     </td>
@@ -4277,28 +4371,69 @@
         const fecha_ultima_calibracion = document.getElementById('eq-date-last').value;
         const fecha_proxima_calibracion = document.getElementById('eq-date-next').value;
 
-        const res = await fetch('/api/equipment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                site_id,
-                codigo_equipo,
-                nombre_equipo,
-                marca_modelo,
-                numero_serie,
-                fecha_ultima_calibracion,
-                fecha_proxima_calibracion
-            })
-        });
+        const fileInput = document.getElementById('eq-cert-file');
+        let certificado_url = '';
+        let certificado_nombre = '';
 
-        const data = await res.json();
-        if (data.success) {
-            showToast(`✅ Equipo "${codigo_equipo}" registrado exitosamente.`);
-            toggleAddEquipmentForm();
-            document.getElementById('form-create-equipment').reset();
-            loadEquipmentTable();
-        } else {
-            showToast('❌ ' + (data.message || 'Error al registrar el equipo de medición.'), 'error');
+        const submitBtn = document.getElementById('btn-save-eq-submit');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = t('settings.uploading_cert', 'Subiendo certificado...');
+        }
+
+        try {
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('equipmentCode', codigo_equipo);
+
+                const upRes = await fetch('/api/equipment/upload-certificate', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (upRes.ok) {
+                    const upData = await upRes.json();
+                    if (upData.success) {
+                        certificado_url = upData.certificate_url;
+                        certificado_nombre = upData.filename;
+                    }
+                }
+            }
+
+            const res = await fetch('/api/equipment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id,
+                    codigo_equipo,
+                    nombre_equipo,
+                    marca_modelo,
+                    numero_serie,
+                    fecha_ultima_calibracion,
+                    fecha_proxima_calibracion,
+                    certificado_url,
+                    certificado_nombre
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast(`✅ Equipo "${codigo_equipo}" registrado exitosamente.`);
+                toggleAddEquipmentForm();
+                document.getElementById('form-create-equipment').reset();
+                loadEquipmentTable();
+                loadEquipmentForSite();
+            } else {
+                showToast('❌ ' + (data.message || 'Error al registrar el equipo de medición.'), 'error');
+            }
+        } catch(ex) {
+            console.error('Error creating equipment:', ex);
+            showToast('❌ Error de conexión al guardar el equipo.', 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = t('settings.btn_save_supabase', '💾 Guardar Equipo');
+            }
         }
     };
 
@@ -4309,6 +4444,7 @@
         if (data.success) {
             showToast('✅ Equipo eliminado correctamente.');
             loadEquipmentTable();
+            loadEquipmentForSite();
         } else {
             showToast('❌ Error al eliminar el equipo.', 'error');
         }
@@ -5495,6 +5631,134 @@
     <div style="position:relative; max-width:90vw; max-height:90vh; display:flex; flex-direction:column; align-items:center;">
         <img id="modal-photo-preview-img" src="" style="max-width:100%; max-height:85vh; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.5); object-fit:contain;" onclick="event.stopPropagation()" />
         <button type="button" class="btn-primary" style="margin-top:14px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#FFFFFF; font-size:13px; padding:6px 18px; border-radius:20px;" onclick="document.getElementById('modal-photo-preview').style.display='none'">✕ Cerrar Vista Previa</button>
+    </div>
+</div>
+
+<!-- MODAL ENTRANCE CHECKER MEASUREMENT CARD -->
+<div id="modal-checker-card" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9990; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) this.style.display='none'">
+    <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:14px; width:100%; max-width:820px; max-height:92vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.3); padding:0; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+        <!-- MODAL HEADER -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC; border-radius:14px 14px 0 0;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">🥾</span>
+                <div>
+                    <h3 style="margin:0; font-size:15px; font-weight:800; color:var(--text-primary);" data-i18n="settings.chk_card_title">Ficha Técnica de Medición - Checador de Entrada</h3>
+                    <p style="margin:2px 0 0 0; font-size:11px; color:var(--text-muted);" data-i18n="settings.chk_card_sub">Detalle completo de trazabilidad, mediciones comparadas y evidencia fotográfica.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-text" style="font-size:20px; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px;" onclick="document.getElementById('modal-checker-card').style.display='none'">✕</button>
+        </div>
+
+        <!-- MODAL BODY -->
+        <div style="padding:18px 20px; display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:start;">
+            
+            <!-- LEFT COLUMN: PHOTO & TRACEABILITY -->
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <!-- PHOTO EVIDENCE BOX -->
+                <div style="background:#F8FAFC; border:1px solid var(--border-color); border-radius:8px; padding:10px;">
+                    <div style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                        <span>📸</span> <span data-i18n="settings.chk_card_photo">Evidencia Fotográfica</span>
+                    </div>
+                    <div id="chk-card-modal-photo-box" style="position:relative; width:100%; height:160px; background:#E2E8F0; border-radius:6px; overflow:hidden; display:flex; justify-content:center; align-items:center; border:1px solid #CBD5E1;">
+                        <img id="chk-card-modal-photo-img" src="" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="previewIsoImageModal(this.src)" title="Clic para ampliar imagen" />
+                        <div id="chk-card-modal-no-photo" style="display:none; flex-direction:column; align-items:center; gap:4px; color:var(--text-muted); font-size:11px;">
+                            <span style="font-size:24px;">📷</span>
+                            <span data-i18n="settings.chk_card_no_photo">Sin fotografía adjunta</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TRACEABILITY METADATA -->
+                <div style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:12px; font-size:11.5px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
+                        <span style="color:var(--text-muted);">ID Checador:</span>
+                        <b id="chk-card-modal-id" style="color:var(--accent-blue); font-size:12.5px;">-</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
+                        <span style="color:var(--text-muted);">Site / Planta:</span>
+                        <b id="chk-card-modal-site">-</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
+                        <span style="color:var(--text-muted);">Ubicación / Línea:</span>
+                        <b id="chk-card-modal-loc">-</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
+                        <span style="color:var(--text-muted);">Fecha y Hora:</span>
+                        <b id="chk-card-modal-date">-</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:4px;">
+                        <span style="color:var(--text-muted);" data-i18n="settings.chk_card_auditor">Auditor Responsable:</span>
+                        <b id="chk-card-modal-auditor">-</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--text-muted);" data-i18n="settings.chk_card_equipment">Megóhmetro Utilizado:</span>
+                        <b id="chk-card-modal-equipment" style="text-align:right; max-width:170px;">-</b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: COMPARATIVE MEASUREMENTS & STATUS -->
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                
+                <!-- CHANNEL COMPARISON -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <!-- LEFT CHANNEL -->
+                    <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; padding:10px;">
+                        <div style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:6px; border-bottom:1px solid #E2E8F0; padding-bottom:2px;" data-i18n="settings.chk_card_ch_left">
+                            🦶 Canal Izquierdo
+                        </div>
+                        <div style="font-size:10.5px; color:var(--text-muted);" data-i18n="settings.chk_card_reading">Lectura Checador:</div>
+                        <div id="chk-card-modal-read-l" style="font-weight:800; font-size:13px; color:var(--text-primary); margin-bottom:4px;">-</div>
+
+                        <div style="font-size:10.5px; color:var(--text-muted);" data-i18n="settings.chk_card_ref">Ref Megóhmetro:</div>
+                        <div id="chk-card-modal-ref-l" style="font-weight:800; font-size:12.5px; color:var(--accent-blue); margin-bottom:4px;">-</div>
+
+                        <div style="font-size:10.5px; color:var(--text-muted);" data-i18n="settings.chk_card_var">Variación:</div>
+                        <div id="chk-card-modal-dev-l" style="font-weight:800; font-size:13px;">-</div>
+                    </div>
+
+                    <!-- RIGHT CHANNEL -->
+                    <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; padding:10px;">
+                        <div style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:6px; border-bottom:1px solid #E2E8F0; padding-bottom:2px;" data-i18n="settings.chk_card_ch_right">
+                            🦶 Canal Derecho
+                        </div>
+                        <div style="font-size:10.5px; color:var(--text-muted);" data-i18n="settings.chk_card_reading">Lectura Checador:</div>
+                        <div id="chk-card-modal-read-r" style="font-weight:800; font-size:13px; color:var(--text-primary); margin-bottom:4px;">-</div>
+
+                        <div style="font-size:10.5px; color:var(--text-muted);" data-i18n="settings.chk_card_ref">Ref Megóhmetro:</div>
+                        <div id="chk-card-modal-ref-r" style="font-weight:800; font-size:12.5px; color:var(--accent-blue); margin-bottom:4px;">-</div>
+
+                        <div style="font-size:10.5px; color:var(--text-muted);" data-i18n="settings.chk_card_var">Variación:</div>
+                        <div id="chk-card-modal-dev-r" style="font-weight:800; font-size:13px;">-</div>
+                    </div>
+                </div>
+
+                <!-- OVERALL STATUS & TOLERANCE -->
+                <div style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <span style="font-size:11.5px; color:var(--text-muted);">Desviación Máxima:</span>
+                        <b id="chk-card-modal-max-dev" style="font-size:15px;">-</b>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px;" data-i18n="settings.chk_card_limit">
+                        Límite Aprobatorio: ≤ 5.00% sobre el rango del equipo
+                    </div>
+                    <div id="chk-card-modal-status" class="badge-pass" style="width:100%; text-align:center; padding:6px 10px; font-size:12px; font-weight:800; border-radius:6px; box-sizing:border-box;">
+                        -
+                    </div>
+                </div>
+
+                <!-- OBSERVATIONS -->
+                <div style="background:#F8FAFC; border:1px solid var(--border-color); border-radius:8px; padding:10px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:2px;">Observaciones:</div>
+                    <div id="chk-card-modal-notes" style="font-size:11.5px; color:var(--text-primary); font-style:italic;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL FOOTER -->
+        <div style="padding:12px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; background:#F8FAFC; border-radius:0 0 14px 14px;">
+            <button type="button" class="btn-primary" style="background:#475569; font-size:11.5px; padding:6px 16px; border-radius:6px;" onclick="document.getElementById('modal-checker-card').style.display='none'">✕ Cerrar Ficha</button>
+        </div>
     </div>
 </div>
 </body>

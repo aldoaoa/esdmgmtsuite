@@ -942,6 +942,34 @@ public class ApiController : ControllerBase
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var data = await _supabase.GetEntranceCheckersLogsAsync(targetSite);
+        if (data != null)
+        {
+            foreach (var item in data)
+            {
+                if (item is JsonObject obj)
+                {
+                    string rawObs = obj["observations"]?.ToString() ?? "";
+                    if (rawObs.StartsWith("{") && rawObs.EndsWith("}"))
+                    {
+                        try
+                        {
+                            var parsed = JsonNode.Parse(rawObs) as JsonObject;
+                            if (parsed != null)
+                            {
+                                if (parsed["evidence_url"] != null) obj["evidence_url"] = parsed["evidence_url"]?.ToString();
+                                if (parsed["equipment_id"] != null) obj["equipment_id"] = parsed["equipment_id"]?.ToString();
+                                if (parsed["equipment_code"] != null) obj["equipment_code"] = parsed["equipment_code"]?.ToString();
+                                if (parsed["equipment_name"] != null) obj["equipment_name"] = parsed["equipment_name"]?.ToString();
+                                if (parsed["location"] != null) obj["location"] = parsed["location"]?.ToString();
+                                if (parsed["auditor_name"] != null) obj["auditor_name"] = parsed["auditor_name"]?.ToString();
+                                if (parsed["notes"] != null) obj["observations"] = parsed["notes"]?.ToString();
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
         return Ok(data);
     }
 
@@ -985,6 +1013,23 @@ public class ApiController : ControllerBase
         bool isPass = devLeftPct <= 5.0 && devRightPct <= 5.0;
         string status = isPass ? "PASS" : "FAIL";
 
+        string rawObs = payload["observations"]?.ToString() ?? payload["notes"]?.ToString() ?? "";
+        string evidenceUrl = payload["evidence_url"]?.ToString() ?? "";
+        string equipmentId = payload["equipment_id"]?.ToString() ?? "";
+        string equipmentName = payload["equipment_name"]?.ToString() ?? "";
+        string location = payload["location"]?.ToString() ?? "";
+        string auditorName = payload["auditor_name"]?.ToString() ?? HttpContext.Session.GetString("user_name") ?? "Auditor";
+
+        JsonObject obsJson = new JsonObject
+        {
+            ["notes"] = rawObs,
+            ["evidence_url"] = evidenceUrl,
+            ["equipment_id"] = equipmentId,
+            ["equipment_name"] = equipmentName,
+            ["location"] = location,
+            ["auditor_name"] = auditorName
+        };
+
         var insertPayload = new JsonObject
         {
             ["site_id"] = payload["site_id"]?.ToString(),
@@ -997,7 +1042,7 @@ public class ApiController : ControllerBase
             ["reading_right"] = readRight,
             ["deviation_right"] = Math.Round(devRightPct, 2),
             ["status_result"] = status,
-            ["observations"] = payload["observations"]?.ToString() ?? payload["notes"]?.ToString(),
+            ["observations"] = obsJson.ToJsonString(),
             ["measured_at"] = payload["measured_at"]?.ToString()
         };
 
@@ -1439,7 +1484,101 @@ public class ApiController : ControllerBase
         }
 
         var data = await _supabase.GetCatalogoEquiposAsync(string.IsNullOrEmpty(targetSite) ? null : targetSite);
+
+        // Merge PDF calibration certificates if available
+        string certMapFile = Path.Combine(_env.WebRootPath, "data", "equipment_certificates.json");
+        JsonObject? certMap = null;
+        if (System.IO.File.Exists(certMapFile))
+        {
+            try
+            {
+                string json = await System.IO.File.ReadAllTextAsync(certMapFile);
+                certMap = JsonNode.Parse(json) as JsonObject;
+            }
+            catch { }
+        }
+
+        if (data != null && certMap != null)
+        {
+            foreach (var item in data)
+            {
+                if (item is JsonObject obj)
+                {
+                    string id = obj["id"]?.ToString() ?? "";
+                    string code = obj["codigo_equipo"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(id) && certMap[id] != null)
+                    {
+                        obj["certificado_url"] = certMap[id]?["url"]?.ToString() ?? certMap[id]?.ToString();
+                        obj["certificado_nombre"] = certMap[id]?["filename"]?.ToString();
+                    }
+                    else if (!string.IsNullOrEmpty(code) && certMap[code] != null)
+                    {
+                        obj["certificado_url"] = certMap[code]?["url"]?.ToString() ?? certMap[code]?.ToString();
+                        obj["certificado_nombre"] = certMap[code]?["filename"]?.ToString();
+                    }
+                }
+            }
+        }
+
         return Ok(data);
+    }
+
+    [HttpPost("equipment/upload-certificate")]
+    public async Task<IActionResult> UploadEquipmentCertificate(IFormFile? file, [FromForm] string? equipmentId, [FromForm] string? equipmentCode)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { success = false, message = "Por favor selecciona un archivo PDF válido." });
+        }
+
+        string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".pdf")
+        {
+            return BadRequest(new { success = false, message = "Solo se permiten archivos en formato PDF (.pdf)." });
+        }
+
+        string uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "certificates");
+        Directory.CreateDirectory(uploadsDir);
+
+        string safeName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}.pdf";
+        string filePath = Path.Combine(uploadsDir, safeName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        string certUrl = $"/uploads/certificates/{safeName}";
+
+        // Save index in data/equipment_certificates.json
+        string dataDir = Path.Combine(_env.WebRootPath, "data");
+        Directory.CreateDirectory(dataDir);
+        string certMapFile = Path.Combine(dataDir, "equipment_certificates.json");
+
+        JsonObject certMap = new JsonObject();
+        if (System.IO.File.Exists(certMapFile))
+        {
+            try
+            {
+                string json = await System.IO.File.ReadAllTextAsync(certMapFile);
+                certMap = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+            }
+            catch { }
+        }
+
+        JsonObject certEntry = new JsonObject
+        {
+            ["url"] = certUrl,
+            ["filename"] = file.FileName,
+            ["uploaded_at"] = DateTime.UtcNow.ToString("o")
+        };
+
+        if (!string.IsNullOrEmpty(equipmentId)) certMap[equipmentId] = certEntry;
+        if (!string.IsNullOrEmpty(equipmentCode)) certMap[equipmentCode] = certEntry;
+
+        await System.IO.File.WriteAllTextAsync(certMapFile, certMap.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+
+        return Ok(new { success = true, certificate_url = certUrl, filename = file.FileName });
     }
 
     [HttpGet("sites/{siteId}/photo-policy")]
@@ -1522,6 +1661,11 @@ public class ApiController : ControllerBase
             return BadRequest(new { success = false, message = "El código y el nombre del equipo son obligatorios." });
         }
 
+        string certUrl = payload["certificado_url"]?.ToString() ?? "";
+        string certFilename = payload["certificado_nombre"]?.ToString() ?? "Certificado.pdf";
+        payload.Remove("certificado_url");
+        payload.Remove("certificado_nombre");
+
         // Calculate calibration status based on fecha_proxima_calibracion
         string nextDateStr = payload["fecha_proxima_calibracion"]?.ToString() ?? "";
         string estatus = "VIGENTE";
@@ -1535,6 +1679,35 @@ public class ApiController : ControllerBase
         payload["estatus"] = estatus;
 
         var result = await _supabase.InsertCatalogoEquipoAsync(payload);
+        string newId = result?["id"]?.ToString() ?? "";
+
+        // If certificate URL provided, link in equipment_certificates.json
+        if (!string.IsNullOrEmpty(certUrl) && (!string.IsNullOrEmpty(newId) || !string.IsNullOrEmpty(code)))
+        {
+            try
+            {
+                string dataDir = Path.Combine(_env.WebRootPath, "data");
+                Directory.CreateDirectory(dataDir);
+                string certMapFile = Path.Combine(dataDir, "equipment_certificates.json");
+                JsonObject certMap = new JsonObject();
+                if (System.IO.File.Exists(certMapFile))
+                {
+                    string json = await System.IO.File.ReadAllTextAsync(certMapFile);
+                    certMap = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+                }
+                JsonObject certEntry = new JsonObject
+                {
+                    ["url"] = certUrl,
+                    ["filename"] = certFilename,
+                    ["uploaded_at"] = DateTime.UtcNow.ToString("o")
+                };
+                if (!string.IsNullOrEmpty(newId)) certMap[newId] = certEntry;
+                if (!string.IsNullOrEmpty(code)) certMap[code] = certEntry;
+                await System.IO.File.WriteAllTextAsync(certMapFile, certMap.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
+        }
+
         return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
