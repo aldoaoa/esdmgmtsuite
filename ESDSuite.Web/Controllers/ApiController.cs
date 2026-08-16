@@ -710,7 +710,7 @@ public class ApiController : ControllerBase
     [HttpGet("infra/grounding")]
     public async Task<IActionResult> GetGroundingLogs([FromQuery] string? siteId)
     {
-        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var data = await _supabase.GetGroundingLogsAsync(targetSite);
         return Ok(data);
     }
@@ -718,13 +718,17 @@ public class ApiController : ControllerBase
     [HttpPost("infra/grounding")]
     public async Task<IActionResult> AddGroundingLog([FromBody] JsonObject payload)
     {
-        if (payload["site_id"] == null) payload["site_id"] = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        if (payload["auditor_id"] == null) payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["site_id"] == null || string.IsNullOrWhiteSpace(payload["site_id"]?.ToString()))
+            payload["site_id"] = CurrentUserSiteId;
+        if (payload["auditor_id"] == null || string.IsNullOrWhiteSpace(payload["auditor_id"]?.ToString()))
+            payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["measured_at"] == null)
+            payload["measured_at"] = DateTime.UtcNow.ToString("o");
         
         double ohms = payload["resistance_ohms"]?.GetValue<double>() ?? 0;
         string type = payload["point_type"]?.ToString() ?? "";
         double limit = type.Contains("Auxiliary") ? 25.0 : 2.0;
-        payload["status_result"] = ohms < limit ? "PASS" : "FAIL";
+        payload["status_result"] = ohms <= limit ? "PASS" : "FAIL";
 
         var result = await _supabase.InsertGroundingLogAsync(payload);
         return Ok(new { success = result != null, data = result });
@@ -733,7 +737,7 @@ public class ApiController : ControllerBase
     [HttpGet("infra/floors")]
     public async Task<IActionResult> GetFloorLogs([FromQuery] string? siteId)
     {
-        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var data = await _supabase.GetFloorValidationLogsAsync(targetSite);
         return Ok(data);
     }
@@ -741,8 +745,12 @@ public class ApiController : ControllerBase
     [HttpPost("infra/floors")]
     public async Task<IActionResult> AddFloorLog([FromBody] JsonObject payload)
     {
-        if (payload["site_id"] == null) payload["site_id"] = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        if (payload["auditor_id"] == null) payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["site_id"] == null || string.IsNullOrWhiteSpace(payload["site_id"]?.ToString()))
+            payload["site_id"] = CurrentUserSiteId;
+        if (payload["auditor_id"] == null || string.IsNullOrWhiteSpace(payload["auditor_id"]?.ToString()))
+            payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["measured_at"] == null)
+            payload["measured_at"] = DateTime.UtcNow.ToString("o");
 
         double ohms = payload["resistance_ohms"]?.GetValue<double>() ?? 0;
         payload["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL";
@@ -754,7 +762,7 @@ public class ApiController : ControllerBase
     [HttpGet("infra/isolated")]
     public async Task<IActionResult> GetIsolatedLogs([FromQuery] string? siteId)
     {
-        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var data = await _supabase.GetIsolatedConductorsLogsAsync(targetSite);
         return Ok(data);
     }
@@ -762,8 +770,12 @@ public class ApiController : ControllerBase
     [HttpPost("infra/isolated")]
     public async Task<IActionResult> AddIsolatedLog([FromBody] JsonObject payload)
     {
-        if (payload["site_id"] == null) payload["site_id"] = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        if (payload["auditor_id"] == null) payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["site_id"] == null || string.IsNullOrWhiteSpace(payload["site_id"]?.ToString()))
+            payload["site_id"] = CurrentUserSiteId;
+        if (payload["auditor_id"] == null || string.IsNullOrWhiteSpace(payload["auditor_id"]?.ToString()))
+            payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["measured_at"] == null)
+            payload["measured_at"] = DateTime.UtcNow.ToString("o");
 
         double volts = payload["max_voltage"]?.GetValue<double>() ?? 0;
         payload["status_result"] = volts <= 35.0 ? "PASS" : "FAIL";
@@ -775,7 +787,7 @@ public class ApiController : ControllerBase
     [HttpGet("infra/checkers")]
     public async Task<IActionResult> GetCheckersLogs([FromQuery] string? siteId)
     {
-        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var data = await _supabase.GetEntranceCheckersLogsAsync(targetSite);
         return Ok(data);
     }
@@ -783,8 +795,12 @@ public class ApiController : ControllerBase
     [HttpPost("infra/checkers")]
     public async Task<IActionResult> AddCheckersLog([FromBody] JsonObject payload)
     {
-        if (payload["site_id"] == null) payload["site_id"] = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        if (payload["auditor_id"] == null) payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["site_id"] == null || string.IsNullOrWhiteSpace(payload["site_id"]?.ToString()))
+            payload["site_id"] = CurrentUserSiteId;
+        if (payload["auditor_id"] == null || string.IsNullOrWhiteSpace(payload["auditor_id"]?.ToString()))
+            payload["auditor_id"] = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
+        if (payload["measured_at"] == null)
+            payload["measured_at"] = DateTime.UtcNow.ToString("o");
 
         double refLeft = payload["reference_left"]?.GetValue<double>() ?? 0;
         double readLeft = payload["reading_left"]?.GetValue<double>() ?? 0;

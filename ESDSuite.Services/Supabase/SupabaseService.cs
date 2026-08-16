@@ -431,7 +431,10 @@ public class SupabaseService
     // --- INFRASTRUCTURE EPA ---
     public async Task<JsonArray> GetGroundingLogsAsync(string siteId)
     {
-        return await GetAsync($"grounding_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
+        string query = string.IsNullOrEmpty(siteId)
+            ? "grounding_logs?select=*&order=measured_at.desc"
+            : $"grounding_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc";
+        return await GetAsync(query);
     }
 
     public async Task<JsonObject?> InsertGroundingLogAsync(object data)
@@ -441,7 +444,10 @@ public class SupabaseService
 
     public async Task<JsonArray> GetFloorValidationLogsAsync(string siteId)
     {
-        return await GetAsync($"floor_validation_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
+        string query = string.IsNullOrEmpty(siteId)
+            ? "floor_validation_logs?select=*&order=measured_at.desc"
+            : $"floor_validation_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc";
+        return await GetAsync(query);
     }
 
     public async Task<JsonObject?> InsertFloorValidationLogAsync(object data)
@@ -451,7 +457,10 @@ public class SupabaseService
 
     public async Task<JsonArray> GetIsolatedConductorsLogsAsync(string siteId)
     {
-        return await GetAsync($"isolated_conductors_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
+        string query = string.IsNullOrEmpty(siteId)
+            ? "isolated_conductors_logs?select=*&order=measured_at.desc"
+            : $"isolated_conductors_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc";
+        return await GetAsync(query);
     }
 
     public async Task<JsonObject?> InsertIsolatedConductorsLogAsync(object data)
@@ -461,7 +470,10 @@ public class SupabaseService
 
     public async Task<JsonArray> GetEntranceCheckersLogsAsync(string siteId)
     {
-        return await GetAsync($"entrance_checkers_logs?site_id=eq.{siteId}&select=*&order=created_at.desc");
+        string query = string.IsNullOrEmpty(siteId)
+            ? "entrance_checkers_logs?select=*&order=measured_at.desc"
+            : $"entrance_checkers_logs?site_id=eq.{siteId}&select=*&order=measured_at.desc";
+        return await GetAsync(query);
     }
 
     public async Task<JsonObject?> InsertEntranceCheckersLogAsync(object data)
