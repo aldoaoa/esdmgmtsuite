@@ -1117,126 +1117,61 @@ public class ApiController : ControllerBase
             logoUrl = "/images/esd360-logo.png";
         }
 
-        // 2. Generate Unique ID: [COMPAÑIA]-[SITE]-LV-[XXXXXX]
+        // 2. Generate High-Entropy Unique ID with Temporal Component & Backend Retry Loop
         string compCode = GetAbbreviation(companyName, 3, "BCS");
         string siteCode = GetAbbreviation(siteName, 3, "QRO");
-        string hexId = Guid.NewGuid().ToString("N")[..6].ToUpper();
-        string uniqueFolio = $"{compCode}-{siteCode}-LV-{hexId}";
+        string yearMonth = DateTime.UtcNow.ToString("yyMM");
+        
+        string uniqueFolio;
+        int attempts = 0;
+        do
+        {
+            string hexId = Guid.NewGuid().ToString("N")[..8].ToUpper();
+            uniqueFolio = $"{compCode}-{siteCode}-LV-{yearMonth}-{hexId}";
+            attempts++;
+        } while (IsFolioTaken(uniqueFolio, activeSiteId) && attempts < 20);
 
-        // 3. Populate Rows with Live Asset Data for this Line if not provided
+        // 3. Populate Rows with Live Asset Data & Most Recent Measurements
         var rows = payload["rows"] as JsonArray ?? new JsonArray();
         if (rows.Count == 0)
         {
             try
             {
-                var assets = await _supabase.GetAssetsAsync(activeSiteId);
-                var measurements = await _supabase.GetMeasurementsForSiteAsync(activeSiteId);
+                var siteAssets = await GetEnrichedSiteAssetsAsync(activeSiteId);
+                string cleanLine = linea.Trim();
 
-                // Group measurements by asset custom_id (latest first)
-                var latestMeasByAsset = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
-                foreach (var m in measurements)
+                var matchingAssets = siteAssets.Where(a => {
+                    string loc = a["location"]?.ToString() ?? "";
+                    if (string.Equals(loc, cleanLine, StringComparison.OrdinalIgnoreCase)) return true;
+                    if (loc.IndexOf(cleanLine, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                    if (cleanLine.IndexOf(loc, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+                    string locLeaf = loc.Contains("->") ? loc.Split("->").Last().Trim() : loc;
+                    string lineLeaf = cleanLine.Contains("->") ? cleanLine.Split("->").Last().Trim() : cleanLine;
+                    if (string.Equals(locLeaf, lineLeaf, StringComparison.OrdinalIgnoreCase)) return true;
+                    if (locLeaf.IndexOf(lineLeaf, StringComparison.OrdinalIgnoreCase) >= 0 || lineLeaf.IndexOf(locLeaf, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+                    return false;
+                }).ToList();
+
+                // If specific line had no direct match, include all assets if requested or general
+                if (matchingAssets.Count == 0 && (cleanLine.Equals("ALL", StringComparison.OrdinalIgnoreCase) || cleanLine.Contains("General") || cleanLine.Contains("Planta")))
                 {
-                    if (m is JsonObject mObj)
-                    {
-                        string idElem = mObj["id_elemento"]?.ToString()?.Trim() ?? mObj["custom_id"]?.ToString()?.Trim() ?? "";
-                        if (!string.IsNullOrEmpty(idElem) && !latestMeasByAsset.ContainsKey(idElem))
-                        {
-                            latestMeasByAsset[idElem] = mObj;
-                        }
-                    }
+                    matchingAssets = siteAssets;
                 }
 
-                foreach (var a in assets)
+                foreach (var a in matchingAssets)
                 {
-                    if (a is JsonObject aObj)
-                    {
-                        string loc = aObj["location"]?.ToString() ?? "";
-                        if (string.Equals(loc, linea, StringComparison.OrdinalIgnoreCase) || 
-                            loc.IndexOf(linea, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            linea.IndexOf(loc, StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            string customId = aObj["custom_id"]?.ToString() ?? aObj["asset_id"]?.ToString() ?? aObj["id"]?.ToString() ?? "";
-                            string cat = aObj["category"]?.ToString() ?? "Mobiliario ESD";
-                            string subCat = "";
-                            string per = "1m";
-
-                            // Parse classification JSON if present
-                            string rawClasif = aObj["classification"]?.ToString() ?? "";
-                            if (!string.IsNullOrEmpty(rawClasif) && rawClasif.StartsWith('{'))
-                            {
-                                try
-                                {
-                                    var cJson = JsonNode.Parse(rawClasif) as JsonObject;
-                                    if (cJson != null)
-                                    {
-                                        subCat = cJson["subtype"]?.ToString() ?? "";
-                                        per = cJson["periodicity"]?.ToString() ?? "1m";
-                                    }
-                                }
-                                catch { }
-                            }
-
-                            string lastTestDate = "";
-                            string nextDueDate = "";
-                            string status = "COMPLIANT";
-
-                            if (latestMeasByAsset.TryGetValue(customId, out var lastMeas))
-                            {
-                                lastTestDate = lastMeas["fecha_medicion"]?.ToString() ?? lastMeas["created_at"]?.ToString() ?? "";
-                                if (DateTime.TryParse(lastTestDate, out var dtLast))
-                                {
-                                    var dtNext = CalculateNextDueDate(dtLast, per);
-                                    if (dtNext.HasValue)
-                                    {
-                                        nextDueDate = dtNext.Value.ToString("yyyy-MM-dd");
-                                        status = dtNext.Value < DateTime.UtcNow.Date ? "OVERDUE" : "COMPLIANT";
-                                    }
-                                    else
-                                    {
-                                        nextDueDate = "Permanente";
-                                        status = "PERMANENT";
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                string createdAt = aObj["created_at"]?.ToString() ?? "";
-                                if (DateTime.TryParse(createdAt, out var dtCreated))
-                                {
-                                    var dtNext = CalculateNextDueDate(dtCreated, per);
-                                    if (dtNext.HasValue)
-                                    {
-                                        nextDueDate = dtNext.Value.ToString("yyyy-MM-dd");
-                                        status = dtNext.Value < DateTime.UtcNow.Date ? "OVERDUE" : "COMPLIANT";
-                                    }
-                                    else
-                                    {
-                                        nextDueDate = "Permanente";
-                                        status = "PERMANENT";
-                                    }
-                                }
-                            }
-
-                            rows.Add(new JsonObject
-                            {
-                                ["custom_id"] = customId,
-                                ["category"] = cat,
-                                ["subtype"] = subCat,
-                                ["last_verification"] = lastTestDate,
-                                ["next_verification"] = nextDueDate,
-                                ["status_schedule"] = status
-                            });
-                        }
-                    }
+                    rows.Add(a.DeepClone());
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error auto-populating line assets for report: {ex.Message}");
+                Console.WriteLine($"Error auto-populating line assets with live measurements: {ex.Message}");
             }
         }
 
-        // 4. Generate HTML Report
+        // 4. Generate HTML Report with full measurement details and corporate layout
         string html = LineReportGenerator.GenerateLineReportHtml(
             linea,
             rows,
@@ -1325,12 +1260,9 @@ public class ApiController : ControllerBase
         return NotFound("Reporte no encontrado.");
     }
 
-    // --- ASSET DIRECTORY (INVENTORY & MEASUREMENT HISTORY) ---
-    [HttpGet("inventory")]
-    public async Task<IActionResult> GetInventoryDirectory([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? category = null, [FromQuery] string? status = null)
+    // --- ASSET DIRECTORY & MEASUREMENT CONSOLIDATION HELPER ---
+    private async Task<List<JsonObject>> GetEnrichedSiteAssetsAsync(string activeSiteId)
     {
-        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        
         var assets = await _supabase.GetAssetsAsync(activeSiteId);
         var measurements = await _supabase.GetMeasurementsForSiteAsync(activeSiteId);
         
@@ -1459,7 +1391,9 @@ public class ApiController : ControllerBase
                 
                 if (DateTime.TryParse(measuredAt, out var dt))
                 {
-                    entry["next_verification"] = dt.AddDays(30).ToString("yyyy-MM-dd");
+                    string per = entry["periodicity"]?.ToString() ?? "1m";
+                    var dtNext = CalculateNextDueDate(dt, per);
+                    entry["next_verification"] = dtNext.HasValue ? dtNext.Value.ToString("yyyy-MM-dd") : "Permanente";
                 }
 
                 entry["status"] = mObj["status_result"]?.ToString() ?? "PASS";
@@ -1482,7 +1416,15 @@ public class ApiController : ControllerBase
             }
         }
 
-        var resultList = assetMap.Values.ToList();
+        return assetMap.Values.ToList();
+    }
+
+    // --- ASSET DIRECTORY (INVENTORY & MEASUREMENT HISTORY) ---
+    [HttpGet("inventory")]
+    public async Task<IActionResult> GetInventoryDirectory([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? category = null, [FromQuery] string? status = null)
+    {
+        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        var resultList = await GetEnrichedSiteAssetsAsync(activeSiteId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -3270,4 +3212,29 @@ public class ApiController : ControllerBase
         catch { }
         return result;
     }
+
+    private bool IsFolioTaken(string folio, string siteId)
+    {
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            string path = Path.Combine(dataDir, "reports_history.json");
+            if (System.IO.File.Exists(path))
+            {
+                var list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray;
+                if (list != null && list.Any(x => string.Equals(x?["folio"]?.ToString(), folio, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+            string reportsDir = Path.Combine(_env.WebRootPath, "uploads", "reports");
+            if (System.IO.File.Exists(Path.Combine(reportsDir, $"{folio}.html")))
+            {
+                return true;
+            }
+        }
+        catch { }
+        return false;
+    }
 }
+
