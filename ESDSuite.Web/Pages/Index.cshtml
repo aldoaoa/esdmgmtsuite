@@ -1685,20 +1685,52 @@
 
                     <!-- TAB 3: LANG -->
                     <div id="set-tab-lang" class="tab-content">
-                        <h4 data-i18n="settings.lang_title">🌐 Configuración Global de Idioma (i18n)</h4>
-                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;" data-i18n="settings.lang_sub">Selecciona el idioma preferido para la interfaz del sistema. Se cargará dinámicamente el paquete de traducción.</p>
+                        <div style="margin-bottom:18px;">
+                            <h4 style="margin:0; font-size:16px;" data-i18n="settings.tab_lang">🌐 Configuración Global de Idiomas (i18n)</h4>
+                            <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;" data-i18n="settings.lang_sub">Personaliza de forma independiente el idioma de la interfaz del sistema y el idioma de emisión de los reportes oficiales.</p>
+                        </div>
                         
-                        <div style="max-width:320px;">
-                            <div class="form-group">
-                                <label data-i18n="settings.lang_title">Idioma Activo / Active Language:</label>
-                                <select id="settings-lang-select" class="form-control" onchange="changeLanguage(this.value)">
-                                    <option value="es">Español (ES)</option>
-                                    <option value="en">English (EN)</option>
-                                    <option value="zh">中文 (ZH)</option>
-                                    <option value="de">Deutsch (DE)</option>
-                                    <option value="it">Italiano (IT)</option>
-                                    <option value="ro">Română (RO)</option>
-                                </select>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; max-width:760px;">
+                            <!-- SYSTEM UI LANGUAGE -->
+                            <div class="glass-card" style="padding:18px; border:1px solid var(--border-color); border-radius:10px; background:#FFFFFF;">
+                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                    <span style="font-size:22px;">🖥️</span>
+                                    <div>
+                                        <h5 style="margin:0; font-size:14px; font-weight:700;" data-i18n="settings.lang_system_title">Idioma General del Sistema (UI)</h5>
+                                        <div style="font-size:11px; color:var(--text-muted);" data-i18n="settings.lang_system_sub">Define el idioma de menús, botones y pantallas.</div>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <select id="settings-lang-select" class="form-control" onchange="changeLanguage(this.value)" style="font-weight:600;">
+                                        <option value="es">Español (ES)</option>
+                                        <option value="en">English (EN)</option>
+                                        <option value="zh">中文 (ZH)</option>
+                                        <option value="de">Deutsch (DE)</option>
+                                        <option value="it">Italiano (IT)</option>
+                                        <option value="ro">Română (RO)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- REPORTS LANGUAGE -->
+                            <div class="glass-card" style="padding:18px; border:1px solid var(--border-color); border-radius:10px; background:#FFFFFF;">
+                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                    <span style="font-size:22px;">📄</span>
+                                    <div>
+                                        <h5 style="margin:0; font-size:14px; font-weight:700;" data-i18n="settings.lang_reports_title">Idioma de Reportes Oficiales</h5>
+                                        <div style="font-size:11px; color:var(--text-muted);" data-i18n="settings.lang_reports_sub">Define el idioma de los reportes y certificados generados.</div>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <select id="settings-reports-lang-select" class="form-control" onchange="changeReportsLanguage(this.value)" style="font-weight:600;">
+                                        <option value="es">Español (ES)</option>
+                                        <option value="en">English (EN)</option>
+                                        <option value="zh">中文 (ZH)</option>
+                                        <option value="de">Deutsch (DE)</option>
+                                        <option value="it">Italiano (IT)</option>
+                                        <option value="ro">Română (RO)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2081,6 +2113,11 @@
             const userLang = getStoredLang();
             if (document.getElementById('settings-lang-select')) document.getElementById('settings-lang-select').value = userLang;
             if (document.getElementById('login-landing-lang-select')) document.getElementById('login-landing-lang-select').value = userLang;
+
+            const userReportLang = sessionRes.report_lang || getStoredReportLang();
+            setStoredReportLang(userReportLang);
+            if (document.getElementById('settings-reports-lang-select')) document.getElementById('settings-reports-lang-select').value = userReportLang;
+
             if (sessionRes.version && document.getElementById('system-version-badge')) {
                 document.getElementById('system-version-badge').innerText = 'v' + sessionRes.version;
             }
@@ -2108,12 +2145,35 @@
     function getStoredLang() {
         const match = document.cookie.match(/(?:^|; )esd360_lang=([^;]*)/);
         if (match && match[1]) return match[1];
-        return localStorage.getItem('esd360_lang') || 'en';
+        return localStorage.getItem('esd360_lang') || 'es';
     }
 
     function setStoredLang(lang) {
         localStorage.setItem('esd360_lang', lang);
         document.cookie = `esd360_lang=${lang}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+    }
+
+    function getStoredReportLang() {
+        const match = document.cookie.match(/(?:^|; )esd360_report_lang=([^;]*)/);
+        if (match && match[1]) return match[1];
+        return localStorage.getItem('esd360_report_lang') || getStoredLang() || 'es';
+    }
+
+    function setStoredReportLang(lang) {
+        localStorage.setItem('esd360_report_lang', lang);
+        document.cookie = `esd360_report_lang=${lang}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+    }
+
+    async function changeReportsLanguage(lang) {
+        setStoredReportLang(lang);
+        if (document.getElementById('settings-reports-lang-select')) document.getElementById('settings-reports-lang-select').value = lang;
+        try {
+            await fetch('/api/set-report-lang', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lang })
+            });
+        } catch(ex) {}
     }
 
     function enforceRolePermissions() {
@@ -4826,10 +4886,11 @@
             const siteId = (sessionData && sessionData.site_id) || '';
             const companyId = (sessionData && sessionData.company_id) || '';
 
+            const reportLang = getStoredReportLang();
             const res = await fetch('/api/schedule/generate-line-report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ linea, auditor, comentarios, site_id: siteId, company_id: companyId, rows: [] })
+                body: JSON.stringify({ linea, auditor, comentarios, site_id: siteId, company_id: companyId, report_lang: reportLang, rows: [] })
             });
             const data = await res.json();
             if (res.ok && data.success) {

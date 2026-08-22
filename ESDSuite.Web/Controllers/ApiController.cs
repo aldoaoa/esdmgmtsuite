@@ -130,7 +130,8 @@ public class ApiController : ControllerBase
             can_create_area = IsSiteAdmin,
             can_create_user = IsSiteAdmin,
             can_change_site = IsCompanyAdmin,
-            lang = HttpContext.Session.GetString("lang") ?? Request.Cookies["esd360_lang"] ?? "en",
+            lang = HttpContext.Session.GetString("lang") ?? Request.Cookies["esd360_lang"] ?? "es",
+            report_lang = HttpContext.Session.GetString("report_lang") ?? Request.Cookies["esd360_report_lang"] ?? HttpContext.Session.GetString("lang") ?? "es",
             version = EsdConstants.SystemVersion
         });
     }
@@ -141,7 +142,7 @@ public class ApiController : ControllerBase
         string targetSiteId = payload["site_id"]?.ToString() ?? "";
         string targetSiteName = payload["site_name"]?.ToString() ?? "";
 
-        if (string.IsNullOrEmpty(targetSiteId)) return BadRequest(new { success = false, message = "site_id invalido" });
+        if (string.IsNullOrEmpty(targetSiteId)) return BadRequest(new { success = false, message = "Site ID requerido." });
 
         if (IsSuperAdmin)
         {
@@ -177,7 +178,7 @@ public class ApiController : ControllerBase
     [HttpPost("set-lang")]
     public IActionResult SetLanguage([FromBody] JsonObject payload)
     {
-        string lang = payload["lang"]?.ToString() ?? "en";
+        string lang = payload["lang"]?.ToString() ?? "es";
         HttpContext.Session.SetString("lang", lang);
         Response.Cookies.Append("esd360_lang", lang, new CookieOptions
         {
@@ -188,6 +189,22 @@ public class ApiController : ControllerBase
             Path = "/"
         });
         return Ok(new { success = true, lang });
+    }
+
+    [HttpPost("set-report-lang")]
+    public IActionResult SetReportLanguage([FromBody] JsonObject payload)
+    {
+        string lang = payload["lang"]?.ToString() ?? "es";
+        HttpContext.Session.SetString("report_lang", lang);
+        Response.Cookies.Append("esd360_report_lang", lang, new CookieOptions
+        {
+            Expires = DateTimeOffset.UtcNow.AddYears(1),
+            IsEssential = true,
+            HttpOnly = false,
+            SameSite = SameSiteMode.Lax,
+            Path = "/"
+        });
+        return Ok(new { success = true, report_lang = lang });
     }
 
     [HttpGet("dashboard-metrics")]
@@ -1171,7 +1188,9 @@ public class ApiController : ControllerBase
             }
         }
 
-        // 4. Generate HTML Report with full measurement details and corporate layout
+        // 4. Generate HTML Report with full measurement details, language localization and corporate layout
+        string reportLang = payload["report_lang"]?.ToString() ?? payload["lang"]?.ToString() ?? HttpContext.Session.GetString("report_lang") ?? Request.Cookies["esd360_report_lang"] ?? HttpContext.Session.GetString("lang") ?? Request.Cookies["esd360_lang"] ?? "es";
+
         string html = LineReportGenerator.GenerateLineReportHtml(
             linea,
             rows,
@@ -1181,7 +1200,8 @@ public class ApiController : ControllerBase
             companyName,
             siteName,
             logoUrl,
-            DateTime.UtcNow
+            DateTime.UtcNow,
+            reportLang
         );
 
         // 5. Upload Report HTML to Supabase Storage
