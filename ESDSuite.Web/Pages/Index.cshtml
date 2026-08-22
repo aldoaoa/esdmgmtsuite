@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.6.1</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.7.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.6.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.7.0</span>
             </div>
         </div>
     </aside>
@@ -1329,6 +1329,7 @@
                                     <select id="repo-filter-type" class="form-control" onchange="filterReportsRepository()">
                                         <option value="all" data-i18n="schedule.all_report_types">-- Todos los Tipos de Reporte --</option>
                                         <option value="LINE_VALIDATION" data-i18n="schedule.type_line_validation">📋 Reporte de Validación de Línea</option>
+                                        <option value="ELEMENT_VALIDATION" data-i18n="schedule.type_element_validation">🔬 Reporte de Validación por Elemento ESD</option>
                                         <option value="ESD_EVENTS" data-i18n="schedule.type_esd_events">⚡ Reporte de Eventos ESD (por Línea)</option>
                                     </select>
                                 </div>
@@ -5257,12 +5258,16 @@
         reports.forEach(r => {
             const folio = r.folio || 'N/D';
             const rType = (r.report_type || 'LINE_VALIDATION').toUpperCase();
-            const typeLabel = rType === 'ESD_EVENTS'
-                ? t('schedule.type_esd_events_short', '⚡ Eventos ESD')
-                : t('schedule.type_line_val_short', '📋 Validación de Línea');
-            const linea = r.linea || 'N/A';
+            let typeLabel = t('schedule.type_line_val_short', '📋 Validación de Línea');
+            if (rType === 'ESD_EVENTS') {
+                typeLabel = t('schedule.type_esd_events_short', '⚡ Eventos ESD');
+            } else if (rType === 'ELEMENT_VALIDATION') {
+                typeLabel = t('schedule.type_element_val_short', '🔬 Validación Elemento');
+            }
+            const linea = r.linea || r.id_elemento || 'N/A';
             const auditor = r.auditor || 'N/A';
-            const dateStr = r.created_at ? (r.created_at.includes('T') ? r.created_at.split('T')[0] : r.created_at) : 'N/A';
+            const rawDate = r.fecha || r.created_at || r.fecha_auditoria;
+            const dateStr = rawDate ? (rawDate.includes('T') ? rawDate.split('T')[0] : rawDate) : 'N/A';
 
             html += `
                 <tr>
@@ -6774,11 +6779,76 @@
                             </div>
                         </div>
 
-                        ${r.notas ? `<div style="margin-top:12px; padding-top:8px; border-top:1px dashed #E2E8F0; font-size:11.5px; color:var(--text-secondary);"><strong>Notas:</strong> ${r.notas}</div>` : ''}
+                        <div style="margin-top:14px; padding-top:10px; border-top:1px solid #F1F5F9; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div style="font-size:11.5px; color:var(--text-secondary);">
+                                ${r.notas ? `<strong>Notas:</strong> ${r.notas}` : ''}
+                            </div>
+                            <button type="button" class="tab-btn" onclick="exportElementValidationReport(${idx})" style="padding:6px 14px; font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px; background:#EFF6FF; color:#2563EB; border-color:#BFDBFE; cursor:pointer;" title="Exportar Reporte Oficial PDF / HTML">
+                                📄 <span data-i18n="validation.btn_export_report">${t('validation.btn_export_report', 'Exportar Reporte')}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
         });
+    }
+
+    async function exportElementValidationReport(target) {
+        let record = null;
+        if (typeof target === 'number') {
+            record = allValidationRecords[target];
+        } else if (typeof target === 'object' && target !== null) {
+            record = target;
+        } else if (typeof target === 'string') {
+            record = allValidationRecords.find(x => x.id === target || x.id_elemento === target);
+        }
+
+        if (!record) {
+            alert('⚠️ No se encontró el registro de validación.');
+            return;
+        }
+
+        const btn = event && event.currentTarget;
+        let originalContent = '';
+        if (btn) {
+            originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `⏳ Exportando...`;
+        }
+
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const companyId = (sessionData && sessionData.company_id) || '';
+            const payload = {
+                ...record,
+                site_id: siteId,
+                company_id: companyId
+            };
+
+            const res = await fetch('/api/validation/reports/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success && data.download_url) {
+                window.open(data.download_url, '_blank');
+                if (typeof loadReportsRepository === 'function') {
+                    loadReportsRepository();
+                }
+            } else {
+                alert('❌ ' + (data.message || 'Error al generar el reporte de validación.'));
+            }
+        } catch(err) {
+            console.error('Error exporting element validation report:', err);
+            alert('❌ Error de comunicación al exportar el reporte: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
     }
 
     function toggleValCard(bodyId) {

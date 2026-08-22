@@ -3676,12 +3676,126 @@ public class ApiController : ControllerBase
         return Ok(new { success = true, unit });
     }
 
-    [HttpPost("settings/temp-unit")]
-    public IActionResult SetTemperatureUnit([FromBody] JsonObject payload)
+    // --- ESD ELEMENT VALIDATION REPORT EXPORT ---
+    [HttpPost("validation/reports/generate")]
+    public async Task<IActionResult> GenerateElementValidationReport([FromBody] JsonObject payload)
     {
-        string unit = payload?["unit"]?.ToString()?.ToUpper() == "F" ? "F" : "C";
-        HttpContext.Session.SetString("temp_unit", unit);
-        return Ok(new { success = true, unit });
+        if (payload == null) return BadRequest(new { success = false, message = "Invalid payload." });
+
+        string activeSiteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string activeCompanyId = payload["company_id"]?.ToString() ?? HttpContext.Session.GetString("company_id") ?? "";
+
+        // 1. Resolve Company & Site Names
+        string companyName = HttpContext.Session.GetString("company_name") ?? "BCS Automotive Interface Solutions";
+        string siteName = HttpContext.Session.GetString("site_name") ?? "Queretaro Plant";
+        string? logoUrl = null;
+
+        if (!string.IsNullOrEmpty(activeCompanyId))
+        {
+            var compObj = await _supabase.GetCompanyByIdAsync(activeCompanyId);
+            if (compObj != null)
+            {
+                companyName = compObj["name"]?.ToString() ?? companyName;
+                logoUrl = compObj["logo_url"]?.ToString();
+            }
+        }
+
+        if (string.IsNullOrEmpty(logoUrl) && !string.IsNullOrEmpty(activeCompanyId))
+        {
+            logoUrl = GetLocalCompanyLogo(activeCompanyId);
+        }
+
+        if (string.IsNullOrEmpty(logoUrl))
+        {
+            logoUrl = "https://github.com/aldoaoa/Visualizador-BCS-IDS/blob/main/BCS%20LOGO.png?raw=true";
+        }
+
+        // 2. Generate Unique Folio
+        string compCode = GetAbbreviation(companyName, 3, "BCS");
+        string siteCode = GetAbbreviation(siteName, 3, "QRO");
+        string yearShort = DateTime.UtcNow.ToString("yy");
+
+        string rawId = payload["id"]?.ToString() ?? payload["id_elemento"]?.ToString() ?? "001";
+        int numericId = 1;
+        var digitsOnly = new string(rawId.Where(char.IsDigit).ToArray());
+        if (int.TryParse(digitsOnly, out int pId) && pId > 0)
+        {
+            numericId = pId;
+        }
+
+        string uniqueFolio;
+        int attempts = 0;
+        do
+        {
+            string hexSuffix = Guid.NewGuid().ToString("N")[..4].ToUpper();
+            uniqueFolio = $"{compCode}-PV-{numericId:D3}-{yearShort}-{hexSuffix}";
+            attempts++;
+        } while (IsFolioTaken(uniqueFolio, activeSiteId) && attempts < 20);
+
+        // 3. Generate HTML
+        string html = ElementValidationReportGenerator.GenerateHtmlReport(
+            payload,
+            uniqueFolio,
+            companyName,
+            siteName,
+            logoUrl,
+            numericId
+        );
+
+        // 4. Save local cache AND upload to Supabase Storage 'audit-evidence'
+        string storagePath = $"reports/{compCode}_{siteCode}/{uniqueFolio}.html";
+        string downloadUrl = $"/api/schedule/reports/{uniqueFolio}/view";
+
+        try
+        {
+            string reportsDir = Path.Combine(_env.WebRootPath, "uploads", "reports");
+            Directory.CreateDirectory(reportsDir);
+            string localPath = Path.Combine(reportsDir, $"{uniqueFolio}.html");
+            await System.IO.File.WriteAllTextAsync(localPath, html, System.Text.Encoding.UTF8);
+
+            var uploadBytes = System.Text.Encoding.UTF8.GetBytes(html);
+            var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, uploadBytes, "text/html");
+            if (uploadOk)
+            {
+                downloadUrl = $"/api/schedule/reports/{uniqueFolio}/view";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving element validation report: {ex.Message}");
+        }
+
+        // 5. Save structured record in reports index
+        string elemId = payload["id_elemento"]?.ToString() ?? "ELEM";
+        string ubicacion = payload["ubicacion"]?.ToString() ?? "";
+        string auditor = payload["auditor"]?.ToString() ?? HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
+
+        SaveReportToIndex(new JsonObject
+        {
+            ["folio"] = uniqueFolio,
+            ["report_type"] = "ELEMENT_VALIDATION",
+            ["type_name"] = "ESD Control Element Validation Report",
+            ["linea"] = $"{elemId} ({ubicacion})",
+            ["auditor"] = auditor,
+            ["fecha"] = DateTime.UtcNow.ToString("o"),
+            ["storage_path"] = storagePath,
+            ["download_url"] = downloadUrl,
+            ["site_id"] = activeSiteId,
+            ["company_id"] = activeCompanyId,
+            ["site_name"] = siteName,
+            ["company_name"] = companyName,
+            ["id_elemento"] = elemId,
+            ["elemento_s20_20"] = payload["elemento_s20_20"]?.ToString() ?? "",
+            ["resultado"] = payload["resultado"]?.ToString() ?? "CUMPLE (APROBADO)"
+        });
+
+        return Ok(new
+        {
+            success = true,
+            folio = uniqueFolio,
+            download_url = downloadUrl,
+            html
+        });
     }
 }
 
