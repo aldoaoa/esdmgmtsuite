@@ -1591,6 +1591,7 @@ public class ApiController : ControllerBase
             string sLower = search.Trim().ToLower();
             resultList = resultList.Where(x => 
                 (x["asset_id"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["name"]?.ToString().ToLower().Contains(sLower) ?? false) ||
                 (x["category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
                 (x["sub_category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
                 (x["location"]?.ToString().ToLower().Contains(sLower) ?? false) ||
@@ -1606,7 +1607,24 @@ public class ApiController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(status) && status != "all")
         {
-            resultList = resultList.Where(x => x["status"]?.ToString().Equals(status, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+            if (status.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || status.Equals("BAJA", StringComparison.OrdinalIgnoreCase))
+            {
+                resultList = resultList.Where(x => {
+                    string st = x["status"]?.ToString() ?? "";
+                    return st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) || st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+                }).ToList();
+            }
+            else if (status.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase))
+            {
+                resultList = resultList.Where(x => {
+                    string st = x["status"]?.ToString() ?? "";
+                    return !st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) && !st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) && !st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+                }).ToList();
+            }
+            else
+            {
+                resultList = resultList.Where(x => x["status"]?.ToString().Equals(status, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+            }
         }
 
         return Ok(resultList.OrderByDescending(x => x["last_verification"]?.ToString() ?? ""));
@@ -1690,7 +1708,7 @@ public class ApiController : ControllerBase
         }
 
         string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
-        string customId = payload["custom_id"]?.ToString() ?? "";
+        string customId = payload["custom_id"]?.ToString() ?? id;
         string category = payload["category"]?.ToString() ?? "Mobiliario ESD";
         string subtype = payload["subtype"]?.ToString() ?? payload["sub_category"]?.ToString() ?? category;
         string name = payload["name"]?.ToString() ?? customId;
@@ -1717,17 +1735,40 @@ public class ApiController : ControllerBase
 
         if (payload["status"] != null) updatePayload["status"] = payload["status"]?.ToString();
 
-        bool success = await _supabase.UpdateAssetAsync(id, updatePayload);
+        // Resolve ID: if id is custom_id or UUID
+        string targetId = id;
+        if (!Guid.TryParse(id, out _))
+        {
+            var siteAssets = await _supabase.GetAssetsAsync(targetSite);
+            var match = siteAssets.FirstOrDefault(a => a is JsonObject aObj && string.Equals(aObj["custom_id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+            if (match != null && match["id"] != null)
+            {
+                targetId = match["id"]!.ToString();
+            }
+            else
+            {
+                // Create asset record if it originated from measurements without master asset row
+                updatePayload["site_id"] = targetSite;
+                updatePayload["custom_id"] = customId;
+                updatePayload["status"] = "ACTIVE";
+                updatePayload["created_at"] = DateTime.UtcNow.ToString("o");
+                var ins = await _supabase.InsertAssetAsync(updatePayload);
+                return Ok(new { success = ins != null });
+            }
+        }
+
+        bool success = await _supabase.UpdateAssetAsync(targetId, updatePayload);
 
         await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
-            $"Modificación de activo ID '{id}' ({customId} - {name}) en ubicación '{location}'.",
-            new { id, customId, name, location, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+            $"Modificación de activo '{customId}' ({name}) en ubicación '{location}'.",
+            new { id = targetId, customId, name, location, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
 
         return Ok(new { success });
     }
 
+    [HttpPost("inventory/assets/{id}/decommission")]
     [HttpDelete("inventory/assets/{id}")]
-    public async Task<IActionResult> DeleteAsset(string id)
+    public async Task<IActionResult> DecommissionAsset(string id, [FromBody] JsonObject? payload = null)
     {
         string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
         if (string.IsNullOrEmpty(currentUserId))
@@ -1735,12 +1776,72 @@ public class ApiController : ControllerBase
             return Unauthorized(new { success = false, message = "Sesión no válida." });
         }
 
-        bool success = await _supabase.DeleteAssetAsync(id);
-        await _supabase.LogAuditEventAsync(currentUserId, CurrentUserSiteId, "AUDIT", "AssetDirectory",
-            $"Eliminación de activo ID '{id}'.",
-            new { id, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+        string targetSite = payload?["site_id"]?.ToString() ?? CurrentUserSiteId;
+        string targetId = id;
+        string customId = id;
 
-        return Ok(new { success });
+        if (!Guid.TryParse(id, out _))
+        {
+            var siteAssets = await _supabase.GetAssetsAsync(targetSite);
+            var match = siteAssets.FirstOrDefault(a => a is JsonObject aObj && string.Equals(aObj["custom_id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+            if (match != null && match["id"] != null)
+            {
+                targetId = match["id"]!.ToString();
+                customId = match["custom_id"]?.ToString() ?? id;
+            }
+        }
+
+        // SOFT DELETE / BAJA: Keep the asset and all historical measurements intact, set status to INACTIVE
+        var updatePayload = new JsonObject
+        {
+            ["status"] = "INACTIVE"
+        };
+
+        bool success = await _supabase.UpdateAssetAsync(targetId, updatePayload);
+
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
+            $"Baja de control normativo para activo '{customId}'. Estatus actualizado a INACTIVE (Trazabilidad preservada).",
+            new { id = targetId, customId, status = "INACTIVE", ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        return Ok(new { success, message = "Activo dado de baja correctamente. Su historial de auditoría permanece protegido." });
+    }
+
+    [HttpPost("inventory/assets/{id}/reactivate")]
+    public async Task<IActionResult> ReactivateAsset(string id, [FromBody] JsonObject? payload = null)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized(new { success = false, message = "Sesión no válida." });
+        }
+
+        string targetSite = payload?["site_id"]?.ToString() ?? CurrentUserSiteId;
+        string targetId = id;
+        string customId = id;
+
+        if (!Guid.TryParse(id, out _))
+        {
+            var siteAssets = await _supabase.GetAssetsAsync(targetSite);
+            var match = siteAssets.FirstOrDefault(a => a is JsonObject aObj && string.Equals(aObj["custom_id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+            if (match != null && match["id"] != null)
+            {
+                targetId = match["id"]!.ToString();
+                customId = match["custom_id"]?.ToString() ?? id;
+            }
+        }
+
+        var updatePayload = new JsonObject
+        {
+            ["status"] = "ACTIVE"
+        };
+
+        bool success = await _supabase.UpdateAssetAsync(targetId, updatePayload);
+
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
+            $"Reactivación de activo '{customId}'. Estatus actualizado a ACTIVE.",
+            new { id = targetId, customId, status = "ACTIVE", ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+        return Ok(new { success, message = "Activo reactivado correctamente." });
     }
 
     // --- SCHEDULE VALIDATIONS & DUE DATES ---

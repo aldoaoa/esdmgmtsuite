@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.3.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.4.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.3.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.4.0</span>
             </div>
         </div>
     </aside>
@@ -2256,6 +2256,8 @@
             if (translated !== null && translated !== undefined) {
                 if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                     if (el.hasAttribute('placeholder')) el.placeholder = translated;
+                } else if (el.tagName === 'OPTION') {
+                    el.text = translated;
                 } else {
                     el.innerHTML = translated;
                 }
@@ -3241,7 +3243,7 @@
     }
 
     async function loadInfraLinesSelect() {
-        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'chk-loc', 'rep-linea', 'inv-new-line'];
+        const selects = ['gnd-loc', 'fl-room', 'iso-loc', 'chk-loc', 'rep-linea', 'inv-new-line', 'inv-edit-line'];
         try {
             const siteId = (sessionData && sessionData.site_id) || '';
             const res = await fetch(`/api/lines?siteId=${siteId}`);
@@ -5076,6 +5078,9 @@
     }
 
     // --- ASSET DIRECTORY & REGISTRATION ---
+    let allInventoryAssets = [];
+    let currentEditingAsset = null;
+
     function openNewAssetModal() {
         const modal = document.getElementById('modal-new-asset');
         if (!modal) return;
@@ -5182,6 +5187,242 @@
         }
     }
 
+    // --- ASSET DETAIL & EDIT MODAL ---
+    function openAssetEditModal(assetId) {
+        const modal = document.getElementById('modal-edit-asset');
+        if (!modal) return;
+
+        const a = allInventoryAssets.find(x => (x.custom_id === assetId || x.asset_id === assetId || x.id === assetId)) || {
+            custom_id: assetId,
+            name: assetId,
+            category: 'Mobiliario ESD',
+            sub_category: 'Mobiliario ESD',
+            location: '',
+            area: '',
+            periodicity: '1m',
+            notes: '',
+            status: 'ACTIVE'
+        };
+
+        currentEditingAsset = a;
+
+        // Set inputs
+        document.getElementById('inv-edit-db-id').value = a.id || '';
+        document.getElementById('inv-edit-id').value = a.custom_id || a.asset_id || assetId;
+        document.getElementById('inv-edit-name').value = a.name || a.custom_id || '';
+        document.getElementById('inv-edit-category').value = a.category || 'Mobiliario ESD';
+        document.getElementById('inv-edit-area').value = a.area || '';
+        document.getElementById('inv-edit-periodicity').value = a.periodicity || '1m';
+        document.getElementById('inv-edit-notes').value = a.notes || '';
+
+        // Subtypes and Line selection
+        onEditAssetCategoryChange(a.category, a.sub_category);
+        const lineSel = document.getElementById('inv-edit-line');
+        if (lineSel && a.location) {
+            lineSel.value = a.location;
+        }
+
+        // Status Badge & Decommission / Reactivate button toggling
+        const stBadge = document.getElementById('inv-edit-status-badge');
+        const btnDecom = document.getElementById('inv-btn-decommission');
+        const btnReact = document.getElementById('inv-btn-reactivate');
+        const isInactive = (a.status === 'INACTIVE' || a.status === 'BAJA' || a.status === 'DECOMMISSIONED');
+
+        if (isInactive) {
+            if (stBadge) {
+                stBadge.className = 'badge-fail';
+                stBadge.innerText = t('inventory.status_inactive', 'DADO DE BAJA');
+            }
+            if (btnDecom) btnDecom.style.display = 'none';
+            if (btnReact) btnReact.style.display = 'inline-flex';
+        } else {
+            if (stBadge) {
+                stBadge.className = 'badge-pass';
+                stBadge.innerText = t('inventory.status_active', 'ACTIVO');
+            }
+            if (btnDecom) btnDecom.style.display = 'inline-flex';
+            if (btnReact) btnReact.style.display = 'none';
+        }
+
+        // Read-only audit & validation information
+        const elAuditor = document.getElementById('inv-edit-auditor');
+        const elLastDate = document.getElementById('inv-edit-last-date');
+        const elNextDate = document.getElementById('inv-edit-next-date');
+        const elMeas = document.getElementById('inv-edit-measurements');
+
+        if (elAuditor) elAuditor.innerText = a.auditor || 'Auditor ESD';
+        if (elLastDate) elLastDate.innerText = a.last_verification ? a.last_verification.split('T')[0] : 'Sin verificaciones registradas';
+        if (elNextDate) elNextDate.innerText = a.next_verification || (a.last_verification ? calculateNextDate(a.last_verification) : 'N/D');
+
+        if (elMeas) {
+            if (a.resistance_value !== null && a.resistance_value !== undefined) {
+                const resFmt = Number(a.resistance_value).toExponential(2);
+                const voltFmt = a.static_field_value !== null && a.static_field_value !== undefined ? `${a.static_field_value}V` : '0V';
+                elMeas.innerHTML = `<span style="font-family:monospace; font-weight:700; color:var(--text-primary);">⚡ Resistencia: ${resFmt} Ω &nbsp;|&nbsp; 🧲 Voltaje: ${voltFmt}</span>`;
+            } else if (a.tiempo_descarga !== null && a.tiempo_descarga !== undefined) {
+                const tFmt = `${a.tiempo_descarga}s`;
+                const bFmt = `${a.voltaje_balance || 0}V`;
+                elMeas.innerHTML = `<span style="font-family:monospace; font-weight:700; color:var(--text-primary);">⚡ Tiempo de Descarga: ${tFmt} &nbsp;|&nbsp; 🧲 Balance: ${bFmt}</span>`;
+            } else {
+                elMeas.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">Sin mediciones registradas en el sistema.</span>`;
+            }
+        }
+
+        modal.style.display = 'flex';
+        applyTranslations();
+    }
+
+    function closeAssetEditModal() {
+        const modal = document.getElementById('modal-edit-asset');
+        if (modal) modal.style.display = 'none';
+        currentEditingAsset = null;
+    }
+
+    function onEditAssetCategoryChange(category, preselectedSubtype) {
+        const subSel = document.getElementById('inv-edit-subtype');
+        if (!subSel) return;
+        subSel.innerHTML = '';
+        const group = getCategoryGroup(category);
+        const keys = ELEMENT_SUBTYPES_DEF[group] || ELEMENT_SUBTYPES_DEF["furniture"];
+        keys.forEach(k => {
+            const label = t('audit.subtypes.' + k, k);
+            const opt = document.createElement('option');
+            opt.value = label;
+            opt.textContent = label;
+            subSel.appendChild(opt);
+        });
+
+        if (preselectedSubtype) {
+            subSel.value = preselectedSubtype;
+        }
+    }
+
+    function onEditAssetLineChange(lineVal) {
+        const areaInp = document.getElementById('inv-edit-area');
+        if (areaInp && lineVal && lineVal.includes('->') && !areaInp.value) {
+            areaInp.value = lineVal.split('->')[0].trim();
+        }
+    }
+
+    async function saveAssetChanges() {
+        const dbId = document.getElementById('inv-edit-db-id').value;
+        const custom_id = document.getElementById('inv-edit-id').value.trim();
+        const name = document.getElementById('inv-edit-name').value.trim();
+        const category = document.getElementById('inv-edit-category').value;
+        const subtype = document.getElementById('inv-edit-subtype').value;
+        const location = document.getElementById('inv-edit-line').value;
+        const area = document.getElementById('inv-edit-area').value.trim();
+        const periodicity = document.getElementById('inv-edit-periodicity').value;
+        const notes = document.getElementById('inv-edit-notes').value.trim();
+
+        if (!name) {
+            alert('Por favor ingresa el Nombre / Descripción del activo.');
+            return;
+        }
+        if (!location) {
+            alert('Por favor selecciona una Línea / Ubicación.');
+            return;
+        }
+
+        const targetId = dbId || custom_id;
+        try {
+            const res = await fetch(`/api/inventory/assets/${encodeURIComponent(targetId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: dbId,
+                    custom_id,
+                    name,
+                    category,
+                    subtype,
+                    location,
+                    area: area || (location.includes('->') ? location.split('->')[0].trim() : 'General'),
+                    periodicity,
+                    notes,
+                    site_id: (sessionData && sessionData.site_id) || ''
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ Cambios guardados exitosamente.');
+                closeAssetEditModal();
+                loadInventory();
+                if (currentModule === 'schedule') loadScheduleData();
+            } else {
+                alert('❌ ' + (data.message || 'Error al guardar los cambios del activo.'));
+            }
+        } catch(e) {
+            console.error('Error updating asset:', e);
+            alert('❌ Error de conexión al guardar los cambios.');
+        }
+    }
+
+    async function decommissionCurrentAsset() {
+        if (!currentEditingAsset) return;
+        const confirmMsg = t('inventory.confirm_decommission', '¿Estás seguro de que deseas dar de baja este activo? El activo pasará a estatus inactivo pero se conservará todo su historial de mediciones para trazabilidad.');
+        if (!confirm(confirmMsg)) return;
+
+        const targetId = currentEditingAsset.id || currentEditingAsset.custom_id || currentEditingAsset.asset_id;
+        try {
+            const res = await fetch(`/api/inventory/assets/${encodeURIComponent(targetId)}/decommission`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: (sessionData && sessionData.site_id) || '' })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ ' + (data.message || 'Activo dado de baja correctamente.'));
+                closeAssetEditModal();
+                loadInventory();
+                if (currentModule === 'schedule') loadScheduleData();
+            } else {
+                alert('❌ ' + (data.message || 'Error al dar de baja el activo.'));
+            }
+        } catch(e) {
+            console.error('Error decommissioning asset:', e);
+            alert('❌ Error de conexión al dar de baja el activo.');
+        }
+    }
+
+    async function reactivateCurrentAsset() {
+        if (!currentEditingAsset) return;
+        const confirmMsg = t('inventory.confirm_reactivate', '¿Deseas reactivar este activo para volver a incluirlo en las verificaciones periódicas?');
+        if (!confirm(confirmMsg)) return;
+
+        const targetId = currentEditingAsset.id || currentEditingAsset.custom_id || currentEditingAsset.asset_id;
+        try {
+            const res = await fetch(`/api/inventory/assets/${encodeURIComponent(targetId)}/reactivate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: (sessionData && sessionData.site_id) || '' })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ ' + (data.message || 'Activo reactivado correctamente.'));
+                closeAssetEditModal();
+                loadInventory();
+                if (currentModule === 'schedule') loadScheduleData();
+            } else {
+                alert('❌ ' + (data.message || 'Error al reactivar el activo.'));
+            }
+        } catch(e) {
+            console.error('Error reactivating asset:', e);
+            alert('❌ Error de conexión al reactivar el activo.');
+        }
+    }
+
+    function viewHistoryFromEditModal() {
+        if (!currentEditingAsset) return;
+        const assetId = currentEditingAsset.custom_id || currentEditingAsset.asset_id;
+        const cat = currentEditingAsset.category;
+        const loc = currentEditingAsset.location;
+        closeAssetEditModal();
+        openAssetHistoryModal(assetId, cat, loc);
+    }
+
     async function loadInventory() {
         const tbody = document.getElementById('inventory-table-body');
         const countBadge = document.getElementById('inv-count-badge');
@@ -5199,11 +5440,12 @@
             const res = await fetch(`/api/inventory?${query.toString()}`);
             if (!res.ok) throw new Error('Error al cargar inventario');
             const data = await res.json();
+            allInventoryAssets = data || [];
 
             tbody.innerHTML = '';
-            if (countBadge) countBadge.innerText = `${data.length} ${t('sidebar.inventory', 'Activos')}`;
+            if (countBadge) countBadge.innerText = `${allInventoryAssets.length} ${t('sidebar.inventory', 'Activos')}`;
 
-            if (!data || data.length === 0) {
+            if (!allInventoryAssets || allInventoryAssets.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:32px; color:var(--text-muted);">ℹ️ ${t('inventory.no_assets', 'No se encontraron activos para los criterios seleccionados.')}</td></tr>`;
                 return;
             }
@@ -5219,7 +5461,7 @@
                 'permanent': 'Permanente'
             };
 
-            data.forEach(a => {
+            allInventoryAssets.forEach(a => {
                 const assetId = a.custom_id || a.asset_id || a.id || 'N/A';
                 const assetName = a.name && a.name !== assetId ? a.name : '';
                 const cat = a.category || 'Mobiliario ESD';
@@ -5227,10 +5469,11 @@
                 const loc = a.location || 'N/A';
                 const per = a.periodicity || '1m';
                 const perLabel = t('periodicity.' + per, perLabels[per] || per);
-                const statusStr = (a.status === 'PASS' || a.status === 'PASA' || a.status === 'ACTIVE') ? 'PASS' : 'FAIL';
-                const badgeCls = statusStr === 'PASS' ? 'badge-pass' : 'badge-fail';
+                const isInactive = (a.status === 'INACTIVE' || a.status === 'BAJA' || a.status === 'DECOMMISSIONED');
+                const statusStr = isInactive ? t('inventory.status_inactive', 'DADO DE BAJA') : (a.status === 'FAIL' ? 'FAIL' : 'PASS');
+                const badgeCls = isInactive ? 'badge-fail' : (statusStr === 'PASS' ? 'badge-pass' : 'badge-fail');
                 const lastDate = a.last_verification ? a.last_verification.split('T')[0] : 'N/D';
-                const nextDate = a.next_verification || (a.last_verification ? calculateNextDate(a.last_verification) : 'N/D');
+                const nextDate = isInactive ? 'N/A' : (a.next_verification || (a.last_verification ? calculateNextDate(a.last_verification) : 'N/D'));
 
                 // Format Measurement Values
                 let measHtml = '';
@@ -5256,12 +5499,12 @@
 
                 const catLabel = cat;
                 const subCatLabel = (subCat && subCat !== cat) ? `<div style="font-size:11px; color:var(--text-muted);">${subCat}</div>` : '';
-                const nameLabel = assetName ? `<div style="font-size:11px; color:var(--text-muted);">${assetName}</div>` : '';
+                const nameLabel = assetName ? `<div style="font-size:11px; color:var(--text-muted); font-weight:500;">${assetName}</div>` : '';
 
                 tbody.innerHTML += `
-                    <tr style="cursor:pointer;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')">
+                    <tr style="cursor:pointer; ${isInactive ? 'opacity:0.65; background:#FFF1F2;' : ''}" onclick="openAssetEditModal('${escapeJsString(assetId)}')">
                         <td>
-                            <strong style="color:var(--accent-blue); font-size:13px;">${assetId}</strong>
+                            <strong style="color:var(--accent-blue); font-size:13px; font-family:monospace;">${assetId}</strong>
                             ${nameLabel}
                         </td>
                         <td>
@@ -5281,15 +5524,20 @@
                             <span style="font-size:12px; color:var(--text-secondary);">${lastDate}</span>
                         </td>
                         <td>
-                            <span style="font-size:12px; font-weight:600; color:${nextDate === 'N/D' ? 'var(--text-muted)' : 'var(--accent-blue)'};">${nextDate}</span>
+                            <span style="font-size:12px; font-weight:600; color:${nextDate === 'N/D' || nextDate === 'N/A' ? 'var(--text-muted)' : 'var(--accent-blue)'};">${nextDate}</span>
                         </td>
                         <td>
                             <div>${measHtml}</div>
                         </td>
                         <td style="text-align:center;" onclick="event.stopPropagation();">
-                            <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11.5px; font-weight:600;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')">
-                                ${t('inventory.btn_view_history', '📜 Ver Historial')}
-                            </button>
+                            <div style="display:inline-flex; gap:6px;">
+                                <button type="button" class="btn-primary" style="padding:4px 9px; font-size:11.5px; background:var(--accent-blue);" onclick="openAssetEditModal('${escapeJsString(assetId)}')" title="Editar Activo">
+                                    ✏️
+                                </button>
+                                <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11.5px; font-weight:600;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')" title="Ver Historial">
+                                    📜
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -7151,7 +7399,7 @@
                 <span style="font-size:22px;">📦</span>
                 <div>
                     <h3 style="margin:0; font-size:15.5px; font-weight:800; color:var(--text-primary);" data-i18n="inventory.modal_new_title">Alta y Configuración de Activo ESD</h3>
-                    <p style="margin:2px 0 0 0; font-size:11.5px; color:var(--text-muted);">Registro de nuevo punto de control, ubicación y frecuencia de validación periódica.</p>
+                    <p style="margin:2px 0 0 0; font-size:11.5px; color:var(--text-muted);" data-i18n="inventory.modal_new_subtitle">Registro de nuevo punto de control, ubicación y frecuencia de validación periódica.</p>
                 </div>
             </div>
             <button type="button" class="btn-text" style="font-size:20px; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px;" onclick="closeNewAssetModal()">✕</button>
@@ -7199,7 +7447,7 @@
                 </div>
                 <div class="form-group">
                     <label data-i18n="inventory.lbl_area">Área / Zona*</label>
-                    <input type="text" id="inv-new-area" class="form-control" placeholder="Ej: Backend, SMT, Almacén" />
+                    <input type="text" id="inv-new-area" class="form-control" placeholder="Ej: Backend, SMT, Almacén" data-i18n-placeholder="inventory.ph_area" />
                 </div>
             </div>
 
@@ -7225,14 +7473,152 @@
 
             <div class="form-group">
                 <label data-i18n="inventory.lbl_notes">Notas / Observaciones Técnicas</label>
-                <input type="text" id="inv-new-notes" class="form-control" placeholder="Ej: Ubicada junto a estación de reflujo" />
+                <input type="text" id="inv-new-notes" class="form-control" placeholder="Ej: Ubicada junto a estación de reflujo" data-i18n-placeholder="inventory.ph_notes" />
             </div>
         </div>
 
         <!-- FOOTER -->
         <div style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px; background:#F8FAFC; border-radius:0 0 14px 14px;">
-            <button type="button" class="tab-btn" style="padding:7px 16px; font-size:12px;" onclick="closeNewAssetModal()">✕ Cancelar</button>
+            <button type="button" class="tab-btn" style="padding:7px 16px; font-size:12px;" onclick="closeNewAssetModal()" data-i18n="inventory.btn_cancel">✕ Cancelar</button>
             <button type="button" class="btn-primary" style="padding:7px 20px; font-size:12.5px; font-weight:700;" onclick="submitNewAsset()" data-i18n="inventory.btn_save_asset">💾 Guardar Activo</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ASSET DETAIL, EDITING & DECOMMISSION -->
+<div id="modal-edit-asset" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9995; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeAssetEditModal()">
+    <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:14px; width:100%; max-width:720px; max-height:92vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.3); padding:0; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+        <!-- HEADER -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC; border-radius:14px 14px 0 0;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">🛠️</span>
+                <div>
+                    <h3 style="margin:0; font-size:15.5px; font-weight:800; color:var(--text-primary);" data-i18n="inventory.modal_edit_title">Detalle y Edición de Activo ESD</h3>
+                    <p style="margin:2px 0 0 0; font-size:11.5px; color:var(--text-muted);" data-i18n="inventory.modal_edit_subtitle">Modificación de clasificación, ubicación y baja de control normativo.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-text" style="font-size:20px; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px;" onclick="closeAssetEditModal()">✕</button>
+        </div>
+
+        <!-- FORM BODY -->
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <!-- COMPLIANCE INTEGRITY NOTICE -->
+            <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:10px 14px; font-size:12px; color:#1E40AF; display:flex; align-items:center; gap:8px;">
+                <span data-i18n="inventory.lbl_readonly_notice">ℹ️ Las mediciones históricas, fechas de validación y auditor original no son editables para garantizar trazabilidad normativa.</span>
+            </div>
+
+            <input type="hidden" id="inv-edit-db-id" />
+
+            <!-- ROW 1: ASSET ID (READONLY) & STATUS BADGE -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:center;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_custom_id">Código / ID Único del Activo*</label>
+                    <input type="text" id="inv-edit-id" class="form-control" readonly style="background:#F1F5F9; font-family:monospace; font-weight:700; color:var(--accent-blue); cursor:not-allowed;" />
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.col_status">Estatus Actual</label>
+                    <div style="display:flex; align-items:center; height:38px;">
+                        <span id="inv-edit-status-badge" class="badge-pass" style="font-size:12px; padding:6px 16px; font-weight:800; letter-spacing:0.5px;">ACTIVO</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROW 2: DESCRIPTION & CATEGORY -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_name">Nombre / Descripción del Activo*</label>
+                    <input type="text" id="inv-edit-name" class="form-control" placeholder="Ej: Mesa de Trabajo Principal SMT 1" data-i18n-placeholder="inventory.ph_name" required />
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_category">Tipo / Categoría de Activo*</label>
+                    <select id="inv-edit-category" class="form-control" onchange="onEditAssetCategoryChange(this.value)">
+                        <option value="Mobiliario ESD" data-i18n="audit.cat_furniture">Mobiliario ESD</option>
+                        <option value="Sistema de ionización" data-i18n="audit.cat_ionizer">Sistema de ionización</option>
+                        <option value="Maquinaria y equipo" data-i18n="audit.cat_machinery">Maquinaria y equipo</option>
+                        <option value="Puntos de Tierra / Grounding" data-i18n="audit.cat_grounding">Puntos de Tierra / Grounding</option>
+                        <option value="Pisos y Calzado" data-i18n="audit.cat_floors">Pisos y Calzado</option>
+                        <option value="Prendas y Guantes" data-i18n="audit.cat_garments">Prendas y Guantes</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ROW 3: SUBTYPE & LINE -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_subtype">Subtipo de Activo*</label>
+                    <select id="inv-edit-subtype" class="form-control">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_line">Línea / Ubicación Asignada*</label>
+                    <select id="inv-edit-line" class="form-control" onchange="onEditAssetLineChange(this.value)" required>
+                        <option value="">-- Seleccionar Línea --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ROW 4: AREA & PERIODICITY -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_area">Área / Zona*</label>
+                    <input type="text" id="inv-edit-area" class="form-control" placeholder="Ej: Backend, SMT, Almacén" data-i18n-placeholder="inventory.ph_area" />
+                </div>
+                <div class="form-group">
+                    <label data-i18n="inventory.lbl_periodicity">Periodicidad de Validación*</label>
+                    <select id="inv-edit-periodicity" class="form-control">
+                        <option value="1d" data-i18n="periodicity.1d">1 Día (Diario)</option>
+                        <option value="1w" data-i18n="periodicity.1w">1 Semana (Semanal)</option>
+                        <option value="2w" data-i18n="periodicity.2w">2 Semanas (Quincenal)</option>
+                        <option value="1m" data-i18n="periodicity.1m">1 Mes (Mensual)</option>
+                        <option value="3m" data-i18n="periodicity.3m">3 Meses (Trimestral)</option>
+                        <option value="6m" data-i18n="periodicity.6m">6 Meses (Semestral)</option>
+                        <option value="1y" data-i18n="periodicity.1y">1 Año (Anual)</option>
+                        <option value="permanent" data-i18n="periodicity.permanent">Permanente (N/A)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ROW 5: NOTES -->
+            <div class="form-group">
+                <label data-i18n="inventory.lbl_notes">Notas / Observaciones Técnicas</label>
+                <input type="text" id="inv-edit-notes" class="form-control" placeholder="Ej: Ubicada junto a estación de reflujo" data-i18n-placeholder="inventory.ph_notes" />
+            </div>
+
+            <!-- READ-ONLY AUDIT & TRACEABILITY CARD -->
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px;">
+                    <div>
+                        <small style="color:var(--text-muted); font-size:11px; font-weight:700;" data-i18n="inventory.registered_by">Registrado / Auditado por</small>
+                        <div id="inv-edit-auditor" style="font-size:12.5px; font-weight:600; color:var(--text-primary); margin-top:2px;">-</div>
+                    </div>
+                    <div>
+                        <small style="color:var(--text-muted); font-size:11px; font-weight:700;" data-i18n="inventory.col_last_test">Última Verificación</small>
+                        <div id="inv-edit-last-date" style="font-size:12.5px; font-weight:600; color:var(--text-primary); margin-top:2px;">-</div>
+                    </div>
+                    <div>
+                        <small style="color:var(--text-muted); font-size:11px; font-weight:700;" data-i18n="inventory.col_next_test">Próxima Verificación</small>
+                        <div id="inv-edit-next-date" style="font-size:12.5px; font-weight:700; color:var(--accent-blue); margin-top:2px;">-</div>
+                    </div>
+                </div>
+                <div style="border-top:1px dashed #CBD5E1; padding-top:8px;">
+                    <small style="color:var(--text-muted); font-size:11px; font-weight:700;" data-i18n="inventory.last_meas_title">Última Medición Registrada</small>
+                    <div id="inv-edit-measurements" style="font-size:12.5px; margin-top:3px;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC; border-radius:0 0 14px 14px; gap:10px;">
+            <div style="display:flex; gap:8px;">
+                <button type="button" id="inv-btn-decommission" class="tab-btn" style="color:var(--accent-rose); border-color:#FECDD3; background:#FFF1F2; font-size:12px; font-weight:700;" onclick="decommissionCurrentAsset()" data-i18n="inventory.btn_decommission">🗑️ Dar de Baja Activo</button>
+                <button type="button" id="inv-btn-reactivate" class="tab-btn" style="display:none; color:var(--accent-green); border-color:#A7F3D0; background:#ECFDF5; font-size:12px; font-weight:700;" onclick="reactivateCurrentAsset()" data-i18n="inventory.btn_reactivate">🔄 Reactivar Activo</button>
+                <button type="button" class="tab-btn" style="font-size:12px; font-weight:600;" onclick="viewHistoryFromEditModal()" data-i18n="inventory.btn_view_history">📜 Ver Historial</button>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="tab-btn" style="padding:7px 16px; font-size:12px;" onclick="closeAssetEditModal()" data-i18n="inventory.btn_cancel">✕ Cancelar</button>
+                <button type="button" class="btn-primary" style="padding:7px 20px; font-size:12.5px; font-weight:700;" onclick="saveAssetChanges()" data-i18n="inventory.btn_save_changes">💾 Guardar Cambios</button>
+            </div>
         </div>
     </div>
 </div>
