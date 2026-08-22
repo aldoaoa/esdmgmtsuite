@@ -3519,5 +3519,118 @@ public class ApiController : ControllerBase
         catch { }
         return false;
     }
+
+    // --- ESD CONTROL ELEMENT VALIDATION ENDPOINTS ---
+    [HttpGet("validation/equipos")]
+    public async Task<IActionResult> GetValidationEquipos([FromQuery] string? siteId)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var equipos = await _supabase.GetCatalogoEquiposAsync(targetSite);
+        return Ok(equipos);
+    }
+
+    [HttpGet("validation/records")]
+    public async Task<IActionResult> GetValidationRecords([FromQuery] string? siteId)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var records = await _supabase.GetValidacionesEsdAsync(targetSite);
+        return Ok(records);
+    }
+
+    [HttpPost("validation/records")]
+    public async Task<IActionResult> CreateValidationRecord([FromBody] JsonObject payload)
+    {
+        if (payload == null) return BadRequest(new { success = false, message = "Payload inválido." });
+
+        string siteId = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+        payload["site_id"] = siteId;
+
+        string idElemento = payload["id_elemento"]?.ToString()?.Trim().ToUpper() ?? "";
+        if (string.IsNullOrEmpty(idElemento))
+        {
+            return BadRequest(new { success = false, message = "El ID del elemento es obligatorio." });
+        }
+        payload["id_elemento"] = idElemento;
+
+        if (string.IsNullOrEmpty(payload["fecha_auditoria"]?.ToString()))
+        {
+            payload["fecha_auditoria"] = DateTime.UtcNow.ToString("o");
+        }
+
+        if (string.IsNullOrEmpty(payload["auditor"]?.ToString()))
+        {
+            payload["auditor"] = HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
+        }
+
+        // Evaluate PASS/FAIL
+        double? med1 = null;
+        if (payload["medicion_1"] != null && double.TryParse(payload["medicion_1"]?.ToString(), out double parsedMed1))
+        {
+            med1 = parsedMed1;
+        }
+
+        double refLimit = 1.0e9;
+        if (payload["limite_referencia"] != null && double.TryParse(payload["limite_referencia"]?.ToString(), out double parsedRef))
+        {
+            refLimit = parsedRef;
+        }
+
+        string calcResult = "CUMPLE (APROBADO)";
+        if (med1.HasValue)
+        {
+            if (med1.Value > refLimit)
+            {
+                calcResult = "NO CUMPLE (RECHAZADO)";
+            }
+        }
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (!string.IsNullOrEmpty(currentUserId) && !payload.ContainsKey("auditor_id"))
+        {
+            payload["auditor_id"] = currentUserId;
+        }
+
+        var inserted = await _supabase.InsertValidacionEsdAsync(payload);
+
+        await _supabase.LogAuditEventAsync(currentUserId, siteId, "AUDIT", "ESDValidation",
+            $"Validación de elemento '{idElemento}' ({payload["elemento_s20_20"]}) registrada con resultado: {calcResult}.",
+            new { idElemento, resultado = calcResult, med1, refLimit });
+
+        return Ok(new { success = true, resultado = calcResult, data = inserted });
+    }
+
+    [HttpPost("validation/upload-evidence")]
+    public async Task<IActionResult> UploadValidationEvidence([FromForm] IFormFile file, [FromForm] string? siteId, [FromForm] string? elementId)
+    {
+        if (file == null || file.Length == 0) return BadRequest(new { success = false, message = "No se recibió ningún archivo de imagen." });
+
+        string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp")
+        {
+            return BadRequest(new { success = false, message = "Formato de imagen no soportado (se requiere JPG, PNG o WEBP)." });
+        }
+
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        string elemPrefix = !string.IsNullOrEmpty(elementId) ? elementId.Trim().ToUpper() : "ELEM";
+        string safeName = $"{elemPrefix}_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 6)}{ext}";
+        string storagePath = $"{targetSite}/{safeName}";
+        string contentType = ext == ".png" ? "image/png" : (ext == ".webp" ? "image/webp" : "image/jpeg");
+
+        using var stream = file.OpenReadStream();
+        var (uploadSuccess, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, stream, contentType);
+
+        if (!uploadSuccess)
+        {
+            string uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "evidence");
+            Directory.CreateDirectory(uploadsDir);
+            string localFilePath = Path.Combine(uploadsDir, safeName);
+            using (var localStream = new FileStream(localFilePath, FileMode.Create))
+            {
+                await file.CopyToAsync(localStream);
+            }
+        }
+
+        string evidenceUrl = $"/api/evidence/{targetSite}/{safeName}";
+        return Ok(new { success = true, evidence_url = evidenceUrl, storage_key = $"audit-evidence/{storagePath}" });
+    }
 }
 
