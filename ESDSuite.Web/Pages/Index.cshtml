@@ -1325,6 +1325,13 @@
                                     <input type="text" id="repo-search-input" class="form-control" placeholder="Buscar por Folio, Auditor o Línea..." data-i18n-placeholder="schedule.ph_search_reports" style="padding-left:34px;" oninput="filterReportsRepository()" />
                                     <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none;">🔍</span>
                                 </div>
+                                <div style="min-width:220px;">
+                                    <select id="repo-filter-type" class="form-control" onchange="filterReportsRepository()">
+                                        <option value="all" data-i18n="schedule.all_report_types">-- Todos los Tipos de Reporte --</option>
+                                        <option value="LINE_VALIDATION" data-i18n="schedule.type_line_validation">📋 Reporte de Validación de Línea</option>
+                                        <option value="ESD_EVENTS" data-i18n="schedule.type_esd_events">⚡ Reporte de Eventos ESD (por Línea)</option>
+                                    </select>
+                                </div>
                                 <div style="min-width:180px;">
                                     <select id="repo-filter-line" class="form-control" onchange="filterReportsRepository()">
                                         <option value="all" data-i18n="schedule.all_lines">-- Todas las Líneas --</option>
@@ -4962,17 +4969,20 @@
 
     function filterReportsRepository() {
         const search = (document.getElementById('repo-search-input')?.value || '').trim().toLowerCase();
+        const typeFilter = document.getElementById('repo-filter-type')?.value || 'all';
         const lineFilter = document.getElementById('repo-filter-line')?.value || 'all';
 
         let filtered = allGeneratedReports.filter(r => {
             const folio = (r.folio || '').toLowerCase();
             const auditor = (r.auditor || '').toLowerCase();
             const rLine = (r.linea || '').toLowerCase();
+            const rType = (r.report_type || 'LINE_VALIDATION').toUpperCase();
 
             const matchesSearch = !search || folio.includes(search) || auditor.includes(search) || rLine.includes(search);
             const matchesLine = lineFilter === 'all' || rLine.includes(lineFilter.toLowerCase());
+            const matchesType = typeFilter === 'all' || rType === typeFilter || (typeFilter === 'LINE_VALIDATION' && (!r.report_type || r.report_type === 'LINE_VALIDATION'));
 
-            return matchesSearch && matchesLine;
+            return matchesSearch && matchesLine && matchesType;
         });
 
         renderReportsRepositoryTable(filtered);
@@ -4990,7 +5000,10 @@
         let html = '';
         reports.forEach(r => {
             const folio = r.folio || 'N/D';
-            const type = r.tipo_reporte || 'Validación de Línea';
+            const rType = (r.report_type || 'LINE_VALIDATION').toUpperCase();
+            const typeLabel = rType === 'ESD_EVENTS'
+                ? t('schedule.type_esd_events_short', '⚡ Eventos ESD')
+                : t('schedule.type_line_val_short', '📋 Validación de Línea');
             const linea = r.linea || 'N/A';
             const auditor = r.auditor || 'N/A';
             const dateStr = r.created_at ? (r.created_at.includes('T') ? r.created_at.split('T')[0] : r.created_at) : 'N/A';
@@ -4998,17 +5011,17 @@
             html += `
                 <tr>
                     <td><strong style="color:var(--accent-blue); font-family:monospace; font-size:12.5px;">${folio}</strong></td>
-                    <td><span class="badge-pass" style="font-size:10.5px; background:var(--accent-blue-light); color:var(--accent-blue); border-color:#BFDBFE;">📋 ${type}</span></td>
+                    <td><span class="badge-pass" style="font-size:10.5px; background:var(--accent-blue-light); color:var(--accent-blue); border-color:#BFDBFE;">${typeLabel}</span></td>
                     <td><b>${linea}</b></td>
                     <td>${auditor}</td>
                     <td>${dateStr}</td>
                     <td style="text-align:center;">
                         <div style="display:inline-flex; gap:6px;">
-                            <button type="button" class="btn-primary" style="padding:4px 9px; font-size:11px; background:var(--accent-blue);" onclick="previewReportByFolio('${folio}')" title="Ver Previsualización">
-                                <span data-i18n="schedule.btn_view_report">👁️ Ver</span>
+                            <button type="button" class="btn-primary" style="padding:4px 9px; font-size:11px; background:var(--accent-blue);" onclick="previewReportByFolio('${folio}')" title="${t('schedule.btn_view_report', '👁️ Ver')}">
+                                <span>${t('schedule.btn_view_report', '👁️ Ver')}</span>
                             </button>
-                            <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11px;" onclick="printReportByFolio('${folio}')" title="Imprimir / Guardar PDF">
-                                <span data-i18n="schedule.btn_print_report">🖨️ PDF</span>
+                            <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11px;" onclick="printReportByFolio('${folio}')" title="${t('schedule.btn_print_report', '🖨️ PDF')}">
+                                <span>${t('schedule.btn_print_report', '🖨️ PDF')}</span>
                             </button>
                         </div>
                     </td>
@@ -5022,7 +5035,7 @@
     async function previewReportByFolio(folio) {
         try {
             const res = await fetch(`/api/schedule/reports/${folio}/view`);
-            if (!res.ok) throw new Error('No se pudo cargar el reporte');
+            if (!res.ok) throw new Error(t('schedule.err_load_report', 'No se pudo cargar el reporte'));
             const html = await res.text();
 
             switchScheduleSubTab('reports');
@@ -5033,12 +5046,12 @@
                     <div class="glass-card" style="border-left:4px solid var(--accent-blue); margin-bottom:14px; background:#F8FAFC;">
                         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                             <div>
-                                <span style="font-size:11px; color:var(--text-muted); font-weight:700;">VISUALIZANDO REPORTE FOLIO:</span>
+                                <span style="font-size:11px; color:var(--text-muted); font-weight:700;">${t('schedule.lbl_viewing_folio', 'VISUALIZANDO REPORTE FOLIO:')}</span>
                                 <div style="font-size:16px; font-weight:800; color:var(--accent-blue);">${folio}</div>
                             </div>
                             <div style="display:flex; gap:8px;">
-                                <button type="button" class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="printReportByFolio('${folio}')">🖨️ Imprimir / PDF</button>
-                                <button type="button" class="tab-btn" style="padding:6px 12px; font-size:12px;" onclick="switchScheduleSubTab('repository')">🗄️ Volver al Repositorio</button>
+                                <button type="button" class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="printReportByFolio('${folio}')">🖨️ ${t('schedule.btn_print_pdf', 'Imprimir / PDF')}</button>
+                                <button type="button" class="tab-btn" style="padding:6px 12px; font-size:12px;" onclick="switchScheduleSubTab('repository')">🗄️ ${t('schedule.btn_back_repo', 'Volver al Repositorio')}</button>
                             </div>
                         </div>
                     </div>
@@ -5047,7 +5060,7 @@
                 container.scrollIntoView({ behavior: 'smooth' });
             }
         } catch (ex) {
-            alert('❌ Error al visualizar reporte: ' + ex.message);
+            alert('❌ ' + (t('schedule.err_view_report', 'Error al visualizar reporte: ') + ex.message));
         }
     }
 

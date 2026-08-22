@@ -1204,29 +1204,28 @@ public class ApiController : ControllerBase
             reportLang
         );
 
-        // 5. Upload Report HTML to Supabase Storage
+        // 5. Save local cache AND upload Report HTML to Supabase Storage
         string storagePath = $"reports/{compCode}_{siteCode}/{uniqueFolio}.html";
         string downloadUrl = $"/api/schedule/reports/{uniqueFolio}/view";
         try
         {
+            // Save local cache file
+            string reportsDir = Path.Combine(_env.WebRootPath, "uploads", "reports");
+            Directory.CreateDirectory(reportsDir);
+            string localPath = Path.Combine(reportsDir, $"{uniqueFolio}.html");
+            await System.IO.File.WriteAllTextAsync(localPath, html, System.Text.Encoding.UTF8);
+
+            // Upload to Supabase Storage bucket 'audit-evidence'
             var uploadBytes = System.Text.Encoding.UTF8.GetBytes(html);
             var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, uploadBytes, "text/html");
             if (uploadOk)
             {
                 downloadUrl = $"/storage/v1/object/authenticated/audit-evidence/{storagePath}";
             }
-            else
-            {
-                // Local fallback
-                string reportsDir = Path.Combine(_env.WebRootPath, "uploads", "reports");
-                Directory.CreateDirectory(reportsDir);
-                string localPath = Path.Combine(reportsDir, $"{uniqueFolio}.html");
-                await System.IO.File.WriteAllTextAsync(localPath, html, System.Text.Encoding.UTF8);
-            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error uploading report to Supabase storage: {ex.Message}");
+            Console.WriteLine($"Error saving or uploading report: {ex.Message}");
         }
 
         // 6. Log report entry into log_reportes_linea
@@ -1260,23 +1259,82 @@ public class ApiController : ControllerBase
     }
 
     [HttpGet("schedule/reports")]
-    public async Task<IActionResult> GetScheduleReports([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? line = null)
+    public async Task<IActionResult> GetScheduleReports([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? line = null, [FromQuery] string? reportType = null)
     {
         string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        var reports = GetReportsFromIndex(activeSiteId, search, line);
+        var reports = GetReportsFromIndex(activeSiteId, search, line, reportType);
         return Ok(new { success = true, reports });
     }
 
     [HttpGet("schedule/reports/{folio}/view")]
-    public IActionResult ViewScheduleReport(string folio)
+    public async Task<IActionResult> ViewScheduleReport(string folio)
     {
-        string safeFolio = Path.GetFileName(folio).Replace("..", "");
+        string safeFolio = Path.GetFileName(folio).Replace("..", "").Trim();
         string localPath = Path.Combine(_env.WebRootPath, "uploads", "reports", $"{safeFolio}.html");
+        
+        // 1. Check local file cache first
         if (System.IO.File.Exists(localPath))
         {
-            string html = System.IO.File.ReadAllText(localPath, System.Text.Encoding.UTF8);
+            string html = await System.IO.File.ReadAllTextAsync(localPath, System.Text.Encoding.UTF8);
             return Content(html, "text/html");
         }
+
+        // 2. Lookup storage path in reports_history.json
+        string? storagePath = null;
+        try
+        {
+            string histPath = Path.Combine(_env.WebRootPath, "data", "reports_history.json");
+            if (System.IO.File.Exists(histPath))
+            {
+                var list = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(histPath)) as JsonArray;
+                var item = list?.FirstOrDefault(x => string.Equals(x?["folio"]?.ToString(), safeFolio, StringComparison.OrdinalIgnoreCase));
+                storagePath = item?["storage_path"]?.ToString();
+            }
+        }
+        catch { }
+
+        // 3. Download from Supabase Storage bucket 'audit-evidence' using explicit storagePath
+        if (!string.IsNullOrEmpty(storagePath))
+        {
+            var (ok, stream, ct, msg) = await _supabase.DownloadStorageObjectAsync("audit-evidence", storagePath);
+            if (ok && stream != null)
+            {
+                using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+                string html = await reader.ReadToEndAsync();
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+                    await System.IO.File.WriteAllTextAsync(localPath, html, System.Text.Encoding.UTF8);
+                }
+                catch { }
+                return Content(html, "text/html");
+            }
+        }
+
+        // 4. Try candidate paths in Supabase Storage
+        var candidatePaths = new[]
+        {
+            $"reports/BCS_QUE/{safeFolio}.html",
+            $"reports/BCS_QRO/{safeFolio}.html",
+            $"reports/{safeFolio}.html"
+        };
+        foreach (var cPath in candidatePaths)
+        {
+            var (ok, stream, ct, msg) = await _supabase.DownloadStorageObjectAsync("audit-evidence", cPath);
+            if (ok && stream != null)
+            {
+                using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+                string html = await reader.ReadToEndAsync();
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+                    await System.IO.File.WriteAllTextAsync(localPath, html, System.Text.Encoding.UTF8);
+                }
+                catch { }
+                return Content(html, "text/html");
+            }
+        }
+
         return NotFound("Reporte no encontrado.");
     }
 
@@ -3197,7 +3255,7 @@ public class ApiController : ControllerBase
         catch { }
     }
 
-    private JsonArray GetReportsFromIndex(string siteId, string? search, string? line)
+    private JsonArray GetReportsFromIndex(string siteId, string? search, string? line, string? reportType = null)
     {
         var result = new JsonArray();
         try
@@ -3209,6 +3267,7 @@ public class ApiController : ControllerBase
                 var list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray ?? new JsonArray();
                 string q = (search ?? "").Trim().ToLower();
                 string lFilter = (line ?? "").Trim().ToLower();
+                string tFilter = (reportType ?? "").Trim().ToUpper();
 
                 foreach (var item in list)
                 {
@@ -3220,7 +3279,9 @@ public class ApiController : ControllerBase
                         string folio = r["folio"]?.ToString()?.ToLower() ?? "";
                         string auditor = r["auditor"]?.ToString()?.ToLower() ?? "";
                         string rLine = r["linea"]?.ToString()?.ToLower() ?? "";
+                        string rType = (r["report_type"]?.ToString() ?? "LINE_VALIDATION").ToUpper();
 
+                        if (!string.IsNullOrEmpty(tFilter) && tFilter != "ALL" && rType != tFilter) continue;
                         if (!string.IsNullOrEmpty(lFilter) && lFilter != "all" && !rLine.Contains(lFilter)) continue;
                         if (!string.IsNullOrEmpty(q) && !folio.Contains(q) && !auditor.Contains(q) && !rLine.Contains(q)) continue;
 
