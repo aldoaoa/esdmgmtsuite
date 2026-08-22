@@ -3685,19 +3685,42 @@ public class ApiController : ControllerBase
         string activeSiteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
         string activeCompanyId = payload["company_id"]?.ToString() ?? HttpContext.Session.GetString("company_id") ?? "";
 
-        // 1. Resolve Company & Site Names
+        // 1. Resolve Company & Site Names according to current plant/site
         string companyName = HttpContext.Session.GetString("company_name") ?? "BCS Automotive Interface Solutions";
         string siteName = HttpContext.Session.GetString("site_name") ?? "Queretaro Plant";
         string? logoUrl = null;
 
+        if (!string.IsNullOrEmpty(activeSiteId))
+        {
+            try
+            {
+                var allSites = await _supabase.GetSitesAsync();
+                var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), activeSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+                if (matchedSite != null)
+                {
+                    siteName = matchedSite["name"]?.ToString() ?? siteName;
+                    string? siteCompId = matchedSite["company_id"]?.ToString();
+                    if (!string.IsNullOrEmpty(siteCompId))
+                    {
+                        activeCompanyId = siteCompId;
+                    }
+                }
+            }
+            catch { }
+        }
+
         if (!string.IsNullOrEmpty(activeCompanyId))
         {
-            var compObj = await _supabase.GetCompanyByIdAsync(activeCompanyId);
-            if (compObj != null)
+            try
             {
-                companyName = compObj["name"]?.ToString() ?? companyName;
-                logoUrl = compObj["logo_url"]?.ToString();
+                var compObj = await _supabase.GetCompanyByIdAsync(activeCompanyId);
+                if (compObj != null)
+                {
+                    companyName = compObj["name"]?.ToString() ?? companyName;
+                    logoUrl = compObj["logo_url"]?.ToString();
+                }
             }
+            catch { }
         }
 
         if (string.IsNullOrEmpty(logoUrl) && !string.IsNullOrEmpty(activeCompanyId))
@@ -3705,30 +3728,23 @@ public class ApiController : ControllerBase
             logoUrl = GetLocalCompanyLogo(activeCompanyId);
         }
 
+        // Fallback to esd360 logo if no company logo uploaded
         if (string.IsNullOrEmpty(logoUrl))
         {
-            logoUrl = "https://github.com/aldoaoa/Visualizador-BCS-IDS/blob/main/BCS%20LOGO.png?raw=true";
+            logoUrl = "/images/esd360-logo.png";
         }
 
-        // 2. Generate Unique Folio
+        // 2. Generate High-Entropy Unique ID matching Line Validation structure (replacing LV with PV)
         string compCode = GetAbbreviation(companyName, 3, "BCS");
         string siteCode = GetAbbreviation(siteName, 3, "QRO");
-        string yearShort = DateTime.UtcNow.ToString("yy");
-
-        string rawId = payload["id"]?.ToString() ?? payload["id_elemento"]?.ToString() ?? "001";
-        int numericId = 1;
-        var digitsOnly = new string(rawId.Where(char.IsDigit).ToArray());
-        if (int.TryParse(digitsOnly, out int pId) && pId > 0)
-        {
-            numericId = pId;
-        }
+        string yearMonth = DateTime.UtcNow.ToString("yyMM");
 
         string uniqueFolio;
         int attempts = 0;
         do
         {
-            string hexSuffix = Guid.NewGuid().ToString("N")[..4].ToUpper();
-            uniqueFolio = $"{compCode}-PV-{numericId:D3}-{yearShort}-{hexSuffix}";
+            string hexId = Guid.NewGuid().ToString("N")[..8].ToUpper();
+            uniqueFolio = $"{compCode}-{siteCode}-PV-{yearMonth}-{hexId}";
             attempts++;
         } while (IsFolioTaken(uniqueFolio, activeSiteId) && attempts < 20);
 
@@ -3738,8 +3754,7 @@ public class ApiController : ControllerBase
             uniqueFolio,
             companyName,
             siteName,
-            logoUrl,
-            numericId
+            logoUrl
         );
 
         // 4. Save local cache AND upload to Supabase Storage 'audit-evidence'

@@ -64,11 +64,9 @@ public static class ElementValidationReportGenerator
         }
 
         // 1. Resolve Company Logo
-        string effectiveLogo = logoUrl ?? "";
-        if (string.IsNullOrEmpty(effectiveLogo))
-        {
-            effectiveLogo = "https://github.com/aldoaoa/Visualizador-BCS-IDS/blob/main/BCS%20LOGO.png?raw=true";
-        }
+        string effectiveLogo = !string.IsNullOrWhiteSpace(logoUrl)
+            ? logoUrl
+            : "/images/esd360-logo.png";
 
         // 2. Resolve Year and Execution Date in English (e.g. 22-Aug-2026)
         string fechaRaw = GetVal("fecha_auditoria", DateTime.UtcNow.ToString("o"));
@@ -83,7 +81,7 @@ public static class ElementValidationReportGenerator
         }
 
         string executionDateFormatted = execDate.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture);
-        string footerDateStr = execDate.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
+        string footerDateStr = execDate.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
         string shortYear = execDate.ToString("yy", CultureInfo.InvariantCulture);
 
         // 3. Extract and Translate Control Element Metadata
@@ -403,18 +401,19 @@ public static class ElementValidationReportGenerator
                 </div>
             </div>
             
-            <!-- DOCUMENT FOOTER CONTROL BAR -->
-            <div class=""border-t-[3px] border-b-[3px] border-black mt-12 py-1.5 text-[11px] font-sans [page-break-inside:avoid]"">
-                <div class=""flex justify-between items-end"">
+            <!-- MANDATORY CORPORATE FOOTER WITH UNIQUE ID -->
+            <div class=""border-t-[2px] border-b-[2px] border-black mt-8 py-2 text-[11px] font-sans [page-break-inside:avoid] bg-slate-50 print:bg-transparent"">
+                <div class=""flex justify-between items-center px-2"">
                     <div class=""text-left leading-tight"">
-                        <div class=""font-bold"">B_010_4_018_QRO_SP_Rev. A</div>
-                        <div class=""text-gray-600"">ESD Control Element Validation Report Form</div>
+                        <div class=""font-bold text-gray-800"">{companyName} &bull; {siteName}</div>
+                        <div class=""text-[10px] text-gray-500"">ESD 360 Control &amp; Traceability System</div>
                     </div>
-                    <div class=""text-center leading-tight"">
-                        <div>Date: {footerDateStr}</div>
+                    <div class=""text-center leading-tight font-mono text-[10px] text-gray-600"">
+                        <div>Generation Date: {footerDateStr}</div>
                     </div>
                     <div class=""text-right leading-tight"">
-                        <div>Ref. B_010_3_002_QRO_SP</div>
+                        <div class=""font-bold font-mono text-red-800 text-[11px]"">ID: {folio}</div>
+                        <div class=""text-[10px] text-gray-500"">Official Audit Document</div>
                     </div>
                 </div>
             </div>
