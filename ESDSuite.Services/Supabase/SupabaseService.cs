@@ -554,6 +554,14 @@ public class SupabaseService
         return await InsertAsync("log_reportes_linea", data);
     }
 
+    public async Task<JsonArray> GetLogReportesLineaAsync(string? siteId = null, string? companyId = null)
+    {
+        var query = new List<string> { "select=*", "order=created_at.desc" };
+        if (!string.IsNullOrEmpty(siteId)) query.Add($"site_id=eq.{siteId}");
+        if (!string.IsNullOrEmpty(companyId)) query.Add($"company_id=eq.{companyId}");
+        return await GetAsync($"log_reportes_linea?{string.Join("&", query)}");
+    }
+
     // --- SENSITIVITY LAB ---
     public async Task<JsonArray> GetCatalogoSensibilidadAsync()
     {
@@ -668,6 +676,17 @@ public class SupabaseService
     public async Task<JsonObject?> InsertCompanyAsync(object data)
     {
         return await InsertAsync("companies", data);
+    }
+
+    public async Task<JsonObject?> GetCompanyByIdAsync(string id)
+    {
+        var res = await GetAsync($"companies?id=eq.{id}&select=*");
+        return res.Count > 0 && res[0] is JsonObject cObj ? cObj : null;
+    }
+
+    public async Task<bool> UpdateCompanyAsync(string id, object data)
+    {
+        return await UpdateAsync("companies", $"id=eq.{id}", data);
     }
 
     public async Task<JsonArray> GetSitesAsync(string? companyId = null)

@@ -1083,12 +1083,198 @@ public class ApiController : ControllerBase
     [HttpPost("schedule/generate-line-report")]
     public async Task<IActionResult> GenerateLineReport([FromBody] JsonObject payload)
     {
-        string linea = payload["linea"]?.ToString() ?? "Línea 1";
-        string auditor = payload["auditor"]?.ToString() ?? HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
-        string comentarios = payload["comentarios"]?.ToString() ?? "Cumple con las normativas ANSI/ESD S20.20.";
-        var rows = payload["rows"] as JsonArray ?? new JsonArray();
+        string linea = payload["linea"]?.ToString()?.Trim() ?? "Línea 1";
+        string auditor = payload["auditor"]?.ToString()?.Trim() ?? HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
+        string comentarios = payload["comentarios"]?.ToString()?.Trim() ?? "";
+        
+        string activeSiteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string activeCompanyId = payload["company_id"]?.ToString() ?? HttpContext.Session.GetString("company_id") ?? "";
+        
+        // 1. Resolve Company & Site Names
+        string companyName = HttpContext.Session.GetString("company_name") ?? "BCS Automotive Interface Solutions";
+        string siteName = HttpContext.Session.GetString("site_name") ?? "Queretaro Plant";
+        string? logoUrl = null;
 
-        // 1. Log report entry
+        if (!string.IsNullOrEmpty(activeCompanyId))
+        {
+            var compObj = await _supabase.GetCompanyByIdAsync(activeCompanyId);
+            if (compObj != null)
+            {
+                companyName = compObj["name"]?.ToString() ?? companyName;
+                logoUrl = compObj["logo_url"]?.ToString();
+            }
+        }
+
+        // Check local branding cache if logoUrl not in DB
+        if (string.IsNullOrEmpty(logoUrl) && !string.IsNullOrEmpty(activeCompanyId))
+        {
+            logoUrl = GetLocalCompanyLogo(activeCompanyId);
+        }
+
+        // If SuperAdmin without company branding, default to esd360 logo
+        if (string.IsNullOrEmpty(logoUrl) && IsSuperAdmin && string.IsNullOrEmpty(activeCompanyId))
+        {
+            logoUrl = "/images/esd360-logo.png";
+        }
+
+        // 2. Generate Unique ID: [COMPAÑIA]-[SITE]-LV-[XXXXXX]
+        string compCode = GetAbbreviation(companyName, 3, "BCS");
+        string siteCode = GetAbbreviation(siteName, 3, "QRO");
+        string hexId = Guid.NewGuid().ToString("N")[..6].ToUpper();
+        string uniqueFolio = $"{compCode}-{siteCode}-LV-{hexId}";
+
+        // 3. Populate Rows with Live Asset Data for this Line if not provided
+        var rows = payload["rows"] as JsonArray ?? new JsonArray();
+        if (rows.Count == 0)
+        {
+            try
+            {
+                var assets = await _supabase.GetAssetsAsync(activeSiteId);
+                var measurements = await _supabase.GetMeasurementsForSiteAsync(activeSiteId);
+
+                // Group measurements by asset custom_id (latest first)
+                var latestMeasByAsset = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+                foreach (var m in measurements)
+                {
+                    if (m is JsonObject mObj)
+                    {
+                        string idElem = mObj["id_elemento"]?.ToString()?.Trim() ?? mObj["custom_id"]?.ToString()?.Trim() ?? "";
+                        if (!string.IsNullOrEmpty(idElem) && !latestMeasByAsset.ContainsKey(idElem))
+                        {
+                            latestMeasByAsset[idElem] = mObj;
+                        }
+                    }
+                }
+
+                foreach (var a in assets)
+                {
+                    if (a is JsonObject aObj)
+                    {
+                        string loc = aObj["location"]?.ToString() ?? "";
+                        if (string.Equals(loc, linea, StringComparison.OrdinalIgnoreCase) || 
+                            loc.IndexOf(linea, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            linea.IndexOf(loc, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            string customId = aObj["custom_id"]?.ToString() ?? aObj["asset_id"]?.ToString() ?? aObj["id"]?.ToString() ?? "";
+                            string cat = aObj["category"]?.ToString() ?? "Mobiliario ESD";
+                            string subCat = "";
+                            string per = "1m";
+
+                            // Parse classification JSON if present
+                            string rawClasif = aObj["classification"]?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(rawClasif) && rawClasif.StartsWith('{'))
+                            {
+                                try
+                                {
+                                    var cJson = JsonNode.Parse(rawClasif) as JsonObject;
+                                    if (cJson != null)
+                                    {
+                                        subCat = cJson["subtype"]?.ToString() ?? "";
+                                        per = cJson["periodicity"]?.ToString() ?? "1m";
+                                    }
+                                }
+                                catch { }
+                            }
+
+                            string lastTestDate = "";
+                            string nextDueDate = "";
+                            string status = "COMPLIANT";
+
+                            if (latestMeasByAsset.TryGetValue(customId, out var lastMeas))
+                            {
+                                lastTestDate = lastMeas["fecha_medicion"]?.ToString() ?? lastMeas["created_at"]?.ToString() ?? "";
+                                if (DateTime.TryParse(lastTestDate, out var dtLast))
+                                {
+                                    var dtNext = CalculateNextDueDate(dtLast, per);
+                                    if (dtNext.HasValue)
+                                    {
+                                        nextDueDate = dtNext.Value.ToString("yyyy-MM-dd");
+                                        status = dtNext.Value < DateTime.UtcNow.Date ? "OVERDUE" : "COMPLIANT";
+                                    }
+                                    else
+                                    {
+                                        nextDueDate = "Permanente";
+                                        status = "PERMANENT";
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                string createdAt = aObj["created_at"]?.ToString() ?? "";
+                                if (DateTime.TryParse(createdAt, out var dtCreated))
+                                {
+                                    var dtNext = CalculateNextDueDate(dtCreated, per);
+                                    if (dtNext.HasValue)
+                                    {
+                                        nextDueDate = dtNext.Value.ToString("yyyy-MM-dd");
+                                        status = dtNext.Value < DateTime.UtcNow.Date ? "OVERDUE" : "COMPLIANT";
+                                    }
+                                    else
+                                    {
+                                        nextDueDate = "Permanente";
+                                        status = "PERMANENT";
+                                    }
+                                }
+                            }
+
+                            rows.Add(new JsonObject
+                            {
+                                ["custom_id"] = customId,
+                                ["category"] = cat,
+                                ["subtype"] = subCat,
+                                ["last_verification"] = lastTestDate,
+                                ["next_verification"] = nextDueDate,
+                                ["status_schedule"] = status
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error auto-populating line assets for report: {ex.Message}");
+            }
+        }
+
+        // 4. Generate HTML Report
+        string html = LineReportGenerator.GenerateLineReportHtml(
+            linea,
+            rows,
+            auditor,
+            comentarios,
+            uniqueFolio,
+            companyName,
+            siteName,
+            logoUrl,
+            DateTime.UtcNow
+        );
+
+        // 5. Upload Report HTML to Supabase Storage
+        string storagePath = $"reports/{compCode}_{siteCode}/{uniqueFolio}.html";
+        string downloadUrl = $"/api/schedule/reports/{uniqueFolio}/view";
+        try
+        {
+            var uploadBytes = System.Text.Encoding.UTF8.GetBytes(html);
+            var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, uploadBytes, "text/html");
+            if (uploadOk)
+            {
+                downloadUrl = $"/storage/v1/object/authenticated/audit-evidence/{storagePath}";
+            }
+            else
+            {
+                // Local fallback
+                string reportsDir = Path.Combine(_env.WebRootPath, "uploads", "reports");
+                Directory.CreateDirectory(reportsDir);
+                string localPath = Path.Combine(reportsDir, $"{uniqueFolio}.html");
+                await System.IO.File.WriteAllTextAsync(localPath, html, System.Text.Encoding.UTF8);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uploading report to Supabase storage: {ex.Message}");
+        }
+
+        // 6. Log report entry into log_reportes_linea
         var logResult = await _supabase.InsertLogReportesLineaAsync(new
         {
             linea_ubicacion = linea,
@@ -1096,17 +1282,47 @@ public class ApiController : ControllerBase
             comentarios = comentarios
         });
 
-        int dbId = 1;
-        if (logResult != null && logResult["id"] != null)
+        // 7. Save structured record in reports index
+        SaveReportToIndex(new JsonObject
         {
-            int.TryParse(logResult["id"]!.ToString(), out dbId);
+            ["folio"] = uniqueFolio,
+            ["report_type"] = "LINE_VALIDATION",
+            ["type_name"] = "Validación de Línea (LV)",
+            ["linea"] = linea,
+            ["auditor"] = auditor,
+            ["comentarios"] = comentarios,
+            ["company_id"] = activeCompanyId,
+            ["company_name"] = companyName,
+            ["site_id"] = activeSiteId,
+            ["site_name"] = siteName,
+            ["created_at"] = DateTime.UtcNow.ToString("o"),
+            ["storage_path"] = storagePath,
+            ["download_url"] = downloadUrl,
+            ["total_assets"] = rows.Count
+        });
+
+        return Ok(new { success = true, folio = uniqueFolio, html, download_url = downloadUrl });
+    }
+
+    [HttpGet("schedule/reports")]
+    public async Task<IActionResult> GetScheduleReports([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? line = null)
+    {
+        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        var reports = GetReportsFromIndex(activeSiteId, search, line);
+        return Ok(new { success = true, reports });
+    }
+
+    [HttpGet("schedule/reports/{folio}/view")]
+    public IActionResult ViewScheduleReport(string folio)
+    {
+        string safeFolio = Path.GetFileName(folio).Replace("..", "");
+        string localPath = Path.Combine(_env.WebRootPath, "uploads", "reports", $"{safeFolio}.html");
+        if (System.IO.File.Exists(localPath))
+        {
+            string html = System.IO.File.ReadAllText(localPath, System.Text.Encoding.UTF8);
+            return Content(html, "text/html");
         }
-
-        // 2. Generate HTML Certificate
-        var (html, year) = LineReportGenerator.GenerateLineReportHtml(linea, rows, auditor, comentarios, dbId);
-        string folio = $"BCS-LV-{dbId:D3}-{year}";
-
-        return Ok(new { success = true, html, folio });
+        return NotFound("Reporte no encontrado.");
     }
 
     // --- ASSET DIRECTORY (INVENTORY & MEASUREMENT HISTORY) ---
@@ -2853,5 +3069,205 @@ public class ApiController : ControllerBase
         double mantissa = ohms / Math.Pow(10, exp);
         double roundedMantissa = Math.Round(mantissa, 2);
         return $"{roundedMantissa:0.##}e{exp}";
+    }
+
+    // --- COMPANY BRANDING & LOGO MANAGEMENT ---
+    [HttpPost("settings/company-logo")]
+    public async Task<IActionResult> UploadCompanyLogo(IFormFile? file, [FromForm] string? companyId, [FromForm] string? logoBase64)
+    {
+        if (!IsSuperAdmin && !IsCompanyAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para modificar el logotipo de la empresa. Requiere rol CompanyAdmin o SuperAdmin." });
+        }
+
+        string targetCompanyId = IsSuperAdmin ? (companyId ?? CurrentUserCompanyId) : CurrentUserCompanyId;
+        if (string.IsNullOrEmpty(targetCompanyId))
+        {
+            return BadRequest(new { success = false, message = "El ID de empresa es obligatorio." });
+        }
+
+        string storageKey = "";
+        string ext = ".png";
+
+        if (file != null && file.Length > 0)
+        {
+            ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var allowedExts = new[] { ".png", ".jpg", ".jpeg", ".svg", ".webp" };
+            if (!allowedExts.Contains(ext))
+            {
+                return BadRequest(new { success = false, message = "Formato de imagen no válido. Use PNG, JPG, SVG o WebP." });
+            }
+
+            string safeFileName = $"logos/{targetCompanyId}_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+            using var stream = file.OpenReadStream();
+            var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", safeFileName, stream, file.ContentType);
+            if (uploadOk)
+            {
+                storageKey = $"/storage/v1/object/authenticated/audit-evidence/{safeFileName}";
+            }
+            else
+            {
+                // Fallback to local
+                string brandingDir = Path.Combine(_env.WebRootPath, "uploads", "branding");
+                Directory.CreateDirectory(brandingDir);
+                string localName = $"{targetCompanyId}{ext}";
+                string localPath = Path.Combine(brandingDir, localName);
+                using (var fs = new FileStream(localPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(fs);
+                }
+                storageKey = $"/uploads/branding/{localName}";
+            }
+        }
+        else if (!string.IsNullOrEmpty(logoBase64))
+        {
+            try
+            {
+                byte[] imgBytes = Convert.FromBase64String(logoBase64.Contains(",") ? logoBase64.Split(',')[1] : logoBase64);
+                string safeFileName = $"logos/{targetCompanyId}_{DateTime.UtcNow:yyyyMMddHHmmss}.png";
+                var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", safeFileName, imgBytes, "image/png");
+                if (uploadOk)
+                {
+                    storageKey = $"/storage/v1/object/authenticated/audit-evidence/{safeFileName}";
+                }
+                else
+                {
+                    string brandingDir = Path.Combine(_env.WebRootPath, "uploads", "branding");
+                    Directory.CreateDirectory(brandingDir);
+                    string localPath = Path.Combine(brandingDir, $"{targetCompanyId}.png");
+                    await System.IO.File.WriteAllBytesAsync(localPath, imgBytes);
+                    storageKey = $"/uploads/branding/{targetCompanyId}.png";
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = $"Error al procesar la imagen: {ex.Message}" });
+            }
+        }
+        else
+        {
+            return BadRequest(new { success = false, message = "Por favor selecciona o proporciona un archivo de imagen." });
+        }
+
+        // Update company in Supabase
+        await _supabase.UpdateCompanyAsync(targetCompanyId, new { logo_url = storageKey });
+
+        // Update local branding file
+        SaveLocalCompanyLogo(targetCompanyId, storageKey);
+
+        return Ok(new { success = true, company_id = targetCompanyId, logo_url = storageKey, message = "Logotipo actualizado exitosamente." });
+    }
+
+    [HttpGet("settings/company-logo")]
+    public async Task<IActionResult> GetCompanyLogo([FromQuery] string? companyId)
+    {
+        string targetCompanyId = IsSuperAdmin ? (companyId ?? CurrentUserCompanyId) : CurrentUserCompanyId;
+        if (string.IsNullOrEmpty(targetCompanyId))
+        {
+            return Ok(new { success = true, logo_url = "/images/esd360-logo.png" });
+        }
+
+        var comp = await _supabase.GetCompanyByIdAsync(targetCompanyId);
+        string logoUrl = comp?["logo_url"]?.ToString() ?? GetLocalCompanyLogo(targetCompanyId);
+        if (string.IsNullOrEmpty(logoUrl)) logoUrl = "/images/esd360-logo.png";
+
+        return Ok(new { success = true, company_id = targetCompanyId, logo_url = logoUrl });
+    }
+
+    private string GetLocalCompanyLogo(string companyId)
+    {
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            string path = Path.Combine(dataDir, "company_branding.json");
+            if (System.IO.File.Exists(path))
+            {
+                var node = JsonNode.Parse(System.IO.File.ReadAllText(path));
+                return node?[companyId]?.ToString() ?? "";
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    private void SaveLocalCompanyLogo(string companyId, string logoUrl)
+    {
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            Directory.CreateDirectory(dataDir);
+            string path = Path.Combine(dataDir, "company_branding.json");
+            JsonObject map = new();
+            if (System.IO.File.Exists(path))
+            {
+                map = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonObject ?? new JsonObject();
+            }
+            map[companyId] = logoUrl;
+            System.IO.File.WriteAllText(path, map.ToJsonString());
+        }
+        catch { }
+    }
+
+    private static string GetAbbreviation(string text, int length, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return fallback;
+        var clean = System.Text.RegularExpressions.Regex.Replace(text, @"[^A-Za-z0-9]", "");
+        if (clean.Length == 0) return fallback;
+        return clean.Length <= length ? clean.ToUpper() : clean[..length].ToUpper();
+    }
+
+    private void SaveReportToIndex(JsonObject reportRecord)
+    {
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            Directory.CreateDirectory(dataDir);
+            string path = Path.Combine(dataDir, "reports_history.json");
+            JsonArray list = new();
+            if (System.IO.File.Exists(path))
+            {
+                list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray ?? new JsonArray();
+            }
+            list.Insert(0, reportRecord);
+            while (list.Count > 200) list.RemoveAt(list.Count - 1);
+            System.IO.File.WriteAllText(path, list.ToJsonString());
+        }
+        catch { }
+    }
+
+    private JsonArray GetReportsFromIndex(string siteId, string? search, string? line)
+    {
+        var result = new JsonArray();
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            string path = Path.Combine(dataDir, "reports_history.json");
+            if (System.IO.File.Exists(path))
+            {
+                var list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray ?? new JsonArray();
+                string q = (search ?? "").Trim().ToLower();
+                string lFilter = (line ?? "").Trim().ToLower();
+
+                foreach (var item in list)
+                {
+                    if (item is JsonObject r)
+                    {
+                        string rSiteId = r["site_id"]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(siteId) && !IsSuperAdmin && rSiteId != siteId) continue;
+
+                        string folio = r["folio"]?.ToString()?.ToLower() ?? "";
+                        string auditor = r["auditor"]?.ToString()?.ToLower() ?? "";
+                        string rLine = r["linea"]?.ToString()?.ToLower() ?? "";
+
+                        if (!string.IsNullOrEmpty(lFilter) && lFilter != "all" && !rLine.Contains(lFilter)) continue;
+                        if (!string.IsNullOrEmpty(q) && !folio.Contains(q) && !auditor.Contains(q) && !rLine.Contains(q)) continue;
+
+                        result.Add(r.DeepClone());
+                    }
+                }
+            }
+        }
+        catch { }
+        return result;
     }
 }

@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.1.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.2.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.1.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.2.0</span>
             </div>
         </div>
     </aside>
@@ -1076,13 +1076,16 @@
                         </div>
                     </div>
 
-                    <!-- SUB-TABS (Schedule vs Reports) -->
+                    <!-- SUB-TABS (Schedule vs Reports Generator vs Repository) -->
                     <div class="tab-container" style="margin-bottom:16px;">
                         <button type="button" class="tab-btn active" id="tab-btn-sched-calendar" onclick="switchScheduleSubTab('calendar')">
                             <span data-i18n="schedule.tab_schedule">📅 Validaciones &amp; Cronograma</span>
                         </button>
                         <button type="button" class="tab-btn" id="tab-btn-sched-reports" onclick="switchScheduleSubTab('reports')">
-                            <span data-i18n="schedule.tab_reports">📊 Reportes Oficiales de Línea</span>
+                            <span data-i18n="schedule.tab_reports">📊 Generador de Reportes de Línea</span>
+                        </button>
+                        <button type="button" class="tab-btn" id="tab-btn-sched-repository" onclick="switchScheduleSubTab('repository')">
+                            <span data-i18n="schedule.tab_repository">🗄️ Repositorio &amp; Historial de Reportes</span>
                         </button>
                     </div>
 
@@ -1270,27 +1273,86 @@
                     <!-- TAB 2: OFFICIAL REPORTS GENERATOR -->
                     <div id="sec-schedule-reports" style="display:none;">
                         <div class="glass-card" style="margin-bottom:20px;">
-                            <h4 data-i18n="schedule.heading">Emisión de Reporte Oficial de Línea</h4>
+                            <h4 style="display:flex; align-items:center; gap:8px;">
+                                <img src="/images/icons/icon-routes.svg" class="ui-icon-3d-sm" alt="" />
+                                <span data-i18n="schedule.heading">Generador de Reporte Oficial de Auditoría de Línea</span>
+                            </h4>
+                            <p style="font-size:12px; color:var(--text-muted); margin:4px 0 16px 0;">Emite reportes normativos oficiales de validación de línea con activos auditados, logotipo corporativo y folio único.</p>
+                            
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
                                 <div class="form-group">
-                                    <label data-i18n="schedule.lbl_line">Línea / Ubicación a Certificar*</label>
+                                    <label data-i18n="schedule.lbl_line">Línea de Producción / Operación*</label>
                                     <select id="rep-linea" class="form-control" required>
                                         <option value="" data-i18n="eventmeter.opt_select_line">-- Seleccionar Línea --</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label data-i18n="schedule.lbl_auditor">Auditor / Coordinador Responsable*</label>
-                                    <input id="rep-auditor" class="form-control" placeholder="Ej: Auditor ESD" />
+                                    <label data-i18n="schedule.lbl_auditor">Auditor Responsable*</label>
+                                    <input id="rep-auditor" class="form-control" placeholder="Ej: Auditor ESD" value="" />
                                 </div>
                                 <div class="form-group" style="grid-column: span 2;">
-                                    <label data-i18n="schedule.lbl_comments">Comentarios / Observaciones de la Línea</label>
-                                    <input id="rep-comments" class="form-control" placeholder="La línea cumple satisfactoriamente con los límites de resistencia ANSI/ESD S20.20." />
+                                    <label data-i18n="schedule.lbl_comments">Comentarios / Conclusiones del Reporte</label>
+                                    <input id="rep-comments" class="form-control" placeholder="Ingresa las observaciones o conclusiones de la auditoría de línea..." data-i18n-placeholder="schedule.ph_comments" value="" />
                                 </div>
                             </div>
-                            <button class="btn-primary" onclick="generateOfficialLineReport()" data-i18n="schedule.btn_generate">🖨️ Generar y Previsualizar Reporte Oficial (PDF / HTML)</button>
+                            <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
+                                <button type="button" class="btn-primary" onclick="generateOfficialLineReport()" data-i18n="schedule.btn_generate" id="btn-generate-report-act">📄 Generar Reporte Oficial PDF / Documento</button>
+                            </div>
                         </div>
 
                         <div id="official-report-preview" style="display:none; margin-top:18px;"></div>
+                    </div>
+
+                    <!-- TAB 3: REPORTS REPOSITORY & HISTORY -->
+                    <div id="sec-schedule-repository" style="display:none;">
+                        <div class="glass-card" style="margin-bottom:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                                <div>
+                                    <h4 style="display:flex; align-items:center; gap:8px; margin:0 0 4px 0;">
+                                        <img src="/images/icons/icon-inventory.svg" class="ui-icon-3d-sm" alt="" />
+                                        <span data-i18n="schedule.repo_title">🗄️ Repositorio &amp; Historial de Reportes Oficiales</span>
+                                    </h4>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:0;" data-i18n="schedule.repo_subtitle">Consulta, previsualización y descarga de todos los reportes normativos generados</p>
+                                </div>
+                                <div>
+                                    <button type="button" class="tab-btn" onclick="loadReportsRepository()" style="padding:6px 12px; font-size:12px; font-weight:700;">🔄 Actualizar Repositorio</button>
+                                </div>
+                            </div>
+
+                            <!-- SEARCH & FILTER -->
+                            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; align-items:center;">
+                                <div style="flex:1; min-width:220px; position:relative;">
+                                    <input type="text" id="repo-search-input" class="form-control" placeholder="Buscar por Folio, Auditor o Línea..." data-i18n-placeholder="schedule.ph_search_reports" style="padding-left:34px;" oninput="filterReportsRepository()" />
+                                    <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none;">🔍</span>
+                                </div>
+                                <div style="min-width:180px;">
+                                    <select id="repo-filter-line" class="form-control" onchange="filterReportsRepository()">
+                                        <option value="all" data-i18n="schedule.all_lines">-- Todas las Líneas --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- REPOSITORY TABLE -->
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th data-i18n="schedule.col_folio">Folio / ID Único</th>
+                                        <th data-i18n="schedule.col_type">Tipo de Reporte</th>
+                                        <th data-i18n="schedule.col_line">Línea / Ubicación</th>
+                                        <th data-i18n="schedule.col_auditor">Auditor Responsable</th>
+                                        <th data-i18n="schedule.col_date">Fecha de Emisión</th>
+                                        <th style="text-align:center;" data-i18n="schedule.col_actions">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reports-repository-tbody">
+                                    <tr>
+                                        <td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Cargando historial de reportes...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1520,12 +1582,13 @@
                         <span data-i18n="settings.title">Ajustes del Sistema, Idioma & Jerarquía Multi-Tenant</span>
                     </h3>
                     <div class="tabs-header" style="margin-top:14px;">
-                        <button class="tab-btn active" onclick="switchSettingsTab('tree')" data-i18n="settings.tab_tree">Estructura & Jerarquía Multi-Tenant</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">Usuarios, Alta & Permisos de Rol</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
-                        <button class="tab-btn" onclick="switchSettingsTab('maps')" id="set-tab-btn-maps">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
-                        <button class="tab-btn" onclick="switchSettingsTab('photos')" id="set-tab-btn-photos">📸 <span>Evidencias Fotográficas</span></button>
+                        <button class="tab-btn active" id="set-tab-btn-tree" onclick="switchSettingsTab('tree')" data-i18n="settings.tab_tree">Estructura & Jerarquía Multi-Tenant</button>
+                        <button class="tab-btn" id="set-tab-btn-users" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">Usuarios, Alta & Permisos de Rol</button>
+                        <button class="tab-btn" id="set-tab-btn-lang" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
+                        <button class="tab-btn" id="set-tab-btn-equipment" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
+                        <button class="tab-btn" id="set-tab-btn-maps" onclick="switchSettingsTab('maps')">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
+                        <button class="tab-btn" id="set-tab-btn-photos" onclick="switchSettingsTab('photos')">📸 <span>Evidencias Fotográficas</span></button>
+                        <button class="tab-btn" id="set-tab-btn-branding" onclick="switchSettingsTab('branding')" style="display:none;"><span data-i18n="settings.tab_branding">🏢 Identidad &amp; Logotipo</span></button>
                     </div>
 
                     <!-- TAB 1: WINDOWS EXPLORER TREE VIEW HIERARCHY -->
@@ -1846,6 +1909,8 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
                     <!-- TAB 6: PHOTO EVIDENCE SETTINGS PER SECTION & SITE -->
                     <div id="set-tab-photos" class="tab-content">
                         <div class="glass-card" style="max-width:800px; padding:22px;">
@@ -1915,6 +1980,46 @@
 
                                 <button type="submit" class="btn-primary" style="margin-top:20px; width:100%; height:44px; font-weight:700; font-size:13.5px;">
                                     💾 Guardar Políticas de Evidencia Fotográfica
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- TAB 7: COMPANY BRANDING & LOGO -->
+                    <div id="set-tab-branding" class="tab-content">
+                        <div class="glass-card" style="max-width:800px; padding:24px;">
+                            <h4 style="display:flex; align-items:center; gap:8px; margin:0 0 6px 0;">
+                                <img src="/images/icons/icon-companies.svg" class="ui-icon-3d-sm" alt="" />
+                                <span data-i18n="settings.branding_title">🏢 Identidad Visual &amp; Logotipo Corporativo</span>
+                            </h4>
+                            <p style="font-size:12.5px; color:var(--text-muted); margin:0 0 20px 0;" data-i18n="settings.branding_sub">Gestiona el logotipo oficial de la empresa que aparecerá en los reportes de validación y certificados normativos.</p>
+
+                            <!-- SUPERADMIN COMPANY SELECTOR -->
+                            <div id="branding-company-select-container" class="form-group" style="display:none; margin-bottom:18px;">
+                                <label data-i18n="settings.branding_select_company" style="font-size:12.5px; font-weight:700;">Empresa a Configurar (SuperAdmin)*</label>
+                                <select id="branding-company-select" class="form-control" onchange="onBrandingCompanyChange(this.value)">
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+
+                            <!-- CURRENT LOGO PREVIEW -->
+                            <div style="margin-bottom:20px; background:#F8FAFC; border:1.5px dashed var(--border-color); border-radius:12px; padding:20px; text-align:center;">
+                                <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:10px;" data-i18n="settings.branding_current_logo">Logotipo Corporativo Actual:</div>
+                                <div style="display:flex; justify-content:center; align-items:center; min-height:90px; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:8px; padding:12px; max-width:320px; margin:0 auto;">
+                                    <img id="branding-logo-preview-img" src="/images/esd360-logo.png" alt="Company Logo" style="max-height:80px; max-width:100%; object-fit:contain;" />
+                                </div>
+                            </div>
+
+                            <!-- UPLOAD NEW LOGO -->
+                            <form id="form-upload-branding-logo" onsubmit="submitCompanyLogo(event)">
+                                <div class="form-group" style="margin-bottom:16px;">
+                                    <label data-i18n="settings.branding_upload_lbl" style="font-size:12.5px; font-weight:700;">Seleccionar Archivo de Logotipo (PNG, JPG, SVG, WebP):</label>
+                                    <input type="file" id="branding-file-input" class="form-control" accept="image/png,image/jpeg,image/svg+xml,image/webp" required onchange="previewBrandingFile(this)" />
+                                    <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Recomendado: Imagen con fondo transparente o blanco, resolución mínima 400x120px.</small>
+                                </div>
+
+                                <button type="submit" class="btn-primary" id="btn-save-company-logo" style="width:100%; height:44px; font-weight:700; font-size:13.5px;" data-i18n="settings.branding_btn_upload">
+                                    💾 Subir y Guardar Logotipo
                                 </button>
                             </form>
                         </div>
@@ -2045,6 +2150,10 @@
         const isSiteAdminOrAbove = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'CompanyAdmin' || sessionData.user_role === 'SiteAdmin' || sessionData.can_create_site);
         const btnMapsTab = document.getElementById('set-tab-btn-maps');
         if (btnMapsTab) btnMapsTab.style.display = isSiteAdminOrAbove ? 'inline-block' : 'none';
+
+        const isCompanyAdminOrAbove = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'CompanyAdmin' || sessionData.can_create_company);
+        const btnBrandingTab = document.getElementById('set-tab-btn-branding');
+        if (btnBrandingTab) btnBrandingTab.style.display = isCompanyAdminOrAbove ? 'inline-block' : 'none';
     }
 
     // --- I18N ENGINE LOGIC ---
@@ -4188,21 +4297,43 @@
     function switchScheduleSubTab(tab) {
         const btnCal = document.getElementById('tab-btn-sched-calendar');
         const btnRep = document.getElementById('tab-btn-sched-reports');
+        const btnRepo = document.getElementById('tab-btn-sched-repository');
         const secCal = document.getElementById('sec-schedule-calendar');
         const secRep = document.getElementById('sec-schedule-reports');
+        const secRepo = document.getElementById('sec-schedule-repository');
+
+        if (btnCal) btnCal.classList.remove('active');
+        if (btnRep) btnRep.classList.remove('active');
+        if (btnRepo) btnRepo.classList.remove('active');
+        if (secCal) secCal.style.display = 'none';
+        if (secRep) secRep.style.display = 'none';
+        if (secRepo) secRepo.style.display = 'none';
 
         if (tab === 'calendar') {
             if (btnCal) btnCal.classList.add('active');
-            if (btnRep) btnRep.classList.remove('active');
             if (secCal) secCal.style.display = 'block';
-            if (secRep) secRep.style.display = 'none';
             loadScheduleData();
-        } else {
-            if (btnCal) btnCal.classList.remove('active');
+        } else if (tab === 'reports') {
             if (btnRep) btnRep.classList.add('active');
-            if (secCal) secCal.style.display = 'none';
             if (secRep) secRep.style.display = 'block';
+
+            // Auto-fill auditor name from logged-in session user
+            const auditorInput = document.getElementById('rep-auditor');
+            if (auditorInput) {
+                auditorInput.value = (sessionData && (sessionData.full_name || sessionData.user_name)) || '';
+            }
+
+            // Comments input starts empty by default
+            const commentsInput = document.getElementById('rep-comments');
+            if (commentsInput && !commentsInput.value) {
+                commentsInput.value = '';
+            }
+
             loadInfraLinesSelect();
+        } else if (tab === 'repository') {
+            if (btnRepo) btnRepo.classList.add('active');
+            if (secRepo) secRepo.style.display = 'block';
+            loadReportsRepository();
         }
     }
 
@@ -4667,22 +4798,205 @@
         openAssetHistoryModal(assetId, cat, loc);
     }
 
-    // --- OFFICIAL LINE REPORTS GENERATOR ---
-    async function generateOfficialLineReport() {
-        const linea = document.getElementById('rep-linea').value;
-        const auditor = document.getElementById('rep-auditor').value;
-        const comentarios = document.getElementById('rep-comments').value;
+    // --- OFFICIAL LINE REPORTS GENERATOR & REPOSITORY ---
+    let allGeneratedReports = [];
 
-        const res = await fetch('/api/schedule/generate-line-report', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linea, auditor, comentarios, rows: [] })
+    async function generateOfficialLineReport() {
+        const linea = document.getElementById('rep-linea')?.value || '';
+        const auditor = document.getElementById('rep-auditor')?.value || '';
+        const comentarios = document.getElementById('rep-comments')?.value || '';
+        const btnGen = document.getElementById('btn-generate-report-act');
+
+        if (!linea) {
+            alert('⚠️ Por favor selecciona una línea o ubicación para certificar.');
+            return;
+        }
+
+        if (!auditor) {
+            alert('⚠️ Por favor ingresa el nombre del auditor responsable.');
+            return;
+        }
+
+        if (btnGen) {
+            btnGen.disabled = true;
+            btnGen.innerText = '⏳ Generando Reporte Oficial y Folio...';
+        }
+
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const companyId = (sessionData && sessionData.company_id) || '';
+
+            const res = await fetch('/api/schedule/generate-line-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ linea, auditor, comentarios, site_id: siteId, company_id: companyId, rows: [] })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                const container = document.getElementById('official-report-preview');
+                if (container) {
+                    container.style.display = 'block';
+                    container.innerHTML = `
+                        <div class="glass-card" style="border-left:4px solid var(--accent-blue); margin-bottom:14px; background:#F8FAFC;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                                <div>
+                                    <span style="font-size:11px; color:var(--text-muted); font-weight:700;">FOLIO ÚNICO GENERADO:</span>
+                                    <div style="font-size:16px; font-weight:800; color:var(--accent-blue);">${data.folio || 'REPORTE-LV'}</div>
+                                    <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Almacenado de forma segura en Supabase Storage &amp; Repositorio</div>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="printReportByFolio('${data.folio}')">🖨️ Imprimir / PDF</button>
+                                    <button type="button" class="tab-btn" style="padding:6px 12px; font-size:12px;" onclick="switchScheduleSubTab('repository')">🗄️ Ir al Repositorio</button>
+                                </div>
+                            </div>
+                        </div>
+                        <iframe id="official-report-iframe" srcdoc="${data.html.replace(/"/g, '&quot;')}" style="width:100%; height:550px; border:1.5px solid var(--border-color); border-radius:10px; background:#FFFFFF; box-shadow:0 8px 24px rgba(0,0,0,0.06);"></iframe>
+                    `;
+                    container.scrollIntoView({ behavior: 'smooth' });
+                }
+            } else {
+                alert('❌ Error al generar reporte oficial: ' + (data.message || 'Error desconocido'));
+            }
+        } catch (ex) {
+            alert('❌ Error de conexión al generar reporte oficial: ' + ex.message);
+        } finally {
+            if (btnGen) {
+                btnGen.disabled = false;
+                btnGen.innerText = t('schedule.btn_generate', '📄 Generar Reporte Oficial PDF / Documento');
+            }
+        }
+    }
+
+    async function loadReportsRepository() {
+        const tbody = document.getElementById('reports-repository-tbody');
+        const lineSelect = document.getElementById('repo-filter-line');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">⏳ Consultando reportes en Supabase y repositorio central...</td></tr>';
+
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const res = await fetch(`/api/schedule/reports?siteId=${siteId}`);
+            if (!res.ok) throw new Error('Error al cargar repositorio de reportes');
+            const data = await res.json();
+            allGeneratedReports = data.reports || [];
+
+            // Populate lines filter options
+            if (lineSelect) {
+                const currentVal = lineSelect.value;
+                const lines = [...new Set(allGeneratedReports.map(r => r.linea).filter(Boolean))];
+                let opts = `<option value="all">${t('schedule.all_lines', '-- Todas las Líneas --')}</option>`;
+                lines.forEach(l => {
+                    opts += `<option value="${l}">${l}</option>`;
+                });
+                lineSelect.innerHTML = opts;
+                if (currentVal && lines.includes(currentVal)) lineSelect.value = currentVal;
+            }
+
+            renderReportsRepositoryTable(allGeneratedReports);
+        } catch (ex) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--accent-rose);">❌ Error al consultar repositorio: ${ex.message}</td></tr>`;
+        }
+    }
+
+    function filterReportsRepository() {
+        const search = (document.getElementById('repo-search-input')?.value || '').trim().toLowerCase();
+        const lineFilter = document.getElementById('repo-filter-line')?.value || 'all';
+
+        let filtered = allGeneratedReports.filter(r => {
+            const folio = (r.folio || '').toLowerCase();
+            const auditor = (r.auditor || '').toLowerCase();
+            const rLine = (r.linea || '').toLowerCase();
+
+            const matchesSearch = !search || folio.includes(search) || auditor.includes(search) || rLine.includes(search);
+            const matchesLine = lineFilter === 'all' || rLine.includes(lineFilter.toLowerCase());
+
+            return matchesSearch && matchesLine;
         });
-        const data = await res.json();
-        if (data.success) {
+
+        renderReportsRepositoryTable(filtered);
+    }
+
+    function renderReportsRepositoryTable(reports) {
+        const tbody = document.getElementById('reports-repository-tbody');
+        if (!tbody) return;
+
+        if (!reports || reports.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">ℹ️ ${t('schedule.no_reports', 'No se han generado reportes oficiales para este site o criterio de búsqueda.')}</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        reports.forEach(r => {
+            const folio = r.folio || 'N/D';
+            const type = r.tipo_reporte || 'Validación de Línea';
+            const linea = r.linea || 'N/A';
+            const auditor = r.auditor || 'N/A';
+            const dateStr = r.created_at ? (r.created_at.includes('T') ? r.created_at.split('T')[0] : r.created_at) : 'N/A';
+
+            html += `
+                <tr>
+                    <td><strong style="color:var(--accent-blue); font-family:monospace; font-size:12.5px;">${folio}</strong></td>
+                    <td><span class="badge-pass" style="font-size:10.5px; background:var(--accent-blue-light); color:var(--accent-blue); border-color:#BFDBFE;">📋 ${type}</span></td>
+                    <td><b>${linea}</b></td>
+                    <td>${auditor}</td>
+                    <td>${dateStr}</td>
+                    <td style="text-align:center;">
+                        <div style="display:inline-flex; gap:6px;">
+                            <button type="button" class="btn-primary" style="padding:4px 9px; font-size:11px; background:var(--accent-blue);" onclick="previewReportByFolio('${folio}')" title="Ver Previsualización">
+                                <span data-i18n="schedule.btn_view_report">👁️ Ver</span>
+                            </button>
+                            <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11px;" onclick="printReportByFolio('${folio}')" title="Imprimir / Guardar PDF">
+                                <span data-i18n="schedule.btn_print_report">🖨️ PDF</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    async function previewReportByFolio(folio) {
+        try {
+            const res = await fetch(`/api/schedule/reports/${folio}/view`);
+            if (!res.ok) throw new Error('No se pudo cargar el reporte');
+            const html = await res.text();
+
+            switchScheduleSubTab('reports');
             const container = document.getElementById('official-report-preview');
-            container.style.display = 'block';
-            container.innerHTML = `<iframe srcdoc="${data.html.replace(/"/g, '&quot;')}" style="width:100%; height:450px; border:1px solid var(--border-color); border-radius:8px;"></iframe>`;
+            if (container) {
+                container.style.display = 'block';
+                container.innerHTML = `
+                    <div class="glass-card" style="border-left:4px solid var(--accent-blue); margin-bottom:14px; background:#F8FAFC;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <span style="font-size:11px; color:var(--text-muted); font-weight:700;">VISUALIZANDO REPORTE FOLIO:</span>
+                                <div style="font-size:16px; font-weight:800; color:var(--accent-blue);">${folio}</div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="printReportByFolio('${folio}')">🖨️ Imprimir / PDF</button>
+                                <button type="button" class="tab-btn" style="padding:6px 12px; font-size:12px;" onclick="switchScheduleSubTab('repository')">🗄️ Volver al Repositorio</button>
+                            </div>
+                        </div>
+                    </div>
+                    <iframe id="official-report-iframe" srcdoc="${html.replace(/"/g, '&quot;')}" style="width:100%; height:550px; border:1.5px solid var(--border-color); border-radius:10px; background:#FFFFFF; box-shadow:0 8px 24px rgba(0,0,0,0.06);"></iframe>
+                `;
+                container.scrollIntoView({ behavior: 'smooth' });
+            }
+        } catch (ex) {
+            alert('❌ Error al visualizar reporte: ' + ex.message);
+        }
+    }
+
+    function printReportByFolio(folio) {
+        const win = window.open(`/api/schedule/reports/${folio}/view`, '_blank');
+        if (win) {
+            win.onload = function() {
+                win.focus();
+                win.print();
+            };
         }
     }
 
@@ -5129,13 +5443,18 @@
     function switchSettingsTab(tabName) {
         document.querySelectorAll('#mod-settings .tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('#mod-settings .tab-content').forEach(c => c.classList.remove('active'));
-        if (event && event.currentTarget) event.currentTarget.classList.add('active');
+        
+        const tabBtn = document.getElementById('set-tab-btn-' + tabName) || 
+                       Array.from(document.querySelectorAll('#mod-settings .tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabName));
+        if (tabBtn) tabBtn.classList.add('active');
+
         const tabEl = document.getElementById('set-tab-' + tabName);
         if (tabEl) tabEl.classList.add('active');
 
         if (tabName === 'equipment') loadEquipmentTable();
         if (tabName === 'maps') loadMapsEditor();
         if (tabName === 'photos') loadPhotoPolicySettingsTab();
+        if (tabName === 'branding') loadBrandingSettingsTab();
     }
 
     // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW & SETTINGS ---
@@ -5144,6 +5463,133 @@
         loadUsersTable();
         loadCompaniesAndSitesSelects();
         loadEquipmentTable();
+        checkBrandingTabVisibility();
+    }
+
+    // --- COMPANY BRANDING & LOGO MANAGEMENT ---
+    let brandingSelectedCompanyId = null;
+
+    function checkBrandingTabVisibility() {
+        const isSuperAdmin = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'Root' || sessionData.can_create_company);
+        const isCompanyAdmin = sessionData && (sessionData.user_role === 'CompanyAdmin' || sessionData.can_create_site || isSuperAdmin);
+
+        const tabBtn = document.getElementById('set-tab-btn-branding');
+        if (tabBtn) {
+            tabBtn.style.display = isCompanyAdmin ? 'inline-block' : 'none';
+        }
+    }
+
+    async function loadBrandingSettingsTab() {
+        const isSuperAdmin = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'Root' || sessionData.can_create_company);
+        const isCompanyAdmin = sessionData && (sessionData.user_role === 'CompanyAdmin' || sessionData.can_create_site || isSuperAdmin);
+
+        const tabBtn = document.getElementById('set-tab-btn-branding');
+        if (tabBtn) {
+            tabBtn.style.display = isCompanyAdmin ? 'inline-block' : 'none';
+        }
+
+        if (!isCompanyAdmin) return;
+
+        const compSelectContainer = document.getElementById('branding-company-select-container');
+        const compSelect = document.getElementById('branding-company-select');
+
+        if (isSuperAdmin) {
+            if (compSelectContainer) compSelectContainer.style.display = 'block';
+            if (compSelect && allCompanies && allCompanies.length > 0) {
+                compSelect.innerHTML = allCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                if (!brandingSelectedCompanyId) {
+                    brandingSelectedCompanyId = compSelect.value || allCompanies[0].id;
+                } else {
+                    compSelect.value = brandingSelectedCompanyId;
+                }
+            }
+        } else {
+            if (compSelectContainer) compSelectContainer.style.display = 'none';
+            brandingSelectedCompanyId = sessionData.company_id || '';
+        }
+
+        await fetchCompanyLogo(brandingSelectedCompanyId);
+    }
+
+    async function onBrandingCompanyChange(companyId) {
+        brandingSelectedCompanyId = companyId;
+        await fetchCompanyLogo(companyId);
+    }
+
+    async function fetchCompanyLogo(companyId) {
+        const img = document.getElementById('branding-logo-preview-img');
+        if (!img) return;
+
+        try {
+            const url = companyId ? `/api/settings/company-logo?companyId=${companyId}` : '/api/settings/company-logo';
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data && data.logo_url) {
+                img.src = data.logo_url;
+            } else {
+                img.src = '/images/esd360-logo.png';
+            }
+        } catch {
+            img.src = '/images/esd360-logo.png';
+        }
+    }
+
+    function previewBrandingFile(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('branding-logo-preview-img');
+                if (img) img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    async function submitCompanyLogo(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('branding-file-input');
+        const btn = document.getElementById('btn-save-company-logo');
+
+        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+            alert('⚠️ Selecciona un archivo de imagen válido.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        if (brandingSelectedCompanyId) {
+            formData.append('companyId', brandingSelectedCompanyId);
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = '⏳ Subiendo logotipo a Supabase...';
+        }
+
+        try {
+            const res = await fetch('/api/settings/company-logo', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('✅ ' + (data.message || t('settings.branding_success', 'Logotipo corporativo actualizado exitosamente.')));
+                if (data.logo_url) {
+                    const img = document.getElementById('branding-logo-preview-img');
+                    if (img) img.src = data.logo_url;
+                }
+                fileInput.value = '';
+            } else {
+                alert('❌ Error al subir logotipo: ' + (data.message || 'Error desconocido'));
+            }
+        } catch (ex) {
+            alert('❌ Error de conexión: ' + ex.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = t('settings.branding_btn_upload', '💾 Subir y Guardar Logotipo');
+            }
+        }
     }
 
     async function loadEquipmentTable() {
