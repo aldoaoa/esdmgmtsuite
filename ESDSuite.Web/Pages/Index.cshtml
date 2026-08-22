@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.5.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.6.0</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.5.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.6.0</span>
             </div>
         </div>
     </aside>
@@ -1467,17 +1467,17 @@
                 </div>
             </div>
 
-            <!-- MODULE 6: ESD CONTROL ELEMENT VALIDATION (VALIDACIÓN INTEGRAL ESD) -->
+            <!-- MODULE 6: ESD CONTROL ELEMENT VALIDATION -->
             <div id="mod-validation" class="module-view" style="display:none;">
                 <div class="glass-panel">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
                         <div>
                             <h3 style="display:flex; align-items:center; gap:8px; margin:0;">
                                 <img src="/images/icons/icon-lab.svg" class="ui-icon-3d" alt="" />
-                                <span data-i18n="validation.heading">Validación Integral de Elementos de Control ESD</span>
+                                <span data-i18n="validation.heading">Validación de Elementos de Control ESD</span>
                             </h3>
                             <div style="font-size:12px; color:var(--text-muted); margin-top:4px;" data-i18n="validation.subtitle">
-                                Registro de trazabilidad completa. Selecciona el equipo de medición y el elemento para autocompletar la información.
+                                Registro de trazabilidad. Selecciona el equipo de medición y el elemento para autocompletar la información.
                             </div>
                         </div>
 
@@ -1497,16 +1497,16 @@
                         <div id="val-success-alert" style="display:none; margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#ECFDF5; border:1px solid #10B981; color:#065F46; font-weight:600; font-size:13px;"></div>
 
                         <form id="form-esd-validation" onsubmit="event.preventDefault(); submitEsdValidation();">
-                            <!-- 1. Parámetros Globales -->
+                            <!-- 1. Parámetros -->
                             <div class="glass-card" style="margin-bottom:16px; padding:18px;">
                                 <h4 style="margin:0 0 14px 0; color:var(--accent-blue); font-size:13.5px; font-weight:800; display:flex; align-items:center; gap:6px;" data-i18n="validation.sec1_title">
-                                    1. Selección de Parámetros Globales
+                                    1. Parámetros
                                 </h4>
                                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
                                     <div class="form-group">
-                                        <label data-i18n="validation.lbl_element_sel">Elemento S20.20 a validar:</label>
+                                        <label data-i18n="validation.lbl_element_sel">Elemento a validar:</label>
                                         <select id="val-elemento-sel" class="form-control" onchange="onValElementoChange(this.value)">
-                                            <!-- Dynamically populated from INFO_ELEMENTOS_ESD -->
+                                            <!-- Dynamically populated from INFO_ELEMENTOS_ESD with translations -->
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -1536,19 +1536,19 @@
                                 </div>
                             </div>
 
-                            <!-- 2. Datos del Elemento a Validar -->
+                            <!-- 2. Datos del Elemento -->
                             <div class="glass-card" style="margin-bottom:16px; padding:18px;">
                                 <h4 style="margin:0 0 14px 0; color:var(--accent-blue); font-size:13.5px; font-weight:800; display:flex; align-items:center; gap:6px;" data-i18n="validation.sec2_title">
-                                    2. Datos del Elemento a Validar
+                                    2. Datos del Elemento
                                 </h4>
                                 <div style="display:grid; grid-template-columns:1fr 2fr; gap:14px; margin-bottom:12px;">
                                     <div class="form-group">
                                         <label data-i18n="validation.lbl_elem_id">ID del Elemento*</label>
-                                        <input type="text" id="val-id-elemento" class="form-control" style="font-family:monospace; font-weight:700; text-transform:uppercase;" placeholder="Ej: SILLA-05 o MESA-01" required />
+                                        <input type="text" id="val-id-elemento" class="form-control" style="font-family:monospace; font-weight:700; text-transform:uppercase;" placeholder="" required />
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="validation.lbl_material_type">Tipo de Material*</label>
-                                        <input type="text" id="val-tipo-material" class="form-control" required />
+                                        <input type="text" id="val-tipo-material" class="form-control" placeholder="" value="" required />
                                     </div>
                                 </div>
                                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
@@ -1575,17 +1575,16 @@
                                 <div style="display:grid; grid-template-columns:2fr 1fr 1fr; gap:14px;">
                                     <div class="form-group">
                                         <label data-i18n="validation.lbl_location">Ubicación de Medición (Línea / Área)*</label>
-                                        <select id="val-ubicacion-sel" class="form-control" required>
-                                            <option value="">-- Seleccionar Línea --</option>
-                                        </select>
+                                        <input type="text" id="val-ubicacion-input" list="val-lines-datalist" class="form-control" placeholder="" required />
+                                        <datalist id="val-lines-datalist"></datalist>
                                     </div>
                                     <div class="form-group">
-                                        <label data-i18n="validation.lbl_temp">Temperatura</label>
-                                        <input type="text" id="val-temp" class="form-control" value="23.5 °C" />
+                                        <label id="val-lbl-temp"><span data-i18n="validation.lbl_temp">Temperatura</span> (<span id="val-temp-unit-display">°C</span>)</label>
+                                        <input type="number" step="any" id="val-temp" class="form-control" placeholder="23.5" value="" />
                                     </div>
                                     <div class="form-group">
-                                        <label data-i18n="validation.lbl_humidity">Humedad Relativa</label>
-                                        <input type="text" id="val-humedad" class="form-control" value="45 %" />
+                                        <label><span data-i18n="validation.lbl_humidity">Humedad Relativa</span> (%)</label>
+                                        <input type="number" step="any" id="val-humedad" class="form-control" placeholder="45" value="" />
                                     </div>
                                 </div>
                             </div>
@@ -1602,11 +1601,19 @@
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="validation.lbl_mode">Modo de Medición</label>
-                                        <input type="text" id="val-modo" class="form-control" placeholder="Ej: RTG / RPP" />
+                                        <input type="text" id="val-modo" class="form-control" placeholder="" />
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="validation.lbl_unit">Unidad</label>
-                                        <input type="text" id="val-unidad" class="form-control" value="Ohms" />
+                                        <select id="val-unidad-sel" class="form-control" onchange="onValUnitChange(this.value)">
+                                            <option value="ohms" data-i18n="validation.unit_ohms">ohms</option>
+                                            <option value="volts" data-i18n="validation.unit_volts">volts</option>
+                                            <option value="s" data-i18n="validation.unit_seconds">s</option>
+                                            <option value="other" data-i18n="validation.unit_other">Otro</option>
+                                        </select>
+                                        <div id="val-unidad-other-wrap" style="display:none; margin-top:6px;">
+                                            <input type="text" id="val-unidad-other" class="form-control" placeholder="Especificar unidad personalizada..." />
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label data-i18n="validation.lbl_reference">Límite Permitido (Referencia)</label>
@@ -1615,34 +1622,21 @@
                                 </div>
 
                                 <h5 style="margin:14px 0 10px 0; font-size:12.5px; font-weight:700; color:var(--text-secondary);" data-i18n="validation.sec4_results">
-                                    Resultados (Lecturas Técnicas)
+                                    Resultados y Mediciones
                                 </h5>
-                                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:14px;">
-                                    <div class="form-group">
-                                        <label style="font-size:11px;" data-i18n="validation.lbl_med1">Medición 1 (Oblig.)*</label>
-                                        <input type="text" id="val-med-1" class="form-control" placeholder="Ej: 1.5e6" required />
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="font-size:11px;" data-i18n="validation.lbl_med2">Medición 2 (Opc.)</label>
-                                        <input type="text" id="val-med-2" class="form-control" placeholder="Ej: 1.4e6" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="font-size:11px;" data-i18n="validation.lbl_med3">Medición 3 (Opc.)</label>
-                                        <input type="text" id="val-med-3" class="form-control" placeholder="Ej: 1.6e6" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="font-size:11px;" data-i18n="validation.lbl_med4">Medición 4 (Opc.)</label>
-                                        <input type="text" id="val-med-4" class="form-control" placeholder="0.0" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="font-size:11px;" data-i18n="validation.lbl_med5">Medición 5 (Opc.)</label>
-                                        <input type="text" id="val-med-5" class="form-control" placeholder="0.0" />
-                                    </div>
+
+                                <!-- Dynamic Unlimited Readings Container -->
+                                <div id="val-readings-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+                                    <!-- Populated via addValReadingRow() / initValReadings() -->
                                 </div>
 
-                                <div class="form-group">
+                                <button type="button" class="tab-btn" onclick="addValReadingRow()" style="font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px; margin-bottom:14px; background:#F1F5F9;">
+                                    ➕ <span data-i18n="validation.btn_add_reading">Agregar medición adicional</span>
+                                </button>
+
+                                <div class="form-group" style="margin-top:8px;">
                                     <label data-i18n="validation.lbl_notes">Notas / Observaciones</label>
-                                    <textarea id="val-notas" class="form-control" rows="2" placeholder="Comentarios u observaciones adicionales..."></textarea>
+                                    <textarea id="val-notas" class="form-control" rows="2" placeholder=""></textarea>
                                 </div>
                             </div>
 
@@ -1654,7 +1648,16 @@
                                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:center;">
                                     <div>
                                         <label style="display:block; margin-bottom:8px; font-weight:600; font-size:12.5px;" data-i18n="validation.lbl_photo">Foto o Evidencia Digital</label>
-                                        <input type="file" id="val-img-input" class="form-control" accept="image/*" onchange="onValEvidenceSelected(this)" />
+                                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                            <button type="button" class="tab-btn" onclick="document.getElementById('val-camera-input').click()" style="font-weight:700; display:inline-flex; align-items:center; gap:6px; padding:8px 12px; font-size:12px;">
+                                                📷 <span data-i18n="validation.btn_camera">Tomar Fotografía</span>
+                                            </button>
+                                            <button type="button" class="tab-btn" onclick="document.getElementById('val-img-input').click()" style="font-weight:700; display:inline-flex; align-items:center; gap:6px; padding:8px 12px; font-size:12px;">
+                                                📁 <span data-i18n="validation.btn_upload">Subir Imagen</span>
+                                            </button>
+                                            <input type="file" id="val-camera-input" accept="image/*" capture="environment" style="display:none;" onchange="onValEvidenceSelected(this)" />
+                                            <input type="file" id="val-img-input" accept="image/*" style="display:none;" onchange="onValEvidenceSelected(this)" />
+                                        </div>
                                     </div>
                                     <div id="val-img-preview-container" style="text-align:center; min-height:80px; display:flex; align-items:center; justify-content:center; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px; padding:6px;">
                                         <span style="color:var(--text-muted); font-size:12px;" data-i18n="validation.card_no_image">Sin imagen seleccionada</span>
@@ -1664,7 +1667,7 @@
 
                             <!-- Submit Button -->
                             <button type="submit" id="val-btn-submit" class="btn-primary" style="width:100%; padding:14px; font-size:14px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;">
-                                💾 <span data-i18n="validation.btn_submit">Evaluar y Guardar Trazabilidad Completa</span>
+                                💾 <span data-i18n="validation.btn_submit">Evaluar y Guardar Validación</span>
                             </button>
                         </form>
                     </div>
@@ -1676,7 +1679,7 @@
                             <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:280px; flex-wrap:wrap;">
                                 <input type="text" id="val-hist-search" class="form-control" placeholder="🔍 Buscar por ID, elemento o ubicación..." oninput="filterValidationHistory()" style="max-width:260px;" />
                                 <select id="val-hist-elem-filter" class="form-control" onchange="filterValidationHistory()" style="max-width:220px;">
-                                    <option value="" data-i18n="validation.filter_all_elements">Todos los elementos S20.20</option>
+                                    <option value="" data-i18n="validation.filter_all_elements">Todos los elementos</option>
                                 </select>
                                 <select id="val-hist-status-filter" class="form-control" onchange="filterValidationHistory()" style="max-width:180px;">
                                     <option value="" data-i18n="validation.filter_all_status">Todos los estatus</option>
@@ -1936,6 +1939,23 @@
                                         <option value="de">Deutsch (DE)</option>
                                         <option value="it">Italiano (IT)</option>
                                         <option value="ro">Română (RO)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- TEMPERATURE UNIT PREFERENCE -->
+                            <div class="glass-card" style="padding:18px; border:1px solid var(--border-color); border-radius:10px; background:#FFFFFF;">
+                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                    <span style="font-size:22px;">🌡️</span>
+                                    <div>
+                                        <h5 style="margin:0; font-size:14px; font-weight:700;" data-i18n="settings.temp_unit_title">Unidad de Temperatura</h5>
+                                        <div style="font-size:11px; color:var(--text-muted);" data-i18n="settings.temp_unit_sub">Selecciona la escala para captura y visualización de temperaturas (°C o °F).</div>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <select id="settings-temp-unit-select" class="form-control" onchange="changeTemperatureUnit(this.value)" style="font-weight:600;">
+                                        <option value="C" data-i18n="settings.opt_celsius">Celsius (°C)</option>
+                                        <option value="F" data-i18n="settings.opt_fahrenheit">Fahrenheit (°F)</option>
                                     </select>
                                 </div>
                             </div>
@@ -2325,6 +2345,14 @@
             setStoredReportLang(userReportLang);
             if (document.getElementById('settings-reports-lang-select')) document.getElementById('settings-reports-lang-select').value = userReportLang;
 
+            const userTempUnit = (sessionRes && sessionRes.temp_unit) || getStoredTempUnit();
+            if (typeof changeTemperatureUnit === 'function') {
+                currentTempUnit = userTempUnit;
+                localStorage.setItem('esd_temp_unit', userTempUnit);
+                if (document.getElementById('settings-temp-unit-select')) document.getElementById('settings-temp-unit-select').value = userTempUnit;
+                updateTemperatureUnitUI();
+            }
+
             if (sessionRes.version && document.getElementById('system-version-badge')) {
                 document.getElementById('system-version-badge').innerText = 'v' + sessionRes.version;
             }
@@ -2497,11 +2525,20 @@
             const eqTypeEl = document.getElementById('audit-tipo-equipo');
             if (eqTypeEl) populateElementSubtypes(eqTypeEl.value);
         }
+        if (typeof populateValidationElements === 'function') {
+            populateValidationElements();
+        }
+        if (typeof updateTemperatureUnitUI === 'function') {
+            updateTemperatureUnitUI();
+        }
         if (typeof renderExtraPoints === 'function') {
             renderExtraPoints();
         }
         if (currentModule === 'eventmeter' && typeof loadEventMeterHistory === 'function') {
             loadEventMeterHistory();
+        }
+        if (currentModule === 'validation' && typeof filterValidationHistory === 'function') {
+            filterValidationHistory();
         }
     }
 
@@ -5934,49 +5971,100 @@
     }
 
     // =========================================================================
-    // MODULE: ESD CONTROL ELEMENT VALIDATION (VALIDACIÓN INTEGRAL ESD S20.20)
+    // TEMPERATURE UNIT PREFERENCE & CONVERSION HELPERS
+    // =========================================================================
+    let currentTempUnit = localStorage.getItem('esd_temp_unit') || 'C';
+
+    function getStoredTempUnit() {
+        return localStorage.getItem('esd_temp_unit') || 'C';
+    }
+
+    function changeTemperatureUnit(unit) {
+        currentTempUnit = (unit === 'F') ? 'F' : 'C';
+        localStorage.setItem('esd_temp_unit', currentTempUnit);
+        if (document.getElementById('settings-temp-unit-select')) {
+            document.getElementById('settings-temp-unit-select').value = currentTempUnit;
+        }
+        updateTemperatureUnitUI();
+        filterValidationHistory();
+        try {
+            fetch('/api/settings/temp-unit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ unit: currentTempUnit })
+            }).catch(e => console.error('Error syncing temp unit:', e));
+        } catch(e) {}
+    }
+
+    function updateTemperatureUnitUI() {
+        const unit = getStoredTempUnit();
+        const displayEl = document.getElementById('val-temp-unit-display');
+        if (displayEl) {
+            displayEl.innerText = unit === 'F' ? '°F' : '°C';
+        }
+        if (document.getElementById('settings-temp-unit-select')) {
+            document.getElementById('settings-temp-unit-select').value = unit;
+        }
+    }
+
+    function formatTemperature(val, itemUnit = null) {
+        if (val === null || val === undefined || val === '') return 'N/D';
+        let str = String(val).trim();
+        let num = parseFloat(str.replace(/[^0-9.-]/g, ''));
+        if (isNaN(num)) return val;
+
+        const isStoredF = (itemUnit === 'F') || str.toLowerCase().includes('f');
+        let cVal = isStoredF ? (num - 32) * 5 / 9 : num;
+        
+        const userUnit = getStoredTempUnit();
+        if (userUnit === 'F') {
+            let fVal = isStoredF ? num : (cVal * 9 / 5) + 32;
+            return `${fVal.toFixed(1)} °F`;
+        } else {
+            return `${cVal.toFixed(1)} °C`;
+        }
+    }
+
+    // =========================================================================
+    // MODULE: ESD CONTROL ELEMENT VALIDATION (ANSI/ESD S20.20 & TR53)
     // =========================================================================
     const INFO_ELEMENTOS_ESD_DEF = {
-        "Pulsera antiestática": { limite: "RS < 3.5x10^7 ohms", ref_num: 3.5e7, tipo_material: "Banda elástica / Metal", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Calzado": { limite: "RS < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Suela disipativa / Talón", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Piso ESD": { limite: "RTG < 1.0x10^9 ohms / Walking Test < 100V", ref_num: 1.0e9, tipo_material: "Epóxico / Vinílico ESD", magnitud: "Resistencia", metodo: "ANSI/ESD TR53 / ANSI/ESD 97.2", frecuencia: "Semestralmente" },
-        "Superficie de trabajo": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Tapete disipativo / Mesa", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Anualmente" },
-        "Monitor Continuo": { limite: "RTG < 2 ohms", ref_num: 2.0, tipo_material: "Equipo Electrónico", magnitud: "Resistencia", metodo: "Anexo A.1", frecuencia: "Trimestralmente" },
-        "Ionizador": { limite: "Descarga: <10s, Bal: +-35V", ref_num: 10.0, tipo_material: "Ventilador / Barra", magnitud: "Tiempo", metodo: "ANSI/ESD SP3.3-2016", frecuencia: "Trimestralmente" },
-        "Bolsa disipativa": { limite: "RS < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Plástico disipativo", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.11", frecuencia: "Semestralmente" },
-        "Cautín / Estación de soldar": { limite: "RTG < 10 ohms", ref_num: 10.0, tipo_material: "Metal / Punta", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Caja Disipativa": { limite: "RS < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "Plástico / Cartón", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.11", frecuencia: "Anualmente" },
-        "Caja conductiva": { limite: "RS < 1.0x10^4 ohms", ref_num: 1.0e4, tipo_material: "Plástico conductivo", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.11", frecuencia: "Anualmente" },
-        "Charola conductiva": { limite: "RS < 1.0x10^4 ohms", ref_num: 1.0e4, tipo_material: "Plástico conductivo", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.13/11.11", frecuencia: "Anualmente" },
-        "Charola Disipativa": { limite: "RS < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "Plástico disipativo", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.13/11.11", frecuencia: "Anualmente" },
-        "Magazine": { limite: "RS < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "Metal / Plástico", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.13/11.11", frecuencia: "Anualmente" },
-        "Bata": { limite: "RPP < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "Tela ESD", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Gorra": { limite: "RPP < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "Tela ESD", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Rack": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Metal", magnitud: "Resistencia", metodo: "ANSI/ESD STM4.1", frecuencia: "Anualmente" },
-        "Carrito": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Metal", magnitud: "Resistencia", metodo: "ANSI/ESD STM4.1", frecuencia: "Anualmente" },
-        "Silla ESD": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Tela / Vinil ESD", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Guantes Nitrilo": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Nitrilo", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Guantes Tela": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Tela ESD", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Tapete de piso": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "Caucho / Vinil ESD", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
-        "Aislantes - EPA (General)": { limite: ">30 cm de ESDS", ref_num: 2000.0, tipo_material: "Material Aislante", magnitud: "Voltaje", metodo: "Anexo A.2", frecuencia: "Semestralmente" },
-        "Aislantes - Conductores Aislados": { limite: "< 35 Volts", ref_num: 35.0, tipo_material: "Conductor Aislado", magnitud: "Voltaje", metodo: "Anexo A.2", frecuencia: "Semestralmente" },
-        "Aislantes - Contacto directo": { limite: "<= 125 Volts/in", ref_num: 125.0, tipo_material: "Material Aislante", magnitud: "Voltaje", metodo: "Anexo A.2", frecuencia: "Semestralmente" },
-        "Bolsas blindadas": { limite: "Visual", ref_num: 0.0, tipo_material: "Plástico metalizado", magnitud: "Otro", metodo: "Inspección visual", frecuencia: "Trimestralmente" }
-    };
-
-    const MAPA_UNIDADES_DEF = {
-        "Resistencia": "Ohms",
-        "Voltaje": "Volts",
-        "Tiempo": "Segundos",
-        "Otro": "N/A"
+        "Pulsera antiestática": { limite: "RS < 3.5x10^7 ohms", ref_num: 3.5e7, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Calzado": { limite: "RS < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Piso ESD": { limite: "RTG < 1.0x10^9 ohms / Walking Test < 100V", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53 / ANSI/ESD 97.2", frecuencia: "Semestralmente" },
+        "Superficie de trabajo": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Anualmente" },
+        "Monitor Continuo": { limite: "RTG < 2 ohms", ref_num: 2.0, tipo_material: "", magnitud: "Resistencia", metodo: "Anexo A.1", frecuencia: "Trimestralmente" },
+        "Ionizador": { limite: "Descarga: <10s, Bal: +-35V", ref_num: 10.0, tipo_material: "", magnitud: "Tiempo", metodo: "ANSI/ESD SP3.3-2016", frecuencia: "Trimestralmente" },
+        "Bolsa disipativa": { limite: "RS < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.11", frecuencia: "Semestralmente" },
+        "Cautín / Estación de soldar": { limite: "RTG < 10 ohms", ref_num: 10.0, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Caja Disipativa": { limite: "RS < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.11", frecuencia: "Anualmente" },
+        "Caja conductiva": { limite: "RS < 1.0x10^4 ohms", ref_num: 1.0e4, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.11", frecuencia: "Anualmente" },
+        "Charola conductiva": { limite: "RS < 1.0x10^4 ohms", ref_num: 1.0e4, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.13/11.11", frecuencia: "Anualmente" },
+        "Charola Disipativa": { limite: "RS < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.13/11.11", frecuencia: "Anualmente" },
+        "Magazine": { limite: "RS < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM11.13/11.11", frecuencia: "Anualmente" },
+        "Bata": { limite: "RPP < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Gorra": { limite: "RPP < 1.0x10^11 ohms", ref_num: 1.0e11, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Rack": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM4.1", frecuencia: "Anualmente" },
+        "Carrito": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD STM4.1", frecuencia: "Anualmente" },
+        "Silla ESD": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Guantes Nitrilo": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Guantes Tela": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Tapete de piso": { limite: "RTG < 1.0x10^9 ohms", ref_num: 1.0e9, tipo_material: "", magnitud: "Resistencia", metodo: "ANSI/ESD TR53", frecuencia: "Semestralmente" },
+        "Aislantes - EPA (General)": { limite: ">30 cm de ESDS", ref_num: 2000.0, tipo_material: "", magnitud: "Voltaje", metodo: "Anexo A.2", frecuencia: "Semestralmente" },
+        "Aislantes - Conductores Aislados": { limite: "< 35 Volts", ref_num: 35.0, tipo_material: "", magnitud: "Voltaje", metodo: "Anexo A.2", frecuencia: "Semestralmente" },
+        "Aislantes - Contacto directo": { limite: "<= 125 Volts/in", ref_num: 125.0, tipo_material: "", magnitud: "Voltaje", metodo: "Anexo A.2", frecuencia: "Semestralmente" },
+        "Bolsas blindadas": { limite: "Visual", ref_num: 0.0, tipo_material: "", magnitud: "Otro", metodo: "Inspección visual", frecuencia: "Trimestralmente" }
     };
 
     let allValidationEquipos = [];
     let allValidationRecords = [];
     let validationEvidenceFile = null;
+    let valReadingCount = 0;
 
     async function loadValidationModule() {
         populateValidationElements();
+        updateTemperatureUnitUI();
+        initValReadings();
         await loadValidationEquipos();
         await loadValidationLines();
         await loadValidationHistory();
@@ -5985,17 +6073,79 @@
     function populateValidationElements() {
         const sel = document.getElementById('val-elemento-sel');
         if (!sel) return;
+        const currentVal = sel.value;
         sel.innerHTML = '';
-        Object.keys(INFO_ELEMENTOS_ESD_DEF).forEach(k => {
+        Object.keys(INFO_ELEMENTOS_ESD_DEF).forEach(canonicalKey => {
             const opt = document.createElement('option');
-            opt.value = k;
-            opt.textContent = k;
+            opt.value = canonicalKey;
+            const translated = t(`validation.elements.${canonicalKey}`, canonicalKey);
+            opt.textContent = translated;
+            if (currentVal === canonicalKey) opt.selected = true;
             sel.appendChild(opt);
         });
 
-        // Trigger change on first element
-        if (sel.options.length > 0) {
+        if (sel.options.length > 0 && !currentVal) {
             onValElementoChange(sel.options[0].value);
+        }
+    }
+
+    function initValReadings() {
+        const container = document.getElementById('val-readings-container');
+        if (!container) return;
+        container.innerHTML = '';
+        valReadingCount = 0;
+        addValReadingRow('', '', true);
+    }
+
+    function addValReadingRow(val = '', loc = '', isFirst = false) {
+        const container = document.getElementById('val-readings-container');
+        if (!container) return;
+        valReadingCount++;
+        const idx = valReadingCount;
+
+        const row = document.createElement('div');
+        row.className = 'val-reading-row glass-card';
+        row.id = `val-reading-row-${idx}`;
+        row.style.cssText = 'padding:12px 14px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px;';
+
+        const lblMed = isFirst ? t('validation.lbl_med1', 'Medición 1 (Oblig.)*') : `${t('validation.lbl_reading_n', 'Medición {0}').replace('{0}', idx)}`;
+        const phLoc = t('validation.ph_reading_point', 'Punto / Ubicación de esta medición (ej. Centro del tapete)');
+        const deleteBtnHtml = !isFirst ? `
+            <button type="button" onclick="removeValReadingRow('${row.id}')" class="tab-btn" style="background:#FFF1F2; color:#E11D48; border-color:#FECDD3; padding:6px 10px; font-size:11.5px; font-weight:700; height:38px; align-self:flex-end;">
+                🗑️ <span data-i18n="validation.btn_remove_reading">Eliminar</span>
+            </button>
+        ` : '';
+
+        row.innerHTML = `
+            <div style="display:grid; grid-template-columns:150px 1fr ${!isFirst ? 'auto' : ''}; gap:12px; align-items:flex-end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:11.5px; font-weight:700;">${lblMed}</label>
+                    <input type="text" class="form-control val-reading-val" value="${val}" placeholder="Ej: 1.5e6" ${isFirst ? 'required' : ''} />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">${phLoc}</label>
+                    <input type="text" class="form-control val-reading-loc" value="${loc}" placeholder="${phLoc}" />
+                </div>
+                ${deleteBtnHtml}
+            </div>
+        `;
+
+        container.appendChild(row);
+    }
+
+    function removeValReadingRow(rowId) {
+        const row = document.getElementById(rowId);
+        if (row) row.remove();
+    }
+
+    function onValUnitChange(unitVal) {
+        const wrap = document.getElementById('val-unidad-other-wrap');
+        if (wrap) {
+            wrap.style.display = (unitVal === 'other') ? 'block' : 'none';
+            if (unitVal === 'other') {
+                const otherInp = document.getElementById('val-unidad-other');
+                if (otherInp) otherInp.focus();
+            }
         }
     }
 
@@ -6069,10 +6219,10 @@
     }
 
     async function loadValidationLines() {
-        const sel = document.getElementById('val-ubicacion-sel');
-        if (!sel) return;
+        const dList = document.getElementById('val-lines-datalist');
+        if (!dList) return;
         const siteId = (sessionData && sessionData.site_id) || '';
-        sel.innerHTML = `<option value="">${t('audit.opt_select_line', '-- Seleccionar Línea --')}</option>`;
+        dList.innerHTML = '';
 
         try {
             const res = await fetch(`/api/lines?siteId=${encodeURIComponent(siteId)}`);
@@ -6084,13 +6234,12 @@
                         if (!name) return;
                         const opt = document.createElement('option');
                         opt.value = name;
-                        opt.textContent = name;
-                        sel.appendChild(opt);
+                        dList.appendChild(opt);
                     });
                 }
             }
         } catch(e) {
-            console.error('Error loading validation lines:', e);
+            console.error('Error loading validation lines for datalist:', e);
         }
     }
 
@@ -6098,13 +6247,10 @@
         const info = INFO_ELEMENTOS_ESD_DEF[elemName];
         if (!info) return;
 
-        const matInp = document.getElementById('val-tipo-material');
         const metInp = document.getElementById('val-metodo');
         const magSel = document.getElementById('val-magnitud-sel');
-        const unInp = document.getElementById('val-unidad');
         const refInp = document.getElementById('val-referencia');
 
-        if (matInp) matInp.value = info.tipo_material || '';
         if (metInp) metInp.value = info.metodo || '';
         if (magSel) {
             magSel.value = info.magnitud || 'Resistencia';
@@ -6114,9 +6260,13 @@
     }
 
     function onValMagnitudChange(mag) {
-        const unInp = document.getElementById('val-unidad');
-        if (unInp) {
-            unInp.value = MAPA_UNIDADES_DEF[mag] || 'Ohms';
+        const unSel = document.getElementById('val-unidad-sel');
+        if (unSel) {
+            if (mag === 'Resistencia') unSel.value = 'ohms';
+            else if (mag === 'Voltaje') unSel.value = 'volts';
+            else if (mag === 'Tiempo') unSel.value = 's';
+            else unSel.value = 'other';
+            onValUnitChange(unSel.value);
         }
     }
 
@@ -6145,9 +6295,11 @@
         validationEvidenceFile = null;
         const fileInput = document.getElementById('val-img-input');
         if (fileInput) fileInput.value = '';
+        const camInput = document.getElementById('val-camera-input');
+        if (camInput) camInput.value = '';
         const prevContainer = document.getElementById('val-img-preview-container');
         if (prevContainer) {
-            prevContainer.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">Sin imagen seleccionada</span>`;
+            prevContainer.innerHTML = `<span style="color:var(--text-muted); font-size:12px;" data-i18n="validation.card_no_image">Sin imagen seleccionada</span>`;
         }
     }
 
@@ -6187,19 +6339,16 @@
         const fab_elem = document.getElementById('val-fab-elem').value.trim();
         const mod_elem = document.getElementById('val-mod-elem').value.trim();
         const sn_elem = document.getElementById('val-sn-elem').value.trim();
-        const ubicacion = document.getElementById('val-ubicacion-sel').value;
+        const ubicacion = document.getElementById('val-ubicacion-input').value.trim();
         const temp = document.getElementById('val-temp').value.trim();
         const humedad = document.getElementById('val-humedad').value.trim();
         const metodo_med = document.getElementById('val-metodo').value.trim();
         const modo_med = document.getElementById('val-modo').value.trim();
-        const unidad_med = document.getElementById('val-unidad').value.trim();
+        
+        const unSel = document.getElementById('val-unidad-sel').value;
+        const unidad_med = (unSel === 'other') ? (document.getElementById('val-unidad-other').value.trim() || 'Custom') : unSel;
+        
         const referencia = parseFloat(document.getElementById('val-referencia').value) || 1.0e9;
-
-        const med1Val = document.getElementById('val-med-1').value.trim();
-        const med2Val = document.getElementById('val-med-2').value.trim();
-        const med3Val = document.getElementById('val-med-3').value.trim();
-        const med4Val = document.getElementById('val-med-4').value.trim();
-        const med5Val = document.getElementById('val-med-5').value.trim();
         const notas_val = document.getElementById('val-notas').value.trim();
 
         if (!id_elemento) {
@@ -6208,27 +6357,52 @@
             return;
         }
         if (!ubicacion) {
-            alert('⚠️ ' + t('validation.msg_err_required', 'Por favor selecciona una Ubicación / Línea.'));
-            document.getElementById('val-ubicacion-sel').focus();
-            return;
-        }
-        if (!med1Val) {
-            alert('⚠️ ' + t('validation.msg_err_required', 'La Medición 1 es obligatoria para la validación.'));
-            document.getElementById('val-med-1').focus();
+            alert('⚠️ ' + t('validation.msg_err_required', 'Por favor ingresa o selecciona una Ubicación / Línea.'));
+            document.getElementById('val-ubicacion-input').focus();
             return;
         }
 
-        const med1 = parsearResistencia(med1Val);
-        if (med1 === 'ERROR' || med1 === null) {
-            alert('⚠️ Ingresa un valor numérico válido para la Medición 1 (ej: 1.5e6 o 500000).');
-            return;
-        }
+        // Collect all dynamic reading rows
+        const readingRows = document.querySelectorAll('.val-reading-row');
+        const readings = [];
+        let hasError = false;
+        let isNonCompliant = false;
 
-        const med2 = med2Val ? parsearResistencia(med2Val) : null;
-        const med3 = med3Val ? parsearResistencia(med3Val) : null;
-        const med4 = med4Val ? parsearResistencia(med4Val) : null;
-        const med5 = med5Val ? parsearResistencia(med5Val) : null;
+        readingRows.forEach((row, i) => {
+            const valInput = row.querySelector('.val-reading-val');
+            const locInput = row.querySelector('.val-reading-loc');
+            const rawVal = valInput ? valInput.value.trim() : '';
+            const pointLoc = locInput ? locInput.value.trim() : '';
 
+            if (i === 0 && !rawVal) {
+                hasError = true;
+                alert('⚠️ ' + t('validation.msg_err_required', 'La Medición 1 es obligatoria.'));
+                if (valInput) valInput.focus();
+                return;
+            }
+
+            if (rawVal) {
+                const parsed = parsearResistencia(rawVal);
+                if (parsed === 'ERROR' || parsed === null) {
+                    hasError = true;
+                    alert(`⚠️ Ingresa un valor numérico válido para la Medición ${i+1} (ej: 1.5e6 o 500000).`);
+                    if (valInput) valInput.focus();
+                    return;
+                }
+                if (parsed > referencia) {
+                    isNonCompliant = true;
+                }
+                readings.push({
+                    index: i + 1,
+                    value: parsed,
+                    location_point: pointLoc
+                });
+            }
+        });
+
+        if (hasError || readings.length === 0) return;
+
+        const med1 = readings[0].value;
         const submitBtn = document.getElementById('val-btn-submit');
         if (submitBtn) {
             submitBtn.disabled = true;
@@ -6236,7 +6410,7 @@
         }
 
         try {
-            // Upload evidence image if selected
+            // Upload evidence image if selected to 'validation-evidence' bucket
             let uploadedImageUrl = '';
             if (validationEvidenceFile) {
                 const fd = new FormData();
@@ -6256,7 +6430,7 @@
             // Get equipment metadata
             const eq = allValidationEquipos.find(x => (x.codigo_equipo === id_equipo_sel || x.custom_id === id_equipo_sel || x.id === id_equipo_sel)) || {};
 
-            const resultado_calc = (med1 <= referencia) ? "CUMPLE (APROBADO)" : "NO CUMPLE (RECHAZADO)";
+            const resultado_calc = !isNonCompliant ? "CUMPLE (APROBADO)" : "NO CUMPLE (RECHAZADO)";
 
             const payload = {
                 fecha_auditoria: new Date().toISOString(),
@@ -6267,7 +6441,8 @@
                 fabricante_elem: fab_elem,
                 modelo_elem: mod_elem,
                 sn_elem,
-                temperatura: temp,
+                temperatura: temp ? `${temp} °${getStoredTempUnit()}` : '',
+                temp_unit: getStoredTempUnit(),
                 humedad,
                 ubicacion,
                 id_equipo_utilizado: id_equipo_sel,
@@ -6280,10 +6455,7 @@
                 fecha_prox_cal: eq.fecha_proxima_calibracion ? eq.fecha_proxima_calibracion.split('T')[0] : '2027-01-15',
                 limite_referencia: referencia,
                 medicion_1: med1,
-                medicion_2: med2,
-                medicion_3: med3,
-                medicion_4: med4,
-                medicion_5: med5,
+                readings,
                 unidad: unidad_med,
                 metodo: metodo_med,
                 modo_medicion: modo_med,
@@ -6308,21 +6480,20 @@
                     alertEl.style.background = isPass ? '#ECFDF5' : '#FFF1F2';
                     alertEl.style.borderColor = isPass ? '#10B981' : '#F43F5E';
                     alertEl.style.color = isPass ? '#065F46' : '#9F1239';
-                    alertEl.innerHTML = `✅ <strong>Validación guardada con éxito.</strong> Resultado evaluado: <strong>${resultado_calc}</strong> (${med1.toExponential(2)} ${unidad_med})`;
+                    alertEl.innerHTML = `✅ <strong>Validación guardada con éxito.</strong> Resultado evaluado: <strong>${resultado_calc}</strong> (${med1 < 1000 ? (med1 < 10 ? med1.toFixed(2) : Math.round(med1)) : med1.toExponential(2)} ${unidad_med})`;
                 }
 
                 // Clear input values
                 document.getElementById('val-id-elemento').value = '';
+                document.getElementById('val-tipo-material').value = '';
                 document.getElementById('val-fab-elem').value = '';
                 document.getElementById('val-mod-elem').value = '';
                 document.getElementById('val-sn-elem').value = '';
-                document.getElementById('val-med-1').value = '';
-                document.getElementById('val-med-2').value = '';
-                document.getElementById('val-med-3').value = '';
-                document.getElementById('val-med-4').value = '';
-                document.getElementById('val-med-5').value = '';
+                document.getElementById('val-temp').value = '';
+                document.getElementById('val-humedad').value = '';
                 document.getElementById('val-notas').value = '';
                 clearValEvidence();
+                initValReadings();
 
                 // Refresh history
                 loadValidationHistory();
@@ -6335,7 +6506,7 @@
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = `💾 <span data-i18n="validation.btn_submit">Evaluar y Guardar Trazabilidad Completa</span>`;
+                submitBtn.innerHTML = `💾 <span data-i18n="validation.btn_submit">Evaluar y Guardar Validación</span>`;
                 applyTranslations();
             }
         }
@@ -6355,12 +6526,12 @@
                 const elemFilter = document.getElementById('val-hist-elem-filter');
                 if (elemFilter) {
                     const currVal = elemFilter.value;
-                    elemFilter.innerHTML = `<option value="" data-i18n="validation.filter_all_elements">Todos los elementos S20.20</option>`;
+                    elemFilter.innerHTML = `<option value="" data-i18n="validation.filter_all_elements">Todos los elementos</option>`;
                     const uniqueElems = [...new Set(allValidationRecords.map(x => x.elemento_s20_20).filter(Boolean))].sort();
                     uniqueElems.forEach(elName => {
                         const opt = document.createElement('option');
                         opt.value = elName;
-                        opt.textContent = elName;
+                        opt.textContent = t(`validation.elements.${elName}`, elName);
                         if (currVal === elName) opt.selected = true;
                         elemFilter.appendChild(opt);
                     });
@@ -6415,24 +6586,23 @@
             const bgClass = isPass ? '#ECFDF5' : '#FFF1F2';
             const borderClass = isPass ? '#A7F3D0' : '#FECDD3';
             const fechaCorta = r.fecha_auditoria ? r.fecha_auditoria.split('T')[0] : 'N/D';
+            const elemTranslated = t(`validation.elements.${r.elemento_s20_20}`, r.elemento_s20_20 || 'General');
 
-            // Format measurements
-            let medStr = 'N/D';
-            if (r.medicion_1 !== null && r.medicion_1 !== undefined) {
+            // Format dynamic readings
+            let readingsHtml = '';
+            if (Array.isArray(r.readings) && r.readings.length > 0) {
+                readingsHtml = r.readings.map((rd, i) => {
+                    const n = Number(rd.value);
+                    const valFmt = isNaN(n) ? rd.value : (n < 1000 ? (n < 10 ? n.toFixed(2) : Math.round(n).toString()) : n.toExponential(2));
+                    const locPart = rd.location_point ? ` <span style="color:var(--text-muted); font-size:11px;">(${rd.location_point})</span>` : '';
+                    return `<div><strong>M${i+1}:</strong> <span style="font-family:monospace; font-weight:700;">${valFmt} ${r.unidad || 'ohms'}</span>${locPart}</div>`;
+                }).join('');
+            } else if (r.medicion_1 !== null && r.medicion_1 !== undefined) {
                 const n = Number(r.medicion_1);
-                medStr = isNaN(n) ? r.medicion_1 : (n < 1000 ? (n < 10 ? n.toFixed(2) : Math.round(n).toString()) : n.toExponential(2));
-                medStr += ` ${r.unidad || 'Ohms'}`;
-            }
-
-            let extraMedsHtml = '';
-            const extras = [r.medicion_2, r.medicion_3, r.medicion_4, r.medicion_5].filter(x => x !== null && x !== undefined && x !== '');
-            if (extras.length > 0) {
-                const extraFmt = extras.map((x, i) => {
-                    const n = Number(x);
-                    const valFmt = isNaN(n) ? x : (n < 1000 ? (n < 10 ? n.toFixed(2) : Math.round(n).toString()) : n.toExponential(2));
-                    return `M${i+2}: ${valFmt}`;
-                }).join(' | ');
-                extraMedsHtml = `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Extras: ${extraFmt}</div>`;
+                const medStr = isNaN(n) ? r.medicion_1 : (n < 1000 ? (n < 10 ? n.toFixed(2) : Math.round(n).toString()) : n.toExponential(2));
+                readingsHtml = `<div><strong>M1:</strong> <span style="font-family:monospace; font-weight:700;">${medStr} ${r.unidad || 'ohms'}</span></div>`;
+            } else {
+                readingsHtml = `<div><span style="color:var(--text-muted);">N/D</span></div>`;
             }
 
             // Image tag
@@ -6440,6 +6610,9 @@
             if (r.imagen_url && (r.imagen_url.startsWith('http') || r.imagen_url.startsWith('/api/'))) {
                 imgHtml = `<img src="${r.imagen_url}" style="max-height:120px; max-width:100%; border-radius:6px; object-fit:contain; border:1px solid #CBD5E1; cursor:pointer;" onclick="window.open('${r.imagen_url}', '_blank')" alt="Evidencia" />`;
             }
+
+            const tempFormatted = formatTemperature(r.temperatura);
+            const humidityStr = r.humedad ? `${r.humedad} %` : 'N/D';
 
             const cardId = `val-card-body-${idx}`;
 
@@ -6452,7 +6625,7 @@
                             <strong style="font-size:13px; color:var(--text-primary); font-family:monospace;">${fechaCorta}</strong>
                             <span style="color:var(--text-muted);">|</span>
                             <strong style="font-size:13.5px; color:var(--accent-blue); font-family:monospace;">${r.id_elemento || 'EQ'}</strong>
-                            <span style="font-size:12.5px; font-weight:600; color:var(--text-secondary);">(${r.elemento_s20_20 || 'General'})</span>
+                            <span style="font-size:12.5px; font-weight:600; color:var(--text-secondary);">(${elemTranslated})</span>
                             <span style="color:var(--text-muted);">&bull;</span>
                             <span style="font-size:12px; color:var(--text-muted);">${r.ubicacion || 'Línea N/D'}</span>
                         </div>
@@ -6475,6 +6648,9 @@
                                 <div><strong>Modelo:</strong> ${r.modelo_elem || 'N/D'}</div>
                                 <div><strong>Material:</strong> ${r.tipo_material || 'N/D'}</div>
                                 <div><strong>No. Serie:</strong> <span style="font-family:monospace;">${r.sn_elem || 'N/D'}</span></div>
+                                <div style="margin-top:6px; font-size:11.5px; color:var(--text-muted);">
+                                    🌡️ ${tempFormatted} &bull; 💧 ${humidityStr}
+                                </div>
                             </div>
 
                             <!-- Column 2: Trazabilidad -->
@@ -6488,9 +6664,10 @@
 
                             <!-- Column 3: Resultados -->
                             <div>
-                                <h5 style="margin:0 0 8px 0; font-size:12px; font-weight:700; color:var(--accent-blue);">📊 Resultados</h5>
-                                <div><strong>Medición:</strong> <span style="font-weight:700; font-family:monospace;">${medStr}</span></div>
-                                ${extraMedsHtml}
+                                <h5 style="margin:0 0 8px 0; font-size:12px; font-weight:700; color:var(--accent-blue);">📊 Resultados y Mediciones</h5>
+                                <div style="display:flex; flex-direction:column; gap:3px; margin-bottom:6px;">
+                                    ${readingsHtml}
+                                </div>
                                 <div><strong>Límite Ref.:</strong> <span style="font-family:monospace;">&lt; ${r.limite_referencia ? Number(r.limite_referencia).toExponential(2) : '1.00e+9'}</span></div>
                                 <div style="margin-top:4px;"><strong>Resultado:</strong> <span style="color:${colorClass}; font-weight:800;">${r.resultado || 'CUMPLE'}</span></div>
                             </div>

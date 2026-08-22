@@ -2653,6 +2653,8 @@ public class ApiController : ControllerBase
         return Ok(new { success = true, evidence_url = evidenceUrl, storage_key = $"audit-evidence/{storagePath}" });
     }
 
+    [HttpGet("evidence/validation/{siteId}/{fileName}")]
+    [HttpGet("evidence/validation/{fileName}")]
     [HttpGet("evidence/{siteId}/{fileName}")]
     [HttpGet("evidence/{fileName}")]
     [HttpGet("uploads/isolated/{fileName}")]
@@ -2665,14 +2667,26 @@ public class ApiController : ControllerBase
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         string storagePath = $"{targetSite}/{fileName}";
 
-        // 1. Check Supabase Storage at {siteId}/{fileName}
+        // 1. Check Supabase Storage bucket 'validation-evidence'
+        var (valSuccess, valStream, valCt, _) = await _supabase.DownloadStorageObjectAsync("validation-evidence", storagePath);
+        if (valSuccess && valStream != null)
+        {
+            return File(valStream, valCt ?? "image/jpeg");
+        }
+        var (valDirSuccess, valDirStream, valDirCt, _) = await _supabase.DownloadStorageObjectAsync("validation-evidence", fileName);
+        if (valDirSuccess && valDirStream != null)
+        {
+            return File(valDirStream, valDirCt ?? "image/jpeg");
+        }
+
+        // 2. Check Supabase Storage bucket 'audit-evidence' at {siteId}/{fileName}
         var (success, stream, contentType, msg) = await _supabase.DownloadStorageObjectAsync("audit-evidence", storagePath);
         if (success && stream != null)
         {
             return File(stream, contentType ?? "image/jpeg");
         }
 
-        // 2. Check Supabase Storage at {fileName} directly
+        // 3. Check Supabase Storage bucket 'audit-evidence' at {fileName} directly
         var (successDirect, streamDirect, ctDirect, _) = await _supabase.DownloadStorageObjectAsync("audit-evidence", fileName);
         if (successDirect && streamDirect != null)
         {
@@ -3562,7 +3576,7 @@ public class ApiController : ControllerBase
             payload["auditor"] = HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
         }
 
-        // Evaluate PASS/FAIL
+        // Evaluate PASS/FAIL across all provided readings
         double? med1 = null;
         if (payload["medicion_1"] != null && double.TryParse(payload["medicion_1"]?.ToString(), out double parsedMed1))
         {
@@ -3576,13 +3590,34 @@ public class ApiController : ControllerBase
         }
 
         string calcResult = "CUMPLE (APROBADO)";
-        if (med1.HasValue)
+        
+        // Evaluate med1
+        if (med1.HasValue && med1.Value > refLimit)
         {
-            if (med1.Value > refLimit)
+            calcResult = "NO CUMPLE (RECHAZADO)";
+        }
+
+        // Also evaluate any additional readings in readings array
+        if (payload["readings"] is JsonArray readingsArr)
+        {
+            foreach (var rNode in readingsArr)
             {
-                calcResult = "NO CUMPLE (RECHAZADO)";
+                if (rNode is JsonObject rObj)
+                {
+                    if (rObj["value"] != null && double.TryParse(rObj["value"]?.ToString(), out double rVal))
+                    {
+                        if (rVal > refLimit)
+                        {
+                            calcResult = "NO CUMPLE (RECHAZADO)";
+                            break;
+                        }
+                    }
+                }
             }
         }
+
+        payload["resultado"] = calcResult;
+
         string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
         if (!string.IsNullOrEmpty(currentUserId) && !payload.ContainsKey("auditor_id"))
         {
@@ -3616,7 +3651,7 @@ public class ApiController : ControllerBase
         string contentType = ext == ".png" ? "image/png" : (ext == ".webp" ? "image/webp" : "image/jpeg");
 
         using var stream = file.OpenReadStream();
-        var (uploadSuccess, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, stream, contentType);
+        var (uploadSuccess, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("validation-evidence", storagePath, stream, contentType);
 
         if (!uploadSuccess)
         {
@@ -3629,8 +3664,24 @@ public class ApiController : ControllerBase
             }
         }
 
-        string evidenceUrl = $"/api/evidence/{targetSite}/{safeName}";
-        return Ok(new { success = true, evidence_url = evidenceUrl, storage_key = $"audit-evidence/{storagePath}" });
+        string evidenceUrl = $"/api/evidence/validation/{targetSite}/{safeName}";
+        return Ok(new { success = true, evidence_url = evidenceUrl, storage_key = $"validation-evidence/{storagePath}" });
+    }
+
+    // --- TEMPERATURE UNIT PREFERENCE ---
+    [HttpGet("settings/temp-unit")]
+    public IActionResult GetTemperatureUnit()
+    {
+        string unit = HttpContext.Session.GetString("temp_unit") ?? "C";
+        return Ok(new { success = true, unit });
+    }
+
+    [HttpPost("settings/temp-unit")]
+    public IActionResult SetTemperatureUnit([FromBody] JsonObject payload)
+    {
+        string unit = payload?["unit"]?.ToString()?.ToUpper() == "F" ? "F" : "C";
+        HttpContext.Session.SetString("temp_unit", unit);
+        return Ok(new { success = true, unit });
     }
 }
 
