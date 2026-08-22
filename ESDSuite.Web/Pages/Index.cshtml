@@ -4943,8 +4943,9 @@
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">' + t('schedule.loading_reports', '⏳ Consultando historial de reportes...') + '</td></tr>';
 
         try {
-            const siteId = (sessionData && sessionData.site_id) || '';
-            const res = await fetch(`/api/schedule/reports?siteId=${siteId}`);
+            const siteSelect = document.getElementById('active-site-select');
+            const siteId = (siteSelect && siteSelect.value) ? siteSelect.value : ((sessionData && sessionData.site_id) || '');
+            const res = await fetch(`/api/schedule/reports?siteId=${encodeURIComponent(siteId)}`);
             if (!res.ok) throw new Error('Error al cargar repositorio de reportes');
             const data = await res.json();
             allGeneratedReports = data.reports || [];
@@ -4961,7 +4962,7 @@
                 if (currentVal && lines.includes(currentVal)) lineSelect.value = currentVal;
             }
 
-            renderReportsRepositoryTable(allGeneratedReports);
+            filterReportsRepository();
         } catch (ex) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--accent-rose);">❌ Error al consultar repositorio: ${ex.message}</td></tr>`;
         }

@@ -144,10 +144,39 @@ public class ApiController : ControllerBase
 
         if (string.IsNullOrEmpty(targetSiteId)) return BadRequest(new { success = false, message = "Site ID requerido." });
 
+        // Resolve company information for the target site
+        string? targetCompanyId = null;
+        string? targetCompanyName = null;
+        try
+        {
+            var allSites = await _supabase.GetSitesAsync();
+            var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), targetSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+            if (matchedSite != null)
+            {
+                targetCompanyId = matchedSite["company_id"]?.ToString();
+                if (string.IsNullOrEmpty(targetSiteName) && matchedSite["name"] != null)
+                {
+                    targetSiteName = matchedSite["name"]!.ToString();
+                }
+
+                if (!string.IsNullOrEmpty(targetCompanyId))
+                {
+                    var comp = await _supabase.GetCompanyByIdAsync(targetCompanyId);
+                    if (comp != null && comp["name"] != null)
+                    {
+                        targetCompanyName = comp["name"]!.ToString();
+                    }
+                }
+            }
+        }
+        catch { }
+
         if (IsSuperAdmin)
         {
             HttpContext.Session.SetString("site_id", targetSiteId);
             if (!string.IsNullOrEmpty(targetSiteName)) HttpContext.Session.SetString("site_name", targetSiteName);
+            if (!string.IsNullOrEmpty(targetCompanyId)) HttpContext.Session.SetString("company_id", targetCompanyId);
+            if (!string.IsNullOrEmpty(targetCompanyName)) HttpContext.Session.SetString("company_name", targetCompanyName);
             return Ok(new { success = true });
         }
 
@@ -157,7 +186,7 @@ public class ApiController : ControllerBase
             bool isAllowed = false;
             foreach (var s in allowedSites)
             {
-                if (s is JsonObject sObj && sObj["id"]?.ToString() == targetSiteId)
+                if (s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), targetSiteId, StringComparison.OrdinalIgnoreCase))
                 {
                     isAllowed = true; break;
                 }
@@ -169,6 +198,8 @@ public class ApiController : ControllerBase
 
             HttpContext.Session.SetString("site_id", targetSiteId);
             if (!string.IsNullOrEmpty(targetSiteName)) HttpContext.Session.SetString("site_name", targetSiteName);
+            if (!string.IsNullOrEmpty(targetCompanyId)) HttpContext.Session.SetString("company_id", targetCompanyId);
+            if (!string.IsNullOrEmpty(targetCompanyName)) HttpContext.Session.SetString("company_name", targetCompanyName);
             return Ok(new { success = true });
         }
 
@@ -1261,8 +1292,32 @@ public class ApiController : ControllerBase
     [HttpGet("schedule/reports")]
     public async Task<IActionResult> GetScheduleReports([FromQuery] string? siteId = null, [FromQuery] string? search = null, [FromQuery] string? line = null, [FromQuery] string? reportType = null)
     {
-        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
-        var reports = GetReportsFromIndex(activeSiteId, search, line, reportType);
+        string activeSiteId = !string.IsNullOrEmpty(siteId) ? siteId : (HttpContext.Session.GetString("site_id") ?? DefaultSiteId);
+        string? activeCompanyId = HttpContext.Session.GetString("company_id");
+
+        // Multitenancy validation:
+        if (!IsSuperAdmin)
+        {
+            if (IsCompanyAdmin)
+            {
+                var allowedSites = await _supabase.GetSitesAsync(CurrentUserCompanyId);
+                bool allowed = allowedSites.Any(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), activeSiteId, StringComparison.OrdinalIgnoreCase));
+                if (!allowed)
+                {
+                    return StatusCode(403, new { success = false, message = "Acceso no autorizado a este site." });
+                }
+            }
+            else
+            {
+                string userSiteId = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+                if (!string.Equals(activeSiteId, userSiteId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(403, new { success = false, message = "Acceso no autorizado a este site." });
+                }
+            }
+        }
+
+        var reports = GetReportsFromIndex(activeSiteId, search, line, reportType, activeCompanyId);
         return Ok(new { success = true, reports });
     }
 
@@ -1272,28 +1327,55 @@ public class ApiController : ControllerBase
         string safeFolio = Path.GetFileName(folio).Replace("..", "").Trim();
         string localPath = Path.Combine(_env.WebRootPath, "uploads", "reports", $"{safeFolio}.html");
         
-        // 1. Check local file cache first
-        if (System.IO.File.Exists(localPath))
-        {
-            string html = await System.IO.File.ReadAllTextAsync(localPath, System.Text.Encoding.UTF8);
-            return Content(html, "text/html");
-        }
+        string activeSiteId = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
 
-        // 2. Lookup storage path in reports_history.json
-        string? storagePath = null;
+        // 1. Lookup report record in reports_history.json to verify site / tenant authorization
+        JsonObject? reportRecord = null;
         try
         {
             string histPath = Path.Combine(_env.WebRootPath, "data", "reports_history.json");
             if (System.IO.File.Exists(histPath))
             {
                 var list = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(histPath)) as JsonArray;
-                var item = list?.FirstOrDefault(x => string.Equals(x?["folio"]?.ToString(), safeFolio, StringComparison.OrdinalIgnoreCase));
-                storagePath = item?["storage_path"]?.ToString();
+                reportRecord = list?.FirstOrDefault(x => string.Equals(x?["folio"]?.ToString(), safeFolio, StringComparison.OrdinalIgnoreCase)) as JsonObject;
             }
         }
         catch { }
 
+        // Multitenancy access validation:
+        if (reportRecord != null)
+        {
+            string rSiteId = reportRecord["site_id"]?.ToString() ?? "";
+            string rCompanyId = reportRecord["company_id"]?.ToString() ?? "";
+
+            if (!IsSuperAdmin)
+            {
+                if (IsCompanyAdmin)
+                {
+                    if (!string.IsNullOrEmpty(rCompanyId) && !string.Equals(rCompanyId, CurrentUserCompanyId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(403, "Acceso no autorizado al reporte de otra empresa.");
+                    }
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(rSiteId) && !string.Equals(rSiteId, activeSiteId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(403, "Acceso no autorizado al reporte de otra planta/site.");
+                    }
+                }
+            }
+        }
+
+        // 2. Check local file cache first
+        if (System.IO.File.Exists(localPath))
+        {
+            string html = await System.IO.File.ReadAllTextAsync(localPath, System.Text.Encoding.UTF8);
+            return Content(html, "text/html");
+        }
+
         // 3. Download from Supabase Storage bucket 'audit-evidence' using explicit storagePath
+        string? storagePath = reportRecord?["storage_path"]?.ToString();
         if (!string.IsNullOrEmpty(storagePath))
         {
             var (ok, stream, ct, msg) = await _supabase.DownloadStorageObjectAsync("audit-evidence", storagePath);
@@ -3255,7 +3337,7 @@ public class ApiController : ControllerBase
         catch { }
     }
 
-    private JsonArray GetReportsFromIndex(string siteId, string? search, string? line, string? reportType = null)
+    private JsonArray GetReportsFromIndex(string siteId, string? search, string? line, string? reportType = null, string? companyId = null)
     {
         var result = new JsonArray();
         try
@@ -3274,7 +3356,26 @@ public class ApiController : ControllerBase
                     if (item is JsonObject r)
                     {
                         string rSiteId = r["site_id"]?.ToString() ?? "";
-                        if (!string.IsNullOrEmpty(siteId) && !IsSuperAdmin && rSiteId != siteId) continue;
+                        string rCompanyId = r["company_id"]?.ToString() ?? "";
+
+                        // MANDATORY MULTI-TENANT ISOLATION:
+                        // Only reports belonging strictly to the currently selected siteId are displayed.
+                        if (!string.IsNullOrEmpty(siteId))
+                        {
+                            if (!string.Equals(rSiteId, siteId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+                        }
+
+                        // If companyId is specified and report has company_id, ensure match
+                        if (!string.IsNullOrEmpty(companyId) && !string.IsNullOrEmpty(rCompanyId))
+                        {
+                            if (!string.Equals(rCompanyId, companyId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+                        }
 
                         string folio = r["folio"]?.ToString()?.ToLower() ?? "";
                         string auditor = r["auditor"]?.ToString()?.ToLower() ?? "";
