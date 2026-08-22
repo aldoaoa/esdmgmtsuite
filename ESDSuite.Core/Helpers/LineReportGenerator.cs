@@ -576,11 +576,31 @@ public static class LineReportGenerator
 
     private static string FormatResistance(double res)
     {
-        if (res >= 1e9) return $"{(res / 1e9):0.##} GΩ";
-        if (res >= 1e6) return $"{(res / 1e6):0.##} MΩ";
-        if (res >= 1e3) return $"{(res / 1e3):0.##} kΩ";
-        if (res < 1) return $"{res:0.###} Ω";
-        return $"{res:0.##} Ω";
+        if (double.IsNaN(res) || double.IsInfinity(res) || res <= 0) return "0.00 Ω";
+
+        // Regla 1: Si es inferior a 10 ohms, se debe representar con dos decimales
+        if (res < 10.0)
+        {
+            return $"{res:0.00} Ω";
+        }
+
+        // Regla 2: Si es inferior a 1000 ohms (y >= 10), se debe representar el número completo sin decimales
+        if (res < 1000.0)
+        {
+            return $"{Math.Round(res):0} Ω";
+        }
+
+        // Regla 3: Si es 1000 ohms o superior, se representa en notación científica 1.00x10^(superíndice)
+        int exponent = (int)Math.Floor(Math.Log10(res));
+        double mantissa = res / Math.Pow(10, exponent);
+
+        if (Math.Round(mantissa, 2) >= 10.0)
+        {
+            mantissa /= 10.0;
+            exponent += 1;
+        }
+
+        return $"{mantissa:0.00}x10<sup>{exponent}</sup> Ω";
     }
 }
 
