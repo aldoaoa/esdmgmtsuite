@@ -101,7 +101,13 @@
       "ionizing_bar": "离子棒 (Ionizing bar)",
       "air_gun": "离子风枪 / 离子风嘴 (Air gun / Nozzle)",
       "in_machine": "机内微型离子喷嘴 (In-machine / Micro-nozzle)",
-      "ceiling": "空间 / 天花板离子系统 (Ceiling room system)"
+      "ceiling": "空间 / 天花板离子系统 (Ceiling room system)",
+      "ground_point": "公共接地点 / CPG (Common Point Ground)",
+      "ground_bus": "接地汇流排 (Ground Bus)",
+      "esd_floor": "防静电耗散 / 导电地板",
+      "esd_footwear": "防静电鞋 / 脚跟接地带",
+      "esd_smock": "防静电大褂 / 静电服",
+      "esd_gloves": "防静电手套 / 手指套"
     },
     "opt_select_line": "-- 选择生产线 --",
     "opt_select_subtype": "-- 选择子类型 --",

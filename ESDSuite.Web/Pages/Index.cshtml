@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.4.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.4.1</span>
                     </div>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.4.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.4.1</span>
             </div>
         </div>
     </aside>
@@ -2663,15 +2663,32 @@
     const ELEMENT_SUBTYPES_DEF = {
         "furniture": ["worksurface", "seating", "shelving", "cart", "flow_rack"],
         "machinery": ["smt", "oven_soldering", "conveyor", "test_equipment", "router_depaneling", "screwdriver", "soldering_iron"],
-        "ionizer": ["benchtop", "overhead", "ionizing_bar", "air_gun", "in_machine", "ceiling"]
+        "ionizer": ["benchtop", "overhead", "ionizing_bar", "air_gun", "in_machine", "ceiling"],
+        "grounding": ["ground_point", "ground_bus"],
+        "floors": ["esd_floor", "esd_footwear"],
+        "garments": ["esd_smock", "esd_gloves"]
     };
 
     function getCategoryGroup(categoryVal) {
         if (!categoryVal) return "furniture";
         const c = categoryVal.toLowerCase();
-        if (c.includes('ioniz') || c.includes('离子') || c.includes('sistem')) return "ionizer";
-        if (c.includes('maquin') || c.includes('machin') || c.includes('机械') || c.includes('utilaj')) return "machinery";
+        if (c.includes('ioniz') || c.includes('ion') || c.includes('离子')) return "ionizer";
+        if (c.includes('maquin') || c.includes('machin') || c.includes('smt') || c.includes('equipo') || c.includes('cautin') || c.includes('cautín') || c.includes('horno') || c.includes('conveyor') || c.includes('test') || c.includes('机械') || c.includes('utilaj')) return "machinery";
+        if (c.includes('tierra') || c.includes('ground') || c.includes('gnd') || c.includes('接地') || c.includes('împământare') || c.includes('erdung')) return "grounding";
+        if (c.includes('piso') || c.includes('calzad') || c.includes('floor') || c.includes('foot') || c.includes('zapato') || c.includes('talon') || c.includes('talón') || c.includes('pulsera') || c.includes('wrist') || c.includes('walking') || c.includes('pardosel') || c.includes('paviment') || c.includes('böden') || c.includes('地板')) return "floors";
+        if (c.includes('prenda') || c.includes('bata') || c.includes('smock') || c.includes('guant') || c.includes('glove') || c.includes('gorra') || c.includes('cap') || c.includes('garment') || c.includes('îmbrăcăminte') || c.includes('indumenti') || c.includes('kleidung') || c.includes('服') || c.includes('手套')) return "garments";
         return "furniture";
+    }
+
+    function normalizeAssetCategory(rawCat) {
+        if (!rawCat) return "Mobiliario ESD";
+        const c = rawCat.toLowerCase().trim();
+        if (c.includes('ioniz') || c.includes('ion') || c.includes('离子')) return "Sistema de ionización";
+        if (c.includes('maquin') || c.includes('machin') || c.includes('smt') || c.includes('equipo') || c.includes('cautin') || c.includes('cautín') || c.includes('horno') || c.includes('conveyor') || c.includes('test') || c.includes('机械') || c.includes('utilaj')) return "Maquinaria y equipo";
+        if (c.includes('tierra') || c.includes('ground') || c.includes('gnd') || c.includes('接地') || c.includes('împământare') || c.includes('erdung')) return "Puntos de Tierra / Grounding";
+        if (c.includes('piso') || c.includes('calzad') || c.includes('floor') || c.includes('foot') || c.includes('zapato') || c.includes('talon') || c.includes('talón') || c.includes('pulsera') || c.includes('wrist') || c.includes('walking') || c.includes('pardosel') || c.includes('paviment') || c.includes('böden') || c.includes('地板')) return "Pisos y Calzado";
+        if (c.includes('prenda') || c.includes('bata') || c.includes('smock') || c.includes('guant') || c.includes('glove') || c.includes('gorra') || c.includes('cap') || c.includes('garment') || c.includes('îmbrăcăminte') || c.includes('indumenti') || c.includes('kleidung') || c.includes('服') || c.includes('手套')) return "Prendas y Guantes";
+        return "Mobiliario ESD";
     }
 
     function populateElementSubtypes(categoryVal, preselectedSubtypeKey) {
@@ -5081,7 +5098,47 @@
     let allInventoryAssets = [];
     let currentEditingAsset = null;
 
-    function openNewAssetModal() {
+    async function populateAssetModalLines(selectElementId, selectedLocation, targetSiteId) {
+        const sel = document.getElementById(selectElementId);
+        if (!sel) return;
+        const siteSelect = document.getElementById('active-site-select');
+        const siteId = targetSiteId || (siteSelect && siteSelect.value) || (sessionData && sessionData.site_id) || '';
+        const defaultText = t('audit.opt_select_line', '-- Seleccionar Línea --');
+        sel.innerHTML = `<option value="">${defaultText}</option>`;
+
+        try {
+            const res = await fetch(`/api/lines?siteId=${encodeURIComponent(siteId)}`);
+            if (res.ok) {
+                const lines = await res.json();
+                let found = false;
+                if (Array.isArray(lines)) {
+                    lines.forEach(l => {
+                        const name = l.nombre_linea || l.name;
+                        if (!name) return;
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        if (selectedLocation && (selectedLocation.trim().toLowerCase() === name.trim().toLowerCase())) {
+                            opt.selected = true;
+                            found = true;
+                        }
+                        sel.appendChild(opt);
+                    });
+                }
+                if (selectedLocation && !found && selectedLocation.trim() !== '') {
+                    const opt = document.createElement('option');
+                    opt.value = selectedLocation;
+                    opt.textContent = selectedLocation;
+                    opt.selected = true;
+                    sel.appendChild(opt);
+                }
+            }
+        } catch(e) {
+            console.error('Error fetching lines for asset modal:', e);
+        }
+    }
+
+    async function openNewAssetModal() {
         const modal = document.getElementById('modal-new-asset');
         if (!modal) return;
 
@@ -5093,8 +5150,8 @@
         document.getElementById('inv-new-date').value = new Date().toISOString().split('T')[0];
         document.getElementById('inv-new-periodicity').value = '1m';
 
-        // Populate lines select
-        loadInfraLinesSelect();
+        // Populate lines select dynamically for active site
+        await populateAssetModalLines('inv-new-line', '', (sessionData && sessionData.site_id) || '');
 
         // Populate subtypes
         onNewAssetCategoryChange(document.getElementById('inv-new-category').value);
@@ -5125,7 +5182,7 @@
 
     function onNewAssetLineChange(lineVal) {
         const areaInp = document.getElementById('inv-new-area');
-        if (areaInp && lineVal && lineVal.includes('->')) {
+        if (areaInp && lineVal && lineVal.includes('->') && !areaInp.value) {
             areaInp.value = lineVal.split('->')[0].trim();
         }
     }
@@ -5188,7 +5245,7 @@
     }
 
     // --- ASSET DETAIL & EDIT MODAL ---
-    function openAssetEditModal(assetId) {
+    async function openAssetEditModal(assetId) {
         const modal = document.getElementById('modal-edit-asset');
         if (!modal) return;
 
@@ -5201,7 +5258,8 @@
             area: '',
             periodicity: '1m',
             notes: '',
-            status: 'ACTIVE'
+            status: 'ACTIVE',
+            site_id: (sessionData && sessionData.site_id) || ''
         };
 
         currentEditingAsset = a;
@@ -5209,18 +5267,22 @@
         // Set inputs
         document.getElementById('inv-edit-db-id').value = a.id || '';
         document.getElementById('inv-edit-id').value = a.custom_id || a.asset_id || assetId;
-        document.getElementById('inv-edit-name').value = a.name || a.custom_id || '';
-        document.getElementById('inv-edit-category').value = a.category || 'Mobiliario ESD';
-        document.getElementById('inv-edit-area').value = a.area || '';
+        document.getElementById('inv-edit-name').value = a.name || a.custom_id || assetId;
+
+        // Normalize category
+        const normCat = normalizeAssetCategory(a.category);
+        const catSel = document.getElementById('inv-edit-category');
+        if (catSel) catSel.value = normCat;
+
+        document.getElementById('inv-edit-area').value = a.area || (a.location && a.location.includes('->') ? a.location.split('->')[0].trim() : '');
         document.getElementById('inv-edit-periodicity').value = a.periodicity || '1m';
         document.getElementById('inv-edit-notes').value = a.notes || '';
 
-        // Subtypes and Line selection
-        onEditAssetCategoryChange(a.category, a.sub_category);
-        const lineSel = document.getElementById('inv-edit-line');
-        if (lineSel && a.location) {
-            lineSel.value = a.location;
-        }
+        // Subtypes selection
+        onEditAssetCategoryChange(normCat, a.sub_category);
+
+        // Populate lines dynamically for this site
+        await populateAssetModalLines('inv-edit-line', a.location, a.site_id || (sessionData && sessionData.site_id) || '');
 
         // Status Badge & Decommission / Reactivate button toggling
         const stBadge = document.getElementById('inv-edit-status-badge');
@@ -5284,16 +5346,25 @@
         subSel.innerHTML = '';
         const group = getCategoryGroup(category);
         const keys = ELEMENT_SUBTYPES_DEF[group] || ELEMENT_SUBTYPES_DEF["furniture"];
+        let found = false;
         keys.forEach(k => {
             const label = t('audit.subtypes.' + k, k);
             const opt = document.createElement('option');
             opt.value = label;
             opt.textContent = label;
+            if (preselectedSubtype && (preselectedSubtype === label || preselectedSubtype === k || preselectedSubtype.toLowerCase() === label.toLowerCase())) {
+                opt.selected = true;
+                found = true;
+            }
             subSel.appendChild(opt);
         });
 
-        if (preselectedSubtype) {
-            subSel.value = preselectedSubtype;
+        if (preselectedSubtype && !found && preselectedSubtype.trim() !== '') {
+            const opt = document.createElement('option');
+            opt.value = preselectedSubtype;
+            opt.textContent = preselectedSubtype;
+            opt.selected = true;
+            subSel.appendChild(opt);
         }
     }
 

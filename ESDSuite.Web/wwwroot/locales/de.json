@@ -101,7 +101,13 @@
       "ionizing_bar": "Ionisationsleiste (Ionizing bar)",
       "air_gun": "Ionisations-Luftpistole / Düse (Air gun)",
       "in_machine": "Punkt-Ionisator für Maschinen (Micro-nozzle)",
-      "ceiling": "Raum- / Decken-Ionisationssystem (Ceiling)"
+      "ceiling": "Raum- / Decken-Ionisationssystem (Ceiling)",
+      "ground_point": "Erdungsanschluss / CPG (Common Point Ground)",
+      "ground_bus": "Erdungssammelschiene (Ground Bus)",
+      "esd_floor": "Ableitfähiger / leitfähiger ESD-Boden",
+      "esd_footwear": "ESD-Schuhe / Fersenband (Footwear)",
+      "esd_smock": "ESD-Kittel / Schutzbekleidung",
+      "esd_gloves": "ESD-Handschuhe / Fingerlinge"
     },
     "opt_select_line": "-- Linie auswählen --",
     "opt_select_subtype": "-- Untertyp auswählen --",

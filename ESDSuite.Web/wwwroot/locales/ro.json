@@ -101,7 +101,13 @@
       "ionizing_bar": "Bară ionizatoare (Ionizing bar)",
       "air_gun": "Pistol sau duză cu aer ionizat (Air gun / Nozzle)",
       "in_machine": "Ionizator punctual pentru utilaje (In-machine)",
-      "ceiling": "Sistem de ionizare ambiental / tavan (Ceiling)"
+      "ceiling": "Sistem de ionizare ambiental / tavan (Ceiling)",
+      "ground_point": "Punct de împământare / CPG (Common Point Ground)",
+      "ground_bus": "Bară colectoare de împământare (Ground Bus)",
+      "esd_floor": "Pardoseală disipativă / conductivă ESD",
+      "esd_footwear": "Încălțăminte sau călcâie ESD",
+      "esd_smock": "Halat / Îmbrăcăminte ESD (Smock)",
+      "esd_gloves": "Mănuși / Degetare ESD"
     },
     "opt_select_line": "-- Selectează Linia --",
     "opt_select_subtype": "-- Selectează Subtipul --",

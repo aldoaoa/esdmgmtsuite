@@ -101,7 +101,13 @@
       "ionizing_bar": "Ionizing Bar",
       "air_gun": "Ionized Air Gun / Nozzle",
       "in_machine": "In-Machine / Point Ionizer (Micro-nozzle)",
-      "ceiling": "Room / Ceiling Ionization System"
+      "ceiling": "Room / Ceiling Ionization System",
+      "ground_point": "Grounding Point / CPG (Common Point Ground)",
+      "ground_bus": "Ground Bus / Earth Bonding Bar",
+      "esd_floor": "ESD Dissipative / Conductive Floor",
+      "esd_footwear": "ESD Footwear / Heel Grounder",
+      "esd_smock": "ESD Smock / Garment",
+      "esd_gloves": "ESD Gloves / Finger Cots"
     },
     "opt_select_line": "-- Select Line --",
     "opt_select_subtype": "-- Select Subtype --",

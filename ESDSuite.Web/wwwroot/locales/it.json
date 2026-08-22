@@ -101,7 +101,13 @@
       "ionizing_bar": "Barra ionizzante (Ionizing bar)",
       "air_gun": "Pistola o ugello ad aria ionizzata (Air gun / Nozzle)",
       "in_machine": "Ionizzatore puntiforme per macchinari (In-machine)",
-      "ceiling": "Sistema di ionizzazione a soffitto / ambiente (Ceiling)"
+      "ceiling": "Sistema di ionizzazione a soffitto / ambiente (Ceiling)",
+      "ground_point": "Punto di messa a terra / CPG (Common Point Ground)",
+      "ground_bus": "Barra collettrice di terra (Ground Bus)",
+      "esd_floor": "Pavimentazione dissipativa / conduttiva ESD",
+      "esd_footwear": "Calzature o talloniere ESD (Footwear)",
+      "esd_smock": "Camice / Indumento ESD (Smock)",
+      "esd_gloves": "Guanti / Ditali ESD (Gloves)"
     },
     "opt_select_line": "-- Seleziona Linea --",
     "opt_select_subtype": "-- Seleziona Sottotipo --",
