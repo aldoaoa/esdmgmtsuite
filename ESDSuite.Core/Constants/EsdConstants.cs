@@ -4,7 +4,18 @@ namespace ESDSuite.Core.Constants;
 
 public static class EsdConstants
 {
-    public const string SystemVersion = "2.7.1";
+    public const string SystemVersion = "2.8.0";
+
+    public static readonly Dictionary<string, EsdElementInfo> InfoGarmentsEsd = new()
+    {
+        { "Static Control Garment", new EsdElementInfo { Limite = "RPP < 1.0x10^11 ohms", RefNum = 1.0e11, TipoMaterial = "Tela ESD", Magnitud = "Resistencia", Metodo = "ANSI/ESD STM2.1 / TR53", Frecuencia = "Semestralmente" } },
+        { "Groundable Static Control Garment", new EsdElementInfo { Limite = "Rptgp < 1.0x10^9 ohms", RefNum = 1.0e9, TipoMaterial = "Tela ESD con Broche a Tierra", Magnitud = "Resistencia", Metodo = "ANSI/ESD STM2.1 / TR53", Frecuencia = "Semestralmente" } },
+        { "Groundable Static Control Garment System", new EsdElementInfo { Limite = "Rsys < 3.5x10^7 ohms", RefNum = 3.5e7, TipoMaterial = "Sistema Prenda + Operador + Tierra", Magnitud = "Resistencia", Metodo = "ANSI/ESD STM2.1 / S20.20", Frecuencia = "Semestralmente" } },
+        { "Calzado", new EsdElementInfo { Limite = "RS < 1.0x10^9 ohms", RefNum = 1.0e9, TipoMaterial = "Suela / Talón ESD", Magnitud = "Resistencia", Metodo = "ANSI/ESD STM9.1 / TR53", Frecuencia = "Semestralmente" } },
+        { "Guantes Nitrilo", new EsdElementInfo { Limite = "RTG < 1.0x10^9 ohms", RefNum = 1.0e9, TipoMaterial = "Nitrilo", Magnitud = "Resistencia", Metodo = "ANSI/ESD SP15.1 / TR53", Frecuencia = "Semestralmente" } },
+        { "Guantes Tela", new EsdElementInfo { Limite = "RTG < 1.0x10^9 ohms", RefNum = 1.0e9, TipoMaterial = "Tela ESD", Magnitud = "Resistencia", Metodo = "ANSI/ESD SP15.1 / TR53", Frecuencia = "Semestralmente" } },
+        { "Gorra", new EsdElementInfo { Limite = "RPP < 1.0x10^11 ohms", RefNum = 1.0e11, TipoMaterial = "Tela ESD", Magnitud = "Resistencia", Metodo = "ANSI/ESD STM2.1 / TR53", Frecuencia = "Semestralmente" } }
+    };
 
     public static readonly Dictionary<string, EsdElementInfo> InfoElementosEsd = new()
     {

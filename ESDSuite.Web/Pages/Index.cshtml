@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.7.1</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.0</span>
                     </div>
                 </div>
             </div>
@@ -173,9 +173,6 @@
         <div id="nav-validation" class="nav-item" onclick="switchModule('validation')">
             <span class="icon"><img src="/images/icons/icon-lab.svg" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.validation">Validación de Elementos ESD</span>
         </div>
-        <div id="nav-employees" class="nav-item" onclick="switchModule('employees')">
-            <span class="icon"><img src="/images/icons/icon-personnel.svg" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.employees">Personal & Batas</span>
-        </div>
         <div id="nav-training" class="nav-item" onclick="switchModule('training')">
             <span class="icon"><img src="/images/icons/icon-training.svg" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.training">Exámenes & Certificación</span>
         </div>
@@ -194,7 +191,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.7.1</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.0</span>
             </div>
         </div>
     </aside>
@@ -1487,6 +1484,9 @@
                             <button type="button" id="val-tab-btn-history" class="tab-btn" onclick="switchValidationSubTab('history')" style="padding:6px 14px; font-size:12.5px; font-weight:700;">
                                 🖼️ <span data-i18n="validation.tab_history">Visor de Registros</span>
                             </button>
+                            <button type="button" id="val-tab-btn-garments" class="tab-btn" onclick="switchValidationSubTab('garments')" style="padding:6px 14px; font-size:12.5px; font-weight:700;">
+                                🥼 <span data-i18n="validation.tab_garments">Garments</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1695,6 +1695,103 @@
                         <div id="val-history-cards-container" style="display:flex; flex-direction:column; gap:12px;">
                             <div style="text-align:center; padding:40px; color:var(--text-muted);">
                                 ⏳ Cargando registros históricos de validación...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBTAB 3: GARMENTS (ANSI/ESD STM2.1 / S20.20) -->
+                    <div id="val-subview-garments" style="display:none;">
+                        <!-- Summary Header & KPIs -->
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
+                            <div class="glass-card" style="padding:14px; border-left:4px solid var(--accent-blue);">
+                                <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Prendas Registradas</div>
+                                <div id="kpi-garments-total" style="font-size:22px; font-weight:800; color:var(--text-primary); margin-top:4px;">0</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">ANSI/ESD S20.20</div>
+                            </div>
+                            <div class="glass-card" style="padding:14px; border-left:4px solid #8B5CF6;">
+                                <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Batas (Smocks)</div>
+                                <div id="kpi-garments-smocks" style="font-size:22px; font-weight:800; color:#8B5CF6; margin-top:4px;">0</div>
+                                <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">3 Clasif. STM2.1 (&le;1e11&Omega;)</div>
+                            </div>
+                            <div class="glass-card" style="padding:14px; border-left:4px solid #0EA5E9;">
+                                <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Calzado (Footwear)</div>
+                                <div id="kpi-garments-footwear" style="font-size:22px; font-weight:800; color:#0EA5E9; margin-top:4px;">0</div>
+                                <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">STM9.1 (&le;1e9&Omega;)</div>
+                            </div>
+                            <div class="glass-card" style="padding:14px; border-left:4px solid #F59E0B;">
+                                <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Guantes &amp; Gorras</div>
+                                <div id="kpi-garments-others" style="font-size:22px; font-weight:800; color:#F59E0B; margin-top:4px;">0</div>
+                                <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">SP15.1 / STM2.1</div>
+                            </div>
+                            <div class="glass-card" style="padding:14px; border-left:4px solid var(--accent-emerald);">
+                                <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">% Conformidad</div>
+                                <div id="kpi-garments-compliance" style="font-size:22px; font-weight:800; color:var(--accent-emerald); margin-top:4px;">100%</div>
+                                <div id="kpi-garments-status-detail" style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">0 No Cumple</div>
+                            </div>
+                        </div>
+
+                        <!-- Filter and Action Toolbar -->
+                        <div class="glass-card" style="padding:14px 16px; margin-bottom:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1; min-width:300px;">
+                                    <!-- Category Selector Pills -->
+                                    <div style="display:inline-flex; background:#F1F5F9; padding:3px; border-radius:8px; border:1px solid var(--border-color); gap:4px;">
+                                        <button type="button" class="tab-btn active" id="gar-filter-cat-all" onclick="setGarmentCategoryFilter('all')" style="padding:5px 12px; font-size:12px; font-weight:700;" data-i18n="validation.cat_all_garments">Todas</button>
+                                        <button type="button" class="tab-btn" id="gar-filter-cat-smock" onclick="setGarmentCategoryFilter('Bata')" style="padding:5px 12px; font-size:12px; font-weight:700;" data-i18n="validation.cat_smock">🥼 Batas</button>
+                                        <button type="button" class="tab-btn" id="gar-filter-cat-footwear" onclick="setGarmentCategoryFilter('Calzado')" style="padding:5px 12px; font-size:12px; font-weight:700;" data-i18n="validation.cat_footwear">👟 Calzado</button>
+                                        <button type="button" class="tab-btn" id="gar-filter-cat-gloves" onclick="setGarmentCategoryFilter('Guantes')" style="padding:5px 12px; font-size:12px; font-weight:700;" data-i18n="validation.cat_gloves">🧤 Guantes</button>
+                                        <button type="button" class="tab-btn" id="gar-filter-cat-headwear" onclick="setGarmentCategoryFilter('Gorra')" style="padding:5px 12px; font-size:12px; font-weight:700;" data-i18n="validation.cat_headwear">🧢 Gorras</button>
+                                    </div>
+
+                                    <input type="text" id="gar-search-input" class="form-control" placeholder="🔍 Buscar por empleado, prenda, línea..." oninput="filterGarmentsList()" style="max-width:240px; font-size:12.5px;" />
+                                    
+                                    <select id="gar-classification-filter" class="form-control" onchange="filterGarmentsList()" style="max-width:230px; font-size:12.5px;">
+                                        <option value="">Todas las Clasificaciones STM2.1</option>
+                                        <option value="Static Control Garment">1. Static Control Garment (&le; 1e11 &Omega;)</option>
+                                        <option value="Groundable Static Control Garment">2. Groundable Static Control Garment (&le; 1e9 &Omega;)</option>
+                                        <option value="Groundable Static Control Garment System">3. Groundable System (&le; 3.5e7 &Omega;)</option>
+                                    </select>
+
+                                    <select id="gar-status-filter" class="form-control" onchange="filterGarmentsList()" style="max-width:160px; font-size:12.5px;">
+                                        <option value="">Todos los Estatus</option>
+                                        <option value="VIGENTE">Solo Vigentes (PASS)</option>
+                                        <option value="PENDIENTE">Pendientes / Por Vencer</option>
+                                        <option value="RECHAZADO">No Cumple (FAIL)</option>
+                                    </select>
+                                </div>
+
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" class="btn-primary" onclick="openGarmentModal()" style="font-weight:700; font-size:12.5px; padding:7px 14px;" data-i18n="validation.btn_new_garment">
+                                        ➕ Registrar / Asignar Prenda
+                                    </button>
+                                    <button type="button" class="tab-btn" onclick="loadGarmentsCatalog()" style="font-weight:700; font-size:12.5px; padding:7px 12px;" data-i18n="validation.btn_refresh_garments">
+                                        🔄 Actualizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Garments Table -->
+                        <div class="glass-card" style="padding:0; overflow:hidden;">
+                            <div class="table-responsive">
+                                <table class="data-table" style="margin:0;">
+                                    <thead>
+                                        <tr>
+                                            <th data-i18n="validation.col_item_id">ID / Código</th>
+                                            <th data-i18n="validation.col_category_class">Categoría &amp; Clasificación</th>
+                                            <th data-i18n="validation.col_assigned_emp">Personal Asignado</th>
+                                            <th data-i18n="validation.col_department">Depto / Línea</th>
+                                            <th data-i18n="validation.col_limit_ref">Límite Ref.</th>
+                                            <th data-i18n="validation.col_last_val">Última Medición</th>
+                                            <th data-i18n="validation.col_next_due">Próx. Vencimiento</th>
+                                            <th data-i18n="validation.col_status">Estatus</th>
+                                            <th style="text-align:center;">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="garments-table-body">
+                                        <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Cargando prendas y vestimenta ESD...</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -6249,22 +6346,510 @@
     function switchValidationSubTab(subTab) {
         const viewForm = document.getElementById('val-subview-form');
         const viewHist = document.getElementById('val-subview-history');
+        const viewGarments = document.getElementById('val-subview-garments');
         const btnForm = document.getElementById('val-tab-btn-form');
         const btnHist = document.getElementById('val-tab-btn-history');
+        const btnGarments = document.getElementById('val-tab-btn-garments');
 
-        if (subTab === 'form') {
-            if (viewForm) viewForm.style.display = 'block';
-            if (viewHist) viewHist.style.display = 'none';
-            if (btnForm) btnForm.classList.add('active');
-            if (btnHist) btnHist.classList.remove('active');
-        } else {
-            if (viewForm) viewForm.style.display = 'none';
-            if (viewHist) viewHist.style.display = 'block';
-            if (btnForm) btnForm.classList.remove('active');
-            if (btnHist) btnHist.classList.add('active');
+        if (viewForm) viewForm.style.display = (subTab === 'form') ? 'block' : 'none';
+        if (viewHist) viewHist.style.display = (subTab === 'history') ? 'block' : 'none';
+        if (viewGarments) viewGarments.style.display = (subTab === 'garments') ? 'block' : 'none';
+
+        if (btnForm) btnForm.classList.toggle('active', subTab === 'form');
+        if (btnHist) btnHist.classList.toggle('active', subTab === 'history');
+        if (btnGarments) btnGarments.classList.toggle('active', subTab === 'garments');
+
+        if (subTab === 'history') {
             loadValidationHistory();
+        } else if (subTab === 'garments') {
+            loadGarmentsCatalog();
         }
         applyTranslations();
+    }
+
+    // --- GARMENTS (ANSI/ESD STM2.1 / S20.20) MANAGEMENT ---
+    function formatScientificVal(val) {
+        if (val === null || val === undefined || isNaN(val)) return 'N/D';
+        const num = parseFloat(val);
+        if (num >= 1e4 || (num > 0 && num < 1e-2)) {
+            return num.toExponential(2).toUpperCase();
+        }
+        return num.toLocaleString();
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    let allGarmentsData = [];
+    let currentGarmentCategoryFilter = 'all';
+
+    async function loadGarmentsCatalog() {
+        const siteId = (sessionData && sessionData.site_id) || '';
+        const tbody = document.getElementById('garments-table-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Cargando prendas y vestimenta ESD...</td></tr>';
+
+        try {
+            const res = await fetch(`/api/garments?siteId=${encodeURIComponent(siteId)}`);
+            if (res.ok) {
+                allGarmentsData = await res.json();
+                renderGarmentsKPIs();
+                filterGarmentsList();
+            }
+        } catch(e) {
+            console.error('Error loading garments:', e);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--accent-rose);">❌ Error al cargar vestimenta ESD.</td></tr>';
+        }
+    }
+
+    function renderGarmentsKPIs() {
+        const total = allGarmentsData.length;
+        const smocks = allGarmentsData.filter(g => (g.category || '').toLowerCase().includes('bata')).length;
+        const footwear = allGarmentsData.filter(g => (g.category || '').toLowerCase().includes('calzado')).length;
+        const others = allGarmentsData.filter(g => {
+            const c = (g.category || '').toLowerCase();
+            return c.includes('guante') || c.includes('gorra');
+        }).length;
+
+        const passed = allGarmentsData.filter(g => (g.estatus || '').toUpperCase().includes('CUMPLE') || (g.estatus || '').toUpperCase().includes('VIGENTE')).length;
+        const failed = allGarmentsData.filter(g => (g.estatus || '').toUpperCase().includes('NO CUMPLE') || (g.estatus || '').toUpperCase().includes('RECHAZADO')).length;
+        const compliancePct = total > 0 ? Math.round((passed / total) * 100) : 100;
+
+        const elTot = document.getElementById('kpi-garments-total');
+        const elSmk = document.getElementById('kpi-garments-smocks');
+        const elFoot = document.getElementById('kpi-garments-footwear');
+        const elOth = document.getElementById('kpi-garments-others');
+        const elComp = document.getElementById('kpi-garments-compliance');
+        const elStat = document.getElementById('kpi-garments-status-detail');
+
+        if (elTot) elTot.innerText = total;
+        if (elSmk) elSmk.innerText = smocks;
+        if (elFoot) elFoot.innerText = footwear;
+        if (elOth) elOth.innerText = others;
+        if (elComp) elComp.innerText = `${compliancePct}%`;
+        if (elStat) elStat.innerText = failed > 0 ? `${failed} No Cumple / Vencido` : '100% Conforme';
+    }
+
+    function setGarmentCategoryFilter(cat) {
+        currentGarmentCategoryFilter = cat;
+        document.querySelectorAll('#val-subview-garments [id^="gar-filter-cat-"]').forEach(btn => btn.classList.remove('active'));
+        
+        const targetBtn = document.getElementById(
+            cat === 'all' ? 'gar-filter-cat-all' :
+            cat === 'Bata' ? 'gar-filter-cat-smock' :
+            cat === 'Calzado' ? 'gar-filter-cat-footwear' :
+            cat === 'Guantes' ? 'gar-filter-cat-gloves' : 'gar-filter-cat-headwear'
+        );
+        if (targetBtn) targetBtn.classList.add('active');
+
+        // Show/hide STM2.1 classification filter dropdown if Bata is active
+        const classFilter = document.getElementById('gar-classification-filter');
+        if (classFilter) {
+            classFilter.style.display = (cat === 'Bata' || cat === 'all') ? 'inline-block' : 'none';
+        }
+
+        filterGarmentsList();
+    }
+
+    function filterGarmentsList() {
+        const q = (document.getElementById('gar-search-input')?.value || '').trim().toLowerCase();
+        const classFilter = (document.getElementById('gar-classification-filter')?.value || '').trim().toLowerCase();
+        const statusFilter = (document.getElementById('gar-status-filter')?.value || '').trim().toUpperCase();
+
+        const filtered = allGarmentsData.filter(g => {
+            // Category filter
+            if (currentGarmentCategoryFilter !== 'all') {
+                const gCat = (g.category || '').toLowerCase();
+                if (!gCat.includes(currentGarmentCategoryFilter.toLowerCase())) return false;
+            }
+
+            // Classification filter
+            if (classFilter) {
+                const gClass = (g.classification || '').toLowerCase();
+                if (!gClass.includes(classFilter)) return false;
+            }
+
+            // Status filter
+            if (statusFilter) {
+                const gStat = (g.estatus || '').toUpperCase();
+                if (!gStat.includes(statusFilter)) return false;
+            }
+
+            // Search query
+            if (q) {
+                const id = (g.id || '').toLowerCase();
+                const empName = (g.nombre_empleado || '').toLowerCase();
+                const empNum = (g.num_empleado || '').toLowerCase();
+                const dept = (g.departamento || '').toLowerCase();
+                const classification = (g.classification || '').toLowerCase();
+                if (!id.includes(q) && !empName.includes(q) && !empNum.includes(q) && !dept.includes(q) && !classification.includes(q)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        renderGarmentsTable(filtered);
+    }
+
+    function renderGarmentsTable(items) {
+        const tbody = document.getElementById('garments-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">
+                <div style="font-size:24px; margin-bottom:6px;">🥼</div>
+                <div>No se encontraron prendas o vestimenta ESD con los filtros seleccionados.</div>
+            </td></tr>`;
+            return;
+        }
+
+        items.forEach(g => {
+            const isPass = (g.estatus || '').toUpperCase().includes('CUMPLE') || (g.estatus || '').toUpperCase().includes('VIGENTE');
+            const isFail = (g.estatus || '').toUpperCase().includes('NO CUMPLE') || (g.estatus || '').toUpperCase().includes('RECHAZADO');
+            
+            const badgeClass = isPass ? 'badge-pass' : isFail ? 'badge-fail' : 'badge-warn';
+            const statusLabel = g.estatus || 'VIGENTE';
+
+            const measuredDisplay = (g.valor_resistencia !== undefined && g.valor_resistencia !== null) ?
+                formatScientificVal(g.valor_resistencia) + ' &Omega;' : 'Pendiente';
+
+            const limitDisplay = g.limite_texto || (g.limite_referencia ? `&le; ${formatScientificVal(g.limite_referencia)} &Omega;` : 'Normativo');
+
+            const itemEscaped = encodeURIComponent(JSON.stringify(g));
+
+            tbody.innerHTML += `
+                <tr style="transition:background 0.15s ease;">
+                    <td style="font-family:var(--font-mono); font-weight:800; color:var(--accent-blue);">
+                        ${escapeHtml(g.id || 'N/A')}
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                            ${getGarmentIcon(g.category)} ${escapeHtml(g.category || 'Bata')}
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                            ${escapeHtml(g.classification || 'ANSI/ESD STM2.1')}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-primary);">
+                            ${g.nombre_empleado ? escapeHtml(g.nombre_empleado) : '<i style="color:var(--text-muted);">Sin asignar</i>'}
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">
+                            ${g.num_empleado ? `#${escapeHtml(g.num_empleado)}` : 'Lote / Stock'}
+                        </div>
+                    </td>
+                    <td style="font-size:12px; color:var(--text-secondary);">
+                        ${escapeHtml(g.departamento || 'General')}
+                    </td>
+                    <td style="font-family:var(--font-mono); font-size:11.5px; font-weight:700; color:var(--text-secondary);">
+                        ${limitDisplay}
+                    </td>
+                    <td style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:${isPass ? 'var(--accent-emerald)' : isFail ? 'var(--accent-rose)' : 'var(--text-primary)'};">
+                        ${measuredDisplay}
+                    </td>
+                    <td style="font-size:11.5px; color:var(--text-muted);">
+                        ${g.fecha_vencimiento ? g.fecha_vencimiento.split('T')[0] : 'N/D'}
+                    </td>
+                    <td>
+                        <span class="${badgeClass}" style="font-size:10.5px; padding:3px 8px; font-weight:800;">
+                            ${statusLabel}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:inline-flex; gap:6px; align-items:center;">
+                            <button type="button" class="tab-btn" onclick="openGarmentQuickValModal('${itemEscaped}')" style="padding:4px 9px; font-size:11px; font-weight:700; background:#ECFDF5; color:#065F46; border-color:#A7F3D0;" title="Validar / Medir Prenda">
+                                🧪 Validar
+                            </button>
+                            <button type="button" class="tab-btn" onclick="openGarmentModal('${itemEscaped}')" style="padding:4px 9px; font-size:11px; font-weight:700;" title="Editar">
+                                ✏️
+                            </button>
+                            <button type="button" class="tab-btn" onclick="deleteGarmentItem('${escapeHtml(g.id)}')" style="padding:4px 9px; font-size:11px; font-weight:700; color:var(--accent-rose); border-color:#FECDD3;" title="Eliminar">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function getGarmentIcon(category) {
+        const c = (category || '').toLowerCase();
+        if (c.includes('bata')) return '🥼';
+        if (c.includes('calzado')) return '👟';
+        if (c.includes('guante')) return '🧤';
+        if (c.includes('gorra')) return '🧢';
+        return '🥼';
+    }
+
+    function openGarmentModal(itemJsonEncoded = null) {
+        const modal = document.getElementById('modal-garment-form');
+        if (!modal) return;
+
+        // Reset all inputs to empty (Rule: all inputs default empty)
+        document.getElementById('gar-form-id').value = '';
+        document.getElementById('gar-form-emp-num').value = '';
+        document.getElementById('gar-form-emp-name').value = '';
+        document.getElementById('gar-form-dept').value = '';
+        document.getElementById('gar-form-resistance').value = '';
+        document.getElementById('gar-form-notes').value = '';
+        document.getElementById('gar-form-is-edit').value = '0';
+
+        if (itemJsonEncoded) {
+            try {
+                const item = JSON.parse(decodeURIComponent(itemJsonEncoded));
+                document.getElementById('gar-form-is-edit').value = '1';
+                document.getElementById('gar-form-id').value = item.id || '';
+                document.getElementById('gar-form-cat').value = item.category || 'Bata';
+                onGarmentCategoryFormChange(item.category || 'Bata');
+                
+                if (item.classification) {
+                    document.getElementById('gar-form-classification').value = item.classification;
+                }
+                onGarmentClassificationChange();
+
+                document.getElementById('gar-form-emp-num').value = item.num_empleado || '';
+                document.getElementById('gar-form-emp-name').value = item.nombre_empleado || '';
+                document.getElementById('gar-form-dept').value = item.departamento || '';
+                document.getElementById('gar-form-resistance').value = (item.valor_resistencia !== undefined && item.valor_resistencia !== null) ? item.valor_resistencia : '';
+                document.getElementById('gar-form-notes').value = item.notas || '';
+                document.getElementById('modal-garment-form-title').innerText = '✏️ Editar Prenda / Asignación ESD';
+            } catch(e) {
+                console.error(e);
+            }
+        } else {
+            document.getElementById('gar-form-cat').value = 'Bata';
+            onGarmentCategoryFormChange('Bata');
+            document.getElementById('modal-garment-form-title').innerText = '🥼 Registrar / Asignar Prenda ESD (ANSI/ESD S20.20)';
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeGarmentModal() {
+        const modal = document.getElementById('modal-garment-form');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function onGarmentCategoryFormChange(cat) {
+        const classGroup = document.getElementById('gar-form-class-group');
+        const limitDisplay = document.getElementById('gar-form-limit-display');
+        const limitInput = document.getElementById('gar-form-limit-val');
+
+        if (cat === 'Bata') {
+            if (classGroup) classGroup.style.display = 'block';
+            onGarmentClassificationChange();
+        } else {
+            if (classGroup) classGroup.style.display = 'none';
+            if (cat === 'Calzado') {
+                if (limitDisplay) limitDisplay.innerText = '< 1.0 x 10^9 Ω (1.0e9 - ANSI/ESD STM9.1)';
+                if (limitInput) limitInput.value = '1.0e9';
+            } else if (cat.includes('Guante')) {
+                if (limitDisplay) limitDisplay.innerText = '< 1.0 x 10^9 Ω (1.0e9 - ANSI/ESD SP15.1)';
+                if (limitInput) limitInput.value = '1.0e9';
+            } else if (cat === 'Gorra') {
+                if (limitDisplay) limitDisplay.innerText = '< 1.0 x 10^11 Ω (1.0e11 - ANSI/ESD STM2.1)';
+                if (limitInput) limitInput.value = '1.0e11';
+            }
+        }
+    }
+
+    function onGarmentClassificationChange() {
+        const val = document.getElementById('gar-form-classification')?.value || 'Static Control Garment';
+        const limitDisplay = document.getElementById('gar-form-limit-display');
+        const limitInput = document.getElementById('gar-form-limit-val');
+
+        if (val === 'Static Control Garment') {
+            if (limitDisplay) limitDisplay.innerText = 'RPP < 1.0 x 10^11 Ω (1.0e11 - ANSI/ESD STM2.1)';
+            if (limitInput) limitInput.value = '1.0e11';
+        } else if (val === 'Groundable Static Control Garment') {
+            if (limitDisplay) limitDisplay.innerText = 'Rptgp < 1.0 x 10^9 Ω (1.0e9 - ANSI/ESD STM2.1)';
+            if (limitInput) limitInput.value = '1.0e9';
+        } else if (val === 'Groundable Static Control Garment System') {
+            if (limitDisplay) limitDisplay.innerText = 'Rsys < 3.5 x 10^7 Ω (3.5e7 - ANSI/ESD STM2.1 / S20.20)';
+            if (limitInput) limitInput.value = '3.5e7';
+        }
+    }
+
+    async function saveGarmentForm() {
+        const id = document.getElementById('gar-form-id').value.trim();
+        const cat = document.getElementById('gar-form-cat').value;
+        const classification = cat === 'Bata' ? document.getElementById('gar-form-classification').value : `${cat} ESD`;
+        const limitVal = parseFloat(document.getElementById('gar-form-limit-val').value) || 1.0e11;
+        const empNum = document.getElementById('gar-form-emp-num').value.trim();
+        const empName = document.getElementById('gar-form-emp-name').value.trim();
+        const dept = document.getElementById('gar-form-dept').value.trim();
+        const resValStr = document.getElementById('gar-form-resistance').value.trim();
+        const notes = document.getElementById('gar-form-notes').value.trim();
+
+        const payload = {
+            id: id,
+            category: cat,
+            classification: classification,
+            limite_referencia: limitVal,
+            limite_texto: document.getElementById('gar-form-limit-display').innerText,
+            num_empleado: empNum,
+            nombre_empleado: empName,
+            departamento: dept,
+            metodo: cat === 'Bata' ? 'ANSI/ESD STM2.1 / TR53' : cat === 'Calzado' ? 'ANSI/ESD STM9.1 / TR53' : 'ANSI/ESD SP15.1 / TR53',
+            notas: notes,
+            site_id: (sessionData && sessionData.site_id) || ''
+        };
+
+        if (resValStr) {
+            const parsed = parseFloat(resValStr);
+            if (!isNaN(parsed)) {
+                payload.valor_resistencia = parsed;
+                payload.fecha_inspeccion = new Date().toISOString().split('T')[0];
+                const dueDate = new Date();
+                dueDate.setMonth(dueDate.getMonth() + 6);
+                payload.fecha_vencimiento = dueDate.toISOString().split('T')[0];
+            }
+        }
+
+        try {
+            const res = await fetch('/api/garments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                closeGarmentModal();
+                loadGarmentsCatalog();
+            } else {
+                alert('Error al guardar prenda.');
+            }
+        } catch(e) {
+            console.error('Error saving garment:', e);
+        }
+    }
+
+    let activeQuickValGarment = null;
+
+    function openGarmentQuickValModal(itemJsonEncoded) {
+        try {
+            activeQuickValGarment = JSON.parse(decodeURIComponent(itemJsonEncoded));
+        } catch(e) { return; }
+
+        const modal = document.getElementById('modal-garment-quick-val');
+        if (!modal || !activeQuickValGarment) return;
+
+        document.getElementById('gar-qval-id').innerText = activeQuickValGarment.id || 'N/A';
+        document.getElementById('gar-qval-cat').innerText = `${activeQuickValGarment.category || 'Bata'} - ${activeQuickValGarment.classification || ''}`;
+        document.getElementById('gar-qval-emp').innerText = activeQuickValGarment.nombre_empleado ? `${activeQuickValGarment.nombre_empleado} (#${activeQuickValGarment.num_empleado || ''})` : 'Sin asignar';
+        document.getElementById('gar-qval-limit').innerText = activeQuickValGarment.limite_texto || `< ${formatScientificVal(activeQuickValGarment.limite_referencia || 1e11)} Ω`;
+
+        // Populate calibrated equipment options
+        const selEq = document.getElementById('gar-qval-eq');
+        if (selEq && Array.isArray(allValidationEquipos)) {
+            selEq.innerHTML = '';
+            allValidationEquipos.forEach((eq, idx) => {
+                const code = eq.codigo_equipo || eq.custom_id || eq.id || `EQ-${idx+1}`;
+                const name = eq.nombre_equipo || eq.equipment_type || code;
+                const opt = document.createElement('option');
+                opt.value = code;
+                opt.textContent = `${code} - ${name}`;
+                selEq.appendChild(opt);
+            });
+        }
+
+        // Empty default measurement value
+        const resInput = document.getElementById('gar-qval-resistance');
+        resInput.value = '';
+        document.getElementById('gar-qval-notes').value = '';
+        document.getElementById('gar-qval-preview-badge').style.display = 'none';
+
+        modal.style.display = 'flex';
+    }
+
+    function closeGarmentQuickValModal() {
+        const modal = document.getElementById('modal-garment-quick-val');
+        if (modal) modal.style.display = 'none';
+        activeQuickValGarment = null;
+    }
+
+    function onGarmentQuickValResistanceInput(valStr) {
+        const badge = document.getElementById('gar-qval-preview-badge');
+        if (!badge || !activeQuickValGarment) return;
+
+        const val = parseFloat(valStr);
+        if (isNaN(val) || val <= 0) {
+            badge.style.display = 'none';
+            return;
+        }
+
+        const limit = activeQuickValGarment.limite_referencia || 1.0e11;
+        const isPass = val <= limit;
+
+        badge.style.display = 'inline-block';
+        if (isPass) {
+            badge.className = 'badge-pass';
+            badge.style.background = '#ECFDF5';
+            badge.style.color = '#065F46';
+            badge.style.borderColor = '#10B981';
+            badge.innerHTML = `✅ CUMPLE (PASS) &bull; ${formatScientificVal(val)} &Omega; &le; ${formatScientificVal(limit)} &Omega;`;
+        } else {
+            badge.className = 'badge-fail';
+            badge.style.background = '#FFF1F2';
+            badge.style.color = '#9F1239';
+            badge.style.borderColor = '#F43F5E';
+            badge.innerHTML = `❌ NO CUMPLE (FAIL) &bull; ${formatScientificVal(val)} &Omega; > ${formatScientificVal(limit)} &Omega;`;
+        }
+    }
+
+    async function submitGarmentQuickVal() {
+        if (!activeQuickValGarment) return;
+
+        const resStr = document.getElementById('gar-qval-resistance').value.trim();
+        if (!resStr) {
+            alert('Por favor introduce el valor de resistencia medido.');
+            return;
+        }
+
+        const resVal = parseFloat(resStr);
+        if (isNaN(resVal) || resVal <= 0) {
+            alert('Por favor introduce un número válido para la medición.');
+            return;
+        }
+
+        const payload = Object.assign({}, activeQuickValGarment, {
+            valor_resistencia: resVal,
+            equipo_medicion: document.getElementById('gar-qval-eq')?.value || 'EQ-DEFAULT',
+            notas: document.getElementById('gar-qval-notes')?.value || '',
+            site_id: (sessionData && sessionData.site_id) || ''
+        });
+
+        try {
+            const res = await fetch('/api/garments/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                closeGarmentQuickValModal();
+                loadGarmentsCatalog();
+            } else {
+                alert('Error al registrar validación.');
+            }
+        } catch(e) {
+            console.error('Error validating garment:', e);
+        }
+    }
+
+    async function deleteGarmentItem(id) {
+        if (!confirm(`¿Estás seguro de eliminar la prenda ${id}?`)) return;
+        try {
+            const res = await fetch(`/api/garments/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadGarmentsCatalog();
+            }
+        } catch(e) {
+            console.error('Error deleting garment:', e);
+        }
     }
 
     async function loadValidationEquipos() {
@@ -8818,6 +9403,144 @@
                 <span data-i18n="validation.btn_capture_photo">📸 Capturar Foto</span>
             </button>
         </div>
+    </div>
+</div>
+
+<!-- MODAL: REGISTER / ASSIGN ESD GARMENT (ANSI/ESD STM2.1 / S20.20) -->
+<div id="modal-garment-form" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9995; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeGarmentModal()">
+    <div class="glass-card" style="background:#FFFFFF; border-radius:14px; width:100%; max-width:620px; padding:0; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid var(--border-color); max-height:90vh; display:flex; flex-direction:column; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC;">
+            <h3 id="modal-garment-form-title" style="margin:0; font-size:16px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                🥼 <span data-i18n="validation.modal_garment_title">Registro / Asignación de Prenda ESD (ANSI/ESD S20.20)</span>
+            </h3>
+            <button type="button" onclick="closeGarmentModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Form Body -->
+        <form id="form-garment-entry" onsubmit="event.preventDefault(); saveGarmentForm();" style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" id="gar-form-is-edit" value="0" />
+            <input type="hidden" id="gar-form-limit-val" value="1.0e11" />
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Categoría de Prenda / EPP*</label>
+                    <select id="gar-form-cat" class="form-control" onchange="onGarmentCategoryFormChange(this.value)" required>
+                        <option value="Bata">Bata (Smock / Garment - ANSI/ESD STM2.1)</option>
+                        <option value="Calzado">Calzado (Footwear - ANSI/ESD STM9.1)</option>
+                        <option value="Guantes Nitrilo">Guantes Nitrilo (Dissipative - SP15.1)</option>
+                        <option value="Guantes Tela">Guantes Tela ESD (Fabric - SP15.1)</option>
+                        <option value="Gorra">Gorra ESD (Headwear - STM2.1)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">ID / Código de Prenda</label>
+                    <input id="gar-form-id" class="form-control" placeholder="Ej: SMK-0104 (Auto si vacío)" />
+                </div>
+            </div>
+
+            <!-- STM2.1 Classifications for Batas -->
+            <div id="gar-form-class-group" class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px; color:#8B5CF6;">Clasificación Normativa ANSI/ESD STM2.1 (Batas)*</label>
+                <select id="gar-form-classification" class="form-control" onchange="onGarmentClassificationChange()">
+                    <option value="Static Control Garment">1. Static Control Garment (Límite: &le; 1.0x10^11 &Omega; / 1e11)</option>
+                    <option value="Groundable Static Control Garment">2. Groundable Static Control Garment (Límite: &le; 1.0x10^9 &Omega; / 1e9)</option>
+                    <option value="Groundable Static Control Garment System">3. Groundable Static Control Garment System (Límite: &le; 3.5x10^7 &Omega; / 3.5e7)</option>
+                </select>
+            </div>
+
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11.5px; color:var(--text-muted); font-weight:700;">Límite Normativo Automático:</div>
+                <div id="gar-form-limit-display" style="font-family:var(--font-mono); font-weight:800; font-size:12px; color:var(--accent-blue);">
+                    RPP &lt; 1.0 x 10^11 &Omega; (1.0e11 - ANSI/ESD STM2.1)
+                </div>
+            </div>
+
+            <!-- Employee Assignment -->
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">No. Empleado</label>
+                    <input id="gar-form-emp-num" class="form-control" placeholder="Ej: 1042" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Nombre del Operador / Empleado</label>
+                    <input id="gar-form-emp-name" class="form-control" placeholder="Nombre completo..." />
+                </div>
+            </div>
+
+            <!-- Line / Department -->
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Ubicación / Línea / Departamento</label>
+                <input id="gar-form-dept" class="form-control" list="val-lines-datalist" placeholder="Ej: SMT Line 1 / Empaque..." />
+            </div>
+
+            <!-- Initial / Latest Resistance -->
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Valor de Resistencia Medido (&Omega;)</label>
+                <input id="gar-form-resistance" class="form-control" type="number" step="any" placeholder="Ej: 4.2e9 (Opcional en alta)" />
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Notas u Observaciones</label>
+                <textarea id="gar-form-notes" class="form-control" rows="2" placeholder="Detalles del estado de la prenda..."></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:14px; border-top:1px solid var(--border-color);">
+                <button type="button" class="tab-btn" onclick="closeGarmentModal()" style="padding:8px 18px;">✕ Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding:8px 22px; font-weight:800;">💾 Guardar Prenda</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: QUICK GARMENT PERIODIC VERIFICATION -->
+<div id="modal-garment-quick-val" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9995; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeGarmentQuickValModal()">
+    <div class="glass-card" style="background:#FFFFFF; border-radius:14px; width:100%; max-width:540px; padding:0; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid var(--border-color); max-height:90vh; display:flex; flex-direction:column; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC;">
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                🧪 <span data-i18n="validation.modal_quick_val_title">Verificación Periódica Rápida de Prenda</span>
+            </h3>
+            <button type="button" onclick="closeGarmentQuickValModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Quick Val Body -->
+        <form onsubmit="event.preventDefault(); submitGarmentQuickVal();" style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
+            <!-- Prenda Info Card -->
+            <div style="background:#F1F5F9; border:1px solid #CBD5E1; border-radius:8px; padding:12px 16px; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span id="gar-qval-id" style="font-family:var(--font-mono); font-weight:800; font-size:14px; color:var(--accent-blue);">SMK-0101</span>
+                    <span id="gar-qval-emp" style="font-size:12px; font-weight:700; color:var(--text-secondary);">Juan Pérez (#1042)</span>
+                </div>
+                <div id="gar-qval-cat" style="font-size:12px; color:var(--text-primary); font-weight:600;">Bata - Static Control Garment</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:6px; border-top:1px dashed #CBD5E1;">
+                    <span style="font-size:11.5px; color:var(--text-muted);">Límite Normativo:</span>
+                    <span id="gar-qval-limit" style="font-family:var(--font-mono); font-weight:800; font-size:12px; color:var(--text-primary);">RPP &lt; 1.0x10^11 &Omega;</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Equipo de Medición Patrón*</label>
+                <select id="gar-qval-eq" class="form-control" required></select>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Valor Medido de Resistencia (&Omega;)*</label>
+                <input id="gar-qval-resistance" class="form-control" type="number" step="any" placeholder="Ej: 2.5e8" oninput="onGarmentQuickValResistanceInput(this.value)" required style="font-family:var(--font-mono); font-size:14px; font-weight:700;" />
+            </div>
+
+            <div id="gar-qval-preview-badge" style="display:none; padding:8px 12px; border-radius:6px; font-weight:700; font-size:12px; text-align:center;"></div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Observaciones / Notas de Auditoría</label>
+                <input id="gar-qval-notes" class="form-control" placeholder="Observaciones de la prueba..." />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:14px; border-top:1px solid var(--border-color);">
+                <button type="button" class="tab-btn" onclick="closeGarmentQuickValModal()" style="padding:8px 18px;">✕ Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding:8px 22px; font-weight:800; background:var(--accent-emerald);">💾 Registrar Verificación</button>
+            </div>
+        </form>
     </div>
 </div>
 </body>

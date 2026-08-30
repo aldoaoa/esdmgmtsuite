@@ -2321,7 +2321,168 @@ public class ApiController : ControllerBase
         }
     }
 
-    // --- EMPLOYEES & TRAINING EXAMS ---
+    // --- GARMENTS (ANSI/ESD STM2.1 / S20.20) & EMPLOYEES ---
+    [HttpGet("garments")]
+    public async Task<IActionResult> GetGarments([FromQuery] string? siteId, [FromQuery] string? category)
+    {
+        string targetSite = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        var items = await GetGarmentsFromStorage(targetSite);
+        if (!string.IsNullOrEmpty(category) && category != "all")
+        {
+            var filtered = new JsonArray();
+            foreach (var node in items)
+            {
+                if (node is JsonObject obj && string.Equals(obj["category"]?.ToString(), category, StringComparison.OrdinalIgnoreCase))
+                {
+                    filtered.Add(obj.DeepClone());
+                }
+            }
+            return Ok(filtered);
+        }
+        return Ok(items);
+    }
+
+    [HttpPost("garments")]
+    public async Task<IActionResult> SaveGarment([FromBody] JsonObject payload)
+    {
+        if (payload == null) return BadRequest(new { success = false, message = "Payload inválido." });
+
+        string siteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        payload["site_id"] = siteId;
+
+        string id = payload["id"]?.ToString()?.Trim() ?? "";
+        if (string.IsNullOrEmpty(id))
+        {
+            string cat = payload["category"]?.ToString() ?? "GAR";
+            string pfx = cat.StartsWith("Bata", StringComparison.OrdinalIgnoreCase) ? "SMK" :
+                         cat.StartsWith("Calzado", StringComparison.OrdinalIgnoreCase) ? "CAL" :
+                         cat.StartsWith("Guante", StringComparison.OrdinalIgnoreCase) ? "GLV" :
+                         cat.StartsWith("Gorra", StringComparison.OrdinalIgnoreCase) ? "CAP" : "GAR";
+            id = $"{pfx}-{DateTime.UtcNow:yyMM}-{Guid.NewGuid().ToString("N")[..4].ToUpper()}";
+            payload["id"] = id;
+        }
+
+        // Determine reference limit and evaluate status if measurement provided
+        string classification = payload["classification"]?.ToString() ?? "";
+        double refLimit = 1.0e11;
+        if (classification.Contains("Groundable Static Control Garment System", StringComparison.OrdinalIgnoreCase) ||
+            classification.Contains("Sistema", StringComparison.OrdinalIgnoreCase))
+        {
+            refLimit = 3.5e7;
+        }
+        else if (classification.Contains("Groundable Static Control Garment", StringComparison.OrdinalIgnoreCase) ||
+                 classification.Contains("Conectable a Tierra", StringComparison.OrdinalIgnoreCase) ||
+                 payload["category"]?.ToString() == "Calzado" ||
+                 payload["category"]?.ToString() == "Guantes Nitrilo" ||
+                 payload["category"]?.ToString() == "Guantes Tela")
+        {
+            refLimit = 1.0e9;
+        }
+        else
+        {
+            refLimit = 1.0e11;
+        }
+
+        if (payload["limite_referencia"] == null || !double.TryParse(payload["limite_referencia"]?.ToString(), out _))
+        {
+            payload["limite_referencia"] = refLimit;
+        }
+
+        if (payload["valor_resistencia"] != null && double.TryParse(payload["valor_resistencia"]?.ToString(), out double measuredVal))
+        {
+            bool isPass = measuredVal <= refLimit;
+            payload["estatus"] = isPass ? "CUMPLE (VIGENTE)" : "NO CUMPLE (RECHAZADO)";
+        }
+        else if (payload["estatus"] == null)
+        {
+            payload["estatus"] = "PENDIENTE";
+        }
+
+        await SaveGarmentToStorage(payload);
+
+        // Also sync to Supabase empleados_batas if employee assigned
+        try
+        {
+            if (!string.IsNullOrEmpty(payload["num_empleado"]?.ToString()))
+            {
+                await _supabase.InsertOrUpdateEmpleadoAsync(new JsonObject
+                {
+                    ["num_empleado"] = payload["num_empleado"]?.ToString(),
+                    ["nombre"] = payload["nombre_empleado"]?.ToString() ?? "",
+                    ["departamento"] = payload["departamento"]?.ToString() ?? "",
+                    ["site_id"] = siteId,
+                    ["estatus_empleado"] = "ACTIVO",
+                    ["fecha_ultimo_entrenamiento"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+                });
+            }
+        }
+        catch { }
+
+        return Ok(new { success = true, data = payload });
+    }
+
+    [HttpPost("garments/validate")]
+    public async Task<IActionResult> ValidateGarment([FromBody] JsonObject payload)
+    {
+        if (payload == null) return BadRequest(new { success = false, message = "Payload inválido." });
+
+        string garmentId = payload["id"]?.ToString() ?? "";
+        string siteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        double measuredVal = 0.0;
+        if (payload["valor_resistencia"] != null)
+        {
+            double.TryParse(payload["valor_resistencia"]?.ToString(), out measuredVal);
+        }
+
+        double refLimit = 1.0e11;
+        if (payload["limite_referencia"] != null && double.TryParse(payload["limite_referencia"]?.ToString(), out double parsedRef))
+        {
+            refLimit = parsedRef;
+        }
+
+        bool isPass = measuredVal > 0 && measuredVal <= refLimit;
+        string resultadoStr = isPass ? "CUMPLE (APROBADO)" : "NO CUMPLE (RECHAZADO)";
+
+        payload["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        payload["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd");
+        payload["estatus"] = isPass ? "CUMPLE (VIGENTE)" : "NO CUMPLE (RECHAZADO)";
+
+        await SaveGarmentToStorage(payload);
+
+        // Log into validation records for traceability
+        try
+        {
+            var valRecord = new JsonObject
+            {
+                ["fecha_auditoria"] = DateTime.UtcNow.ToString("o"),
+                ["auditor"] = HttpContext.Session.GetString("user_name") ?? "Auditor ESD",
+                ["elemento_s20_20"] = payload["category"]?.ToString() ?? "Bata",
+                ["id_elemento"] = garmentId,
+                ["tipo_material"] = payload["classification"]?.ToString() ?? "Tela ESD (ANSI/ESD STM2.1)",
+                ["ubicacion"] = payload["departamento"]?.ToString() ?? "General",
+                ["limite_referencia"] = refLimit,
+                ["medicion_1"] = measuredVal,
+                ["unidad"] = "ohms",
+                ["metodo"] = payload["metodo"]?.ToString() ?? "ANSI/ESD STM2.1 / TR53",
+                ["resultado"] = resultadoStr,
+                ["notas"] = $"Inspección periódica de {payload["category"]}: {payload["classification"]}. Asignada a #{payload["num_empleado"]} ({payload["nombre_empleado"]}).",
+                ["site_id"] = siteId
+            };
+            await _supabase.InsertValidacionEsdAsync(valRecord);
+        }
+        catch { }
+
+        return Ok(new { success = true, resultado = resultadoStr, data = payload });
+    }
+
+    [HttpDelete("garments/{id}")]
+    public async Task<IActionResult> DeleteGarment(string id)
+    {
+        string siteId = HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        await DeleteGarmentFromStorage(id, siteId);
+        return Ok(new { success = true, message = "Prenda eliminada correctamente." });
+    }
+
     [HttpGet("employees")]
     public async Task<IActionResult> GetEmployees([FromQuery] string? siteId)
     {
@@ -3532,6 +3693,224 @@ public class ApiController : ControllerBase
         }
         catch { }
         return false;
+    }
+
+    private async Task<JsonArray> GetGarmentsFromStorage(string siteId)
+    {
+        var result = new JsonArray();
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            Directory.CreateDirectory(dataDir);
+            string path = Path.Combine(dataDir, "garments_catalog.json");
+            JsonArray list;
+
+            if (System.IO.File.Exists(path))
+            {
+                list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray ?? new JsonArray();
+            }
+            else
+            {
+                list = GetInitialGarmentsSeed(siteId);
+                System.IO.File.WriteAllText(path, list.ToJsonString());
+            }
+
+            foreach (var item in list)
+            {
+                if (item is JsonObject g)
+                {
+                    string gSiteId = g["site_id"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(siteId) || string.IsNullOrEmpty(gSiteId) || string.Equals(gSiteId, siteId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Add(g.DeepClone());
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error reading garments: {ex.Message}");
+        }
+        return result;
+    }
+
+    private async Task SaveGarmentToStorage(JsonObject garment)
+    {
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            Directory.CreateDirectory(dataDir);
+            string path = Path.Combine(dataDir, "garments_catalog.json");
+            JsonArray list = new();
+            if (System.IO.File.Exists(path))
+            {
+                list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray ?? new JsonArray();
+            }
+
+            string id = garment["id"]?.ToString() ?? "";
+            int existingIdx = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] is JsonObject obj && string.Equals(obj["id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase))
+                {
+                    existingIdx = i;
+                    break;
+                }
+            }
+
+            if (existingIdx >= 0)
+            {
+                list[existingIdx] = garment.DeepClone();
+            }
+            else
+            {
+                list.Insert(0, garment.DeepClone());
+            }
+
+            System.IO.File.WriteAllText(path, list.ToJsonString());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving garment: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteGarmentFromStorage(string id, string siteId)
+    {
+        try
+        {
+            string dataDir = Path.Combine(_env.WebRootPath, "data");
+            string path = Path.Combine(dataDir, "garments_catalog.json");
+            if (System.IO.File.Exists(path))
+            {
+                var list = JsonNode.Parse(System.IO.File.ReadAllText(path)) as JsonArray ?? new JsonArray();
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    if (list[i] is JsonObject obj && string.Equals(obj["id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        list.RemoveAt(i);
+                        break;
+                    }
+                }
+                System.IO.File.WriteAllText(path, list.ToJsonString());
+            }
+        }
+        catch { }
+    }
+
+    private JsonArray GetInitialGarmentsSeed(string siteId)
+    {
+        return new JsonArray
+        {
+            new JsonObject
+            {
+                ["id"] = "SMK-0101",
+                ["site_id"] = siteId,
+                ["category"] = "Bata",
+                ["classification"] = "Static Control Garment",
+                ["num_empleado"] = "1042",
+                ["nombre_empleado"] = "Juan Pérez",
+                ["departamento"] = "SMT Line 1",
+                ["metodo"] = "ANSI/ESD STM2.1 / TR53",
+                ["limite_referencia"] = 1.0e11,
+                ["limite_texto"] = "RPP < 1.0x10^11 ohms",
+                ["valor_resistencia"] = 4.2e9,
+                ["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd"),
+                ["estatus"] = "CUMPLE (VIGENTE)",
+                ["notas"] = "Prueba manga a manga conforme con ANSI/ESD STM2.1"
+            },
+            new JsonObject
+            {
+                ["id"] = "SMK-0102",
+                ["site_id"] = siteId,
+                ["category"] = "Bata",
+                ["classification"] = "Groundable Static Control Garment",
+                ["num_empleado"] = "1088",
+                ["nombre_empleado"] = "María López",
+                ["departamento"] = "Área de Empaque",
+                ["metodo"] = "ANSI/ESD STM2.1 / TR53",
+                ["limite_referencia"] = 1.0e9,
+                ["limite_texto"] = "Rptgp < 1.0x10^9 ohms",
+                ["valor_resistencia"] = 1.5e8,
+                ["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd"),
+                ["estatus"] = "CUMPLE (VIGENTE)",
+                ["notas"] = "Broche de conexión a tierra probado y verificado"
+            },
+            new JsonObject
+            {
+                ["id"] = "SMK-0103",
+                ["site_id"] = siteId,
+                ["category"] = "Bata",
+                ["classification"] = "Groundable Static Control Garment System",
+                ["num_empleado"] = "1105",
+                ["nombre_empleado"] = "Carlos Ruiz",
+                ["departamento"] = "Banco de Prueba EPA 3",
+                ["metodo"] = "ANSI/ESD STM2.1 / S20.20",
+                ["limite_referencia"] = 3.5e7,
+                ["limite_texto"] = "Rsys < 3.5x10^7 ohms",
+                ["valor_resistencia"] = 1.2e7,
+                ["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd"),
+                ["estatus"] = "CUMPLE (VIGENTE)",
+                ["notas"] = "Sistema Operador + Prenda + Conexión a tierra < 3.5x10^7 ohms"
+            },
+            new JsonObject
+            {
+                ["id"] = "CAL-0201",
+                ["site_id"] = siteId,
+                ["category"] = "Calzado",
+                ["classification"] = "Calzado ESD",
+                ["num_empleado"] = "1042",
+                ["nombre_empleado"] = "Juan Pérez",
+                ["departamento"] = "SMT Line 1",
+                ["metodo"] = "ANSI/ESD STM9.1 / TR53",
+                ["limite_referencia"] = 1.0e9,
+                ["limite_texto"] = "RS < 1.0x10^9 ohms",
+                ["valor_resistencia"] = 2.1e7,
+                ["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd"),
+                ["estatus"] = "CUMPLE (VIGENTE)",
+                ["notas"] = "Suela disipativa en buenas condiciones"
+            },
+            new JsonObject
+            {
+                ["id"] = "GLV-0301",
+                ["site_id"] = siteId,
+                ["category"] = "Guantes Nitrilo",
+                ["classification"] = "Guantes Nitrilo ESD",
+                ["num_empleado"] = "1088",
+                ["nombre_empleado"] = "María López",
+                ["departamento"] = "Cleanroom 2",
+                ["metodo"] = "ANSI/ESD SP15.1 / TR53",
+                ["limite_referencia"] = 1.0e9,
+                ["limite_texto"] = "RTG < 1.0x10^9 ohms",
+                ["valor_resistencia"] = 8.5e7,
+                ["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd"),
+                ["estatus"] = "CUMPLE (VIGENTE)",
+                ["notas"] = "Lote certificado de guantes de nitrilo disipativo"
+            },
+            new JsonObject
+            {
+                ["id"] = "CAP-0401",
+                ["site_id"] = siteId,
+                ["category"] = "Gorra",
+                ["classification"] = "Gorra ESD",
+                ["num_empleado"] = "1105",
+                ["nombre_empleado"] = "Carlos Ruiz",
+                ["departamento"] = "Cleanroom 1",
+                ["metodo"] = "ANSI/ESD STM2.1 / TR53",
+                ["limite_referencia"] = 1.0e11,
+                ["limite_texto"] = "RPP < 1.0x10^11 ohms",
+                ["valor_resistencia"] = 5.2e9,
+                ["fecha_inspeccion"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                ["fecha_vencimiento"] = DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-dd"),
+                ["estatus"] = "CUMPLE (VIGENTE)",
+                ["notas"] = "Tejido con filamentos conductores intactos"
+            }
+        };
     }
 
     // --- ESD CONTROL ELEMENT VALIDATION ENDPOINTS ---
