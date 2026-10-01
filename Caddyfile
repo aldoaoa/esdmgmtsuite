@@ -1,0 +1,3 @@
+esd360.app {
+    reverse_proxy web:8080
+}
