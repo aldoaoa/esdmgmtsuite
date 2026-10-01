@@ -1,0 +1,28 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches: [ "main" ] # Se ejecuta cada vez que haces push a esta rama
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conectar por SSH y actualizar
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            # 1. Entrar a la carpeta del proyecto
+            cd esdmgmtsuite
+            
+            # 2. Bajar los cambios nuevos
+            git pull origin main
+            
+            # 3. Reconstruir solo el backend en C# sin apagar Caddy
+            sudo docker-compose up -d --build web
+            
+            # 4. Limpiar imágenes viejas de Docker para que no se llene tu disco
+            sudo docker image prune -f
