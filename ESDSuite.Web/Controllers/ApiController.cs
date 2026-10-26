@@ -106,13 +106,46 @@ public class ApiController : ControllerBase
     }
 
     [HttpGet("session")]
-    public IActionResult GetSession()
+    public async Task<IActionResult> GetSession()
     {
         bool isLoggedIn = HttpContext.Session.GetString("is_logged_in") == "true";
         if (!isLoggedIn)
         {
             return Ok(new { isLoggedIn = false });
         }
+
+        string activeSiteId = CurrentUserSiteId;
+        string? activeCompanyId = CurrentUserCompanyId;
+        string? activeCompanyName = HttpContext.Session.GetString("company_name");
+
+        if (string.IsNullOrEmpty(activeCompanyId) && !string.IsNullOrEmpty(activeSiteId))
+        {
+            try
+            {
+                var allSites = await _supabase.GetSitesAsync();
+                var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), activeSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+                if (matchedSite != null)
+                {
+                    activeCompanyId = matchedSite["company_id"]?.ToString();
+                    if (!string.IsNullOrEmpty(activeCompanyId))
+                    {
+                        HttpContext.Session.SetString("company_id", activeCompanyId);
+                        if (string.IsNullOrEmpty(activeCompanyName))
+                        {
+                            var comp = await _supabase.GetCompanyByIdAsync(activeCompanyId);
+                            activeCompanyName = comp?["name"]?.ToString();
+                            if (!string.IsNullOrEmpty(activeCompanyName))
+                            {
+                                HttpContext.Session.SetString("company_name", activeCompanyName);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        string companyLogoUrl = await ResolveCompanyLogoAsync(activeCompanyId);
 
         return Ok(new
         {
@@ -121,10 +154,11 @@ public class ApiController : ControllerBase
             user_email = HttpContext.Session.GetString("user_email"),
             user_name = HttpContext.Session.GetString("user_name"),
             user_role = CurrentUserRole,
-            site_id = CurrentUserSiteId,
-            company_id = CurrentUserCompanyId,
+            site_id = activeSiteId,
+            company_id = activeCompanyId,
             site_name = HttpContext.Session.GetString("site_name"),
-            company_name = HttpContext.Session.GetString("company_name"),
+            company_name = activeCompanyName,
+            company_logo_url = companyLogoUrl,
             can_create_company = IsSuperAdmin,
             can_create_site = IsCompanyAdmin,
             can_create_area = IsSiteAdmin,
@@ -177,7 +211,8 @@ public class ApiController : ControllerBase
             if (!string.IsNullOrEmpty(targetSiteName)) HttpContext.Session.SetString("site_name", targetSiteName);
             if (!string.IsNullOrEmpty(targetCompanyId)) HttpContext.Session.SetString("company_id", targetCompanyId);
             if (!string.IsNullOrEmpty(targetCompanyName)) HttpContext.Session.SetString("company_name", targetCompanyName);
-            return Ok(new { success = true });
+            string logoUrl = await ResolveCompanyLogoAsync(targetCompanyId);
+            return Ok(new { success = true, company_id = targetCompanyId, company_name = targetCompanyName, company_logo_url = logoUrl });
         }
 
         if (IsCompanyAdmin)
@@ -200,7 +235,8 @@ public class ApiController : ControllerBase
             if (!string.IsNullOrEmpty(targetSiteName)) HttpContext.Session.SetString("site_name", targetSiteName);
             if (!string.IsNullOrEmpty(targetCompanyId)) HttpContext.Session.SetString("company_id", targetCompanyId);
             if (!string.IsNullOrEmpty(targetCompanyName)) HttpContext.Session.SetString("company_name", targetCompanyName);
-            return Ok(new { success = true });
+            string logoUrl = await ResolveCompanyLogoAsync(targetCompanyId);
+            return Ok(new { success = true, company_id = targetCompanyId, company_name = targetCompanyName, company_logo_url = logoUrl });
         }
 
         return StatusCode(403, new { success = false, message = "Tu rol de usuario está asignado exclusivamente a tu planta y no permite cambiar de site." });
@@ -1149,21 +1185,10 @@ public class ApiController : ControllerBase
             if (compObj != null)
             {
                 companyName = compObj["name"]?.ToString() ?? companyName;
-                logoUrl = compObj["logo_url"]?.ToString();
             }
         }
 
-        // Check local branding cache if logoUrl not in DB
-        if (string.IsNullOrEmpty(logoUrl) && !string.IsNullOrEmpty(activeCompanyId))
-        {
-            logoUrl = GetLocalCompanyLogo(activeCompanyId);
-        }
-
-        // If SuperAdmin without company branding, default to esd360 logo
-        if (string.IsNullOrEmpty(logoUrl) && IsSuperAdmin && string.IsNullOrEmpty(activeCompanyId))
-        {
-            logoUrl = "/images/esd360-logo.png";
-        }
+        logoUrl = await ResolveCompanyLogoAsync(activeCompanyId);
 
         // 2. Generate High-Entropy Unique ID with Temporal Component & Backend Retry Loop
         string compCode = GetAbbreviation(companyName, 3, "BCS");
@@ -3450,6 +3475,43 @@ public class ApiController : ControllerBase
     }
 
     // --- COMPANY BRANDING & LOGO MANAGEMENT ---
+    private async Task<string> ResolveCompanyLogoAsync(string? companyId = null)
+    {
+        string? targetCompanyId = !string.IsNullOrWhiteSpace(companyId) ? companyId.Trim() : CurrentUserCompanyId;
+        if (string.IsNullOrEmpty(targetCompanyId) && !string.IsNullOrEmpty(CurrentUserSiteId))
+        {
+            try
+            {
+                var allSites = await _supabase.GetSitesAsync();
+                var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), CurrentUserSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+                targetCompanyId = matchedSite?["company_id"]?.ToString();
+            }
+            catch { }
+        }
+
+        if (string.IsNullOrEmpty(targetCompanyId))
+        {
+            return "/images/esd360-logo.png";
+        }
+
+        // 1. Check persistent Supabase storage/DB (with in-memory cache)
+        string sbLogo = await _supabase.GetCompanyLogoDataUriAsync(targetCompanyId);
+        if (!string.IsNullOrEmpty(sbLogo))
+        {
+            SaveLocalCompanyLogo(targetCompanyId, sbLogo);
+            return sbLogo;
+        }
+
+        // 2. Check local branding cache if valid (ignore old broken relative storage URLs)
+        string localLogo = GetLocalCompanyLogo(targetCompanyId);
+        if (!string.IsNullOrEmpty(localLogo) && !localLogo.StartsWith("/storage/v1/", StringComparison.OrdinalIgnoreCase))
+        {
+            return localLogo;
+        }
+
+        return "/images/esd360-logo.png";
+    }
+
     [HttpPost("settings/company-logo")]
     public async Task<IActionResult> UploadCompanyLogo(IFormFile? file, [FromForm] string? companyId, [FromForm] string? logoBase64)
     {
@@ -3458,14 +3520,22 @@ public class ApiController : ControllerBase
             return StatusCode(403, new { success = false, message = "No tienes permisos para modificar el logotipo de la empresa. Requiere rol CompanyAdmin o SuperAdmin." });
         }
 
-        string targetCompanyId = IsSuperAdmin ? (companyId ?? CurrentUserCompanyId) : CurrentUserCompanyId;
+        string? targetCompanyId = IsSuperAdmin ? (!string.IsNullOrWhiteSpace(companyId) ? companyId.Trim() : CurrentUserCompanyId) : CurrentUserCompanyId;
+        if (string.IsNullOrEmpty(targetCompanyId) && !string.IsNullOrEmpty(CurrentUserSiteId))
+        {
+            var allSites = await _supabase.GetSitesAsync();
+            var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), CurrentUserSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+            targetCompanyId = matchedSite?["company_id"]?.ToString();
+        }
+
         if (string.IsNullOrEmpty(targetCompanyId))
         {
             return BadRequest(new { success = false, message = "El ID de empresa es obligatorio." });
         }
 
-        string storageKey = "";
+        byte[] imgBytes;
         string ext = ".png";
+        string contentType = "image/png";
 
         if (file != null && file.Length > 0)
         {
@@ -3476,46 +3546,23 @@ public class ApiController : ControllerBase
                 return BadRequest(new { success = false, message = "Formato de imagen no válido. Use PNG, JPG, SVG o WebP." });
             }
 
-            string safeFileName = $"logos/{targetCompanyId}_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
-            using var stream = file.OpenReadStream();
-            var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", safeFileName, stream, file.ContentType);
-            if (uploadOk)
+            contentType = ext switch
             {
-                storageKey = $"/storage/v1/object/authenticated/audit-evidence/{safeFileName}";
-            }
-            else
-            {
-                // Fallback to local
-                string brandingDir = Path.Combine(_env.WebRootPath, "uploads", "branding");
-                Directory.CreateDirectory(brandingDir);
-                string localName = $"{targetCompanyId}{ext}";
-                string localPath = Path.Combine(brandingDir, localName);
-                using (var fs = new FileStream(localPath, FileMode.Create))
-                {
-                    await file.CopyToAsync(fs);
-                }
-                storageKey = $"/uploads/branding/{localName}";
-            }
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".svg" => "image/svg+xml",
+                ".webp" => "image/webp",
+                _ => "image/png"
+            };
+
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            imgBytes = ms.ToArray();
         }
         else if (!string.IsNullOrEmpty(logoBase64))
         {
             try
             {
-                byte[] imgBytes = Convert.FromBase64String(logoBase64.Contains(",") ? logoBase64.Split(',')[1] : logoBase64);
-                string safeFileName = $"logos/{targetCompanyId}_{DateTime.UtcNow:yyyyMMddHHmmss}.png";
-                var (uploadOk, key, msg) = await _supabase.UploadStorageObjectAsync("audit-evidence", safeFileName, imgBytes, "image/png");
-                if (uploadOk)
-                {
-                    storageKey = $"/storage/v1/object/authenticated/audit-evidence/{safeFileName}";
-                }
-                else
-                {
-                    string brandingDir = Path.Combine(_env.WebRootPath, "uploads", "branding");
-                    Directory.CreateDirectory(brandingDir);
-                    string localPath = Path.Combine(brandingDir, $"{targetCompanyId}.png");
-                    await System.IO.File.WriteAllBytesAsync(localPath, imgBytes);
-                    storageKey = $"/uploads/branding/{targetCompanyId}.png";
-                }
+                imgBytes = Convert.FromBase64String(logoBase64.Contains(",") ? logoBase64.Split(',')[1] : logoBase64);
             }
             catch (Exception ex)
             {
@@ -3527,29 +3574,58 @@ public class ApiController : ControllerBase
             return BadRequest(new { success = false, message = "Por favor selecciona o proporciona un archivo de imagen." });
         }
 
-        // Update company in Supabase
-        await _supabase.UpdateCompanyAsync(targetCompanyId, new { logo_url = storageKey });
+        if (imgBytes.Length == 0)
+        {
+            return BadRequest(new { success = false, message = "El archivo de imagen está vacío." });
+        }
 
-        // Update local branding file
-        SaveLocalCompanyLogo(targetCompanyId, storageKey);
+        string dataUri = $"data:{contentType};base64,{Convert.ToBase64String(imgBytes)}";
 
-        return Ok(new { success = true, company_id = targetCompanyId, logo_url = storageKey, message = "Logotipo actualizado exitosamente." });
+        // 1. Upload binary backup to Supabase Storage bucket 'audit-evidence'
+        try
+        {
+            string safeFileName = $"logos/{targetCompanyId}_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+            await _supabase.UploadStorageObjectAsync("audit-evidence", safeFileName, imgBytes, contentType);
+        }
+        catch { }
+
+        // 2. Persist Data URI in Supabase (app_logs + in-memory cache) so it survives Docker rebuilds
+        string? userId = HttpContext.Session.GetString("user_id");
+        await _supabase.SaveCompanyLogoAsync(targetCompanyId, dataUri, userId, CurrentUserSiteId);
+
+        // 3. Update local branding cache
+        SaveLocalCompanyLogo(targetCompanyId, dataUri);
+
+        return Ok(new { success = true, company_id = targetCompanyId, logo_url = dataUri, message = "Logotipo corporativo actualizado exitosamente." });
     }
 
     [HttpGet("settings/company-logo")]
     public async Task<IActionResult> GetCompanyLogo([FromQuery] string? companyId)
     {
-        string targetCompanyId = IsSuperAdmin ? (companyId ?? CurrentUserCompanyId) : CurrentUserCompanyId;
-        if (string.IsNullOrEmpty(targetCompanyId))
+        string? targetCompanyId = IsSuperAdmin ? (!string.IsNullOrWhiteSpace(companyId) ? companyId.Trim() : CurrentUserCompanyId) : CurrentUserCompanyId;
+        string logoUrl = await ResolveCompanyLogoAsync(targetCompanyId);
+        return Ok(new { success = true, company_id = targetCompanyId, logo_url = logoUrl });
+    }
+
+    [HttpDelete("settings/company-logo")]
+    public async Task<IActionResult> DeleteCompanyLogo([FromQuery] string? companyId)
+    {
+        if (!IsSuperAdmin && !IsCompanyAdmin)
         {
-            return Ok(new { success = true, logo_url = "/images/esd360-logo.png" });
+            return StatusCode(403, new { success = false, message = "No tienes permisos para modificar el logotipo de la empresa. Requiere rol CompanyAdmin o SuperAdmin." });
         }
 
-        var comp = await _supabase.GetCompanyByIdAsync(targetCompanyId);
-        string logoUrl = comp?["logo_url"]?.ToString() ?? GetLocalCompanyLogo(targetCompanyId);
-        if (string.IsNullOrEmpty(logoUrl)) logoUrl = "/images/esd360-logo.png";
+        string? targetCompanyId = IsSuperAdmin ? (!string.IsNullOrWhiteSpace(companyId) ? companyId.Trim() : CurrentUserCompanyId) : CurrentUserCompanyId;
+        if (string.IsNullOrEmpty(targetCompanyId))
+        {
+            return BadRequest(new { success = false, message = "El ID de empresa es obligatorio." });
+        }
 
-        return Ok(new { success = true, company_id = targetCompanyId, logo_url = logoUrl });
+        string? userId = HttpContext.Session.GetString("user_id");
+        await _supabase.SaveCompanyLogoAsync(targetCompanyId, "", userId, CurrentUserSiteId);
+        SaveLocalCompanyLogo(targetCompanyId, "/images/esd360-logo.png");
+
+        return Ok(new { success = true, company_id = targetCompanyId, logo_url = "/images/esd360-logo.png", message = "Logotipo restablecido al valor por defecto." });
     }
 
     private string GetLocalCompanyLogo(string companyId)
@@ -4096,22 +4172,12 @@ public class ApiController : ControllerBase
                 if (compObj != null)
                 {
                     companyName = compObj["name"]?.ToString() ?? companyName;
-                    logoUrl = compObj["logo_url"]?.ToString();
                 }
             }
             catch { }
         }
 
-        if (string.IsNullOrEmpty(logoUrl) && !string.IsNullOrEmpty(activeCompanyId))
-        {
-            logoUrl = GetLocalCompanyLogo(activeCompanyId);
-        }
-
-        // Fallback to esd360 logo if no company logo uploaded
-        if (string.IsNullOrEmpty(logoUrl))
-        {
-            logoUrl = "/images/esd360-logo.png";
-        }
+        logoUrl = await ResolveCompanyLogoAsync(activeCompanyId);
 
         // 2. Generate High-Entropy Unique ID matching Line Validation structure (replacing LV with PV)
         string compCode = GetAbbreviation(companyName, 3, "BCS");

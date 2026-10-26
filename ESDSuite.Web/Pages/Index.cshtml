@@ -84,7 +84,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.1</span>
                     </div>
                 </div>
             </div>
@@ -144,7 +144,7 @@
     <!-- SIDEBAR NAVIGATION -->
     <aside class="sidebar" id="app-sidebar">
         <div class="sidebar-brand" style="padding:16px 14px; display:flex; align-items:center; justify-content:center; text-align:center;">
-            <img src="/images/esd360-logo.png" alt="esd360" style="height:46px; max-width:85%; width:auto; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 2px 4px rgba(15, 23, 42, 0.08));" />
+            <img id="sidebar-brand-logo" src="/images/esd360-logo.png" alt="esd360" style="height:46px; max-width:85%; width:auto; object-fit:contain; display:block; margin:0 auto; filter:drop-shadow(0 2px 4px rgba(15, 23, 42, 0.08));" />
         </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_monitoring">MONITOREO & MÉTRICAS</div>
@@ -191,7 +191,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.1</span>
             </div>
         </div>
     </aside>
@@ -2454,6 +2454,12 @@
                 document.getElementById('login-version-badge').innerText = 'v' + sessionRes.version;
             }
 
+            if (sessionRes.company_logo_url) {
+                updateSidebarCompanyLogo(sessionRes.company_logo_url);
+            } else {
+                syncActiveCompanySidebarLogo();
+            }
+
             try { enforceRolePermissions(); } catch(e) { console.warn('enforceRolePermissions error:', e); }
             try { await loadTranslations(userLang); } catch(e) { console.warn('loadTranslations error:', e); }
             try { await loadSites(); } catch(e) { console.warn('loadSites error:', e); }
@@ -2540,7 +2546,7 @@
         const btnMapsTab = document.getElementById('set-tab-btn-maps');
         if (btnMapsTab) btnMapsTab.style.display = isSiteAdminOrAbove ? 'inline-block' : 'none';
 
-        const isCompanyAdminOrAbove = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'CompanyAdmin' || sessionData.can_create_company);
+        const isCompanyAdminOrAbove = isUserCompanyAdminOrSuper();
         const btnBrandingTab = document.getElementById('set-tab-btn-branding');
         if (btnBrandingTab) btnBrandingTab.style.display = isCompanyAdminOrAbove ? 'inline-block' : 'none';
     }
@@ -7548,10 +7554,49 @@
     // --- COMPANY BRANDING & LOGO MANAGEMENT ---
     let brandingSelectedCompanyId = null;
 
-    function checkBrandingTabVisibility() {
-        const isSuperAdmin = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'Root' || sessionData.can_create_company);
-        const isCompanyAdmin = sessionData && (sessionData.user_role === 'CompanyAdmin' || sessionData.can_create_site || isSuperAdmin);
+    function isUserSuperAdmin() {
+        if (!sessionData) return false;
+        const r = (sessionData.user_role || '').toLowerCase().replace(/[\s_-]/g, '');
+        return r === 'superadmin' || r === 'root' || !!sessionData.can_create_company;
+    }
 
+    function isUserCompanyAdminOrSuper() {
+        if (!sessionData) return false;
+        if (isUserSuperAdmin()) return true;
+        const r = (sessionData.user_role || '').toLowerCase().replace(/[\s_-]/g, '');
+        return r === 'companyadmin' || !!sessionData.can_create_site;
+    }
+
+    function updateSidebarCompanyLogo(logoUrl) {
+        const sidebarLogo = document.getElementById('sidebar-brand-logo');
+        if (!sidebarLogo) return;
+        sidebarLogo.onerror = function() {
+            this.onerror = null;
+            this.src = '/images/esd360-logo.png';
+        };
+        sidebarLogo.src = logoUrl || '/images/esd360-logo.png';
+    }
+
+    async function syncActiveCompanySidebarLogo() {
+        try {
+            const compId = (sessionData && sessionData.company_id) || '';
+            const url = compId ? `/api/settings/company-logo?companyId=${encodeURIComponent(compId)}` : '/api/settings/company-logo';
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.logo_url) {
+                    updateSidebarCompanyLogo(data.logo_url);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Error syncing sidebar logo:', e);
+        }
+        updateSidebarCompanyLogo('/images/esd360-logo.png');
+    }
+
+    function checkBrandingTabVisibility() {
+        const isCompanyAdmin = isUserCompanyAdminOrSuper();
         const tabBtn = document.getElementById('set-tab-btn-branding');
         if (tabBtn) {
             tabBtn.style.display = isCompanyAdmin ? 'inline-block' : 'none';
@@ -7559,8 +7604,8 @@
     }
 
     async function loadBrandingSettingsTab() {
-        const isSuperAdmin = sessionData && (sessionData.user_role === 'SuperAdmin' || sessionData.user_role === 'Root' || sessionData.can_create_company);
-        const isCompanyAdmin = sessionData && (sessionData.user_role === 'CompanyAdmin' || sessionData.can_create_site || isSuperAdmin);
+        const isSuperAdmin = isUserSuperAdmin();
+        const isCompanyAdmin = isUserCompanyAdminOrSuper();
 
         const tabBtn = document.getElementById('set-tab-btn-branding');
         if (tabBtn) {
@@ -7574,17 +7619,26 @@
 
         if (isSuperAdmin) {
             if (compSelectContainer) compSelectContainer.style.display = 'block';
+            if (!allCompanies || allCompanies.length === 0) {
+                try {
+                    const resComp = await fetch('/api/companies');
+                    if (resComp.ok) allCompanies = await resComp.json();
+                } catch (e) {}
+            }
             if (compSelect && allCompanies && allCompanies.length > 0) {
                 compSelect.innerHTML = allCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
                 if (!brandingSelectedCompanyId) {
-                    brandingSelectedCompanyId = compSelect.value || allCompanies[0].id;
-                } else {
+                    brandingSelectedCompanyId = (sessionData && sessionData.company_id) || compSelect.value || allCompanies[0].id;
+                }
+                compSelect.value = brandingSelectedCompanyId;
+                if (!compSelect.value && allCompanies.length > 0) {
+                    brandingSelectedCompanyId = allCompanies[0].id;
                     compSelect.value = brandingSelectedCompanyId;
                 }
             }
         } else {
             if (compSelectContainer) compSelectContainer.style.display = 'none';
-            brandingSelectedCompanyId = sessionData.company_id || '';
+            brandingSelectedCompanyId = (sessionData && sessionData.company_id) || '';
         }
 
         await fetchCompanyLogo(brandingSelectedCompanyId);
@@ -7599,12 +7653,20 @@
         const img = document.getElementById('branding-logo-preview-img');
         if (!img) return;
 
+        img.onerror = function() {
+            this.onerror = null;
+            this.src = '/images/esd360-logo.png';
+        };
+
         try {
-            const url = companyId ? `/api/settings/company-logo?companyId=${companyId}` : '/api/settings/company-logo';
+            const url = companyId ? `/api/settings/company-logo?companyId=${encodeURIComponent(companyId)}` : '/api/settings/company-logo';
             const res = await fetch(url);
             const data = await res.json();
             if (data && data.logo_url) {
                 img.src = data.logo_url;
+                if (sessionData && (!companyId || companyId === sessionData.company_id)) {
+                    updateSidebarCompanyLogo(data.logo_url);
+                }
             } else {
                 img.src = '/images/esd360-logo.png';
             }
@@ -7626,6 +7688,11 @@
 
     async function submitCompanyLogo(e) {
         e.preventDefault();
+        if (!isUserCompanyAdminOrSuper()) {
+            alert('⛔ No tienes permisos para modificar el logotipo de la empresa.');
+            return;
+        }
+
         const fileInput = document.getElementById('branding-file-input');
         const btn = document.getElementById('btn-save-company-logo');
 
@@ -7634,10 +7701,11 @@
             return;
         }
 
+        const targetCompId = brandingSelectedCompanyId || (sessionData && sessionData.company_id) || '';
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
-        if (brandingSelectedCompanyId) {
-            formData.append('companyId', brandingSelectedCompanyId);
+        if (targetCompId) {
+            formData.append('companyId', targetCompId);
         }
 
         if (btn) {
@@ -7656,6 +7724,10 @@
                 if (data.logo_url) {
                     const img = document.getElementById('branding-logo-preview-img');
                     if (img) img.src = data.logo_url;
+                    if (!targetCompId || !sessionData || !sessionData.company_id || targetCompId === sessionData.company_id) {
+                        updateSidebarCompanyLogo(data.logo_url);
+                        if (sessionData) sessionData.company_logo_url = data.logo_url;
+                    }
                 }
                 fileInput.value = '';
             } else {

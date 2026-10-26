@@ -1048,5 +1048,154 @@ public class SupabaseService
             Console.WriteLine($"[AUDIT LOG EXCEPTION]: {ex.Message}");
         }
     }
+
+    // --- PERSISTENT COMPANY LOGO SERVICE (SUPABASE DB + STORAGE) ---
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _companyLogoCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public void SetCompanyLogoCache(string companyId, string? dataUri)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return;
+        _companyLogoCache[companyId.Trim()] = string.IsNullOrWhiteSpace(dataUri) ? "NONE" : dataUri;
+    }
+
+    public async Task SaveCompanyLogoAsync(string companyId, string dataUri, string? userId = null, string? siteId = null)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return;
+        string cleanId = companyId.Trim();
+        SetCompanyLogoCache(cleanId, dataUri);
+
+        // 1. Persist in app_logs under page='company_logo_config' (guaranteed schema)
+        await LogAuditEventAsync(userId, siteId, "CONFIG", "company_logo_config", cleanId, string.IsNullOrWhiteSpace(dataUri) ? "RESET" : dataUri);
+
+        // 2. Also attempt to update companies.logo_url if column exists
+        try
+        {
+            await UpdateCompanyAsync(cleanId, new { logo_url = string.IsNullOrWhiteSpace(dataUri) ? null : dataUri });
+        }
+        catch { }
+    }
+
+    public async Task<string> GetCompanyLogoDataUriAsync(string? companyId)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return "";
+        string cleanId = companyId.Trim();
+
+        if (_companyLogoCache.TryGetValue(cleanId, out var cached) && !string.IsNullOrEmpty(cached))
+        {
+            return cached == "NONE" ? "" : cached;
+        }
+
+        // 1. Check app_logs (page='company_logo_config')
+        try
+        {
+            var logs = await GetAsync($"app_logs?page=eq.company_logo_config&message=eq.{cleanId}&select=details,created_at&order=created_at.desc&limit=1");
+            if (logs.Count > 0 && logs[0] is JsonObject logObj)
+            {
+                string details = logObj["details"]?.ToString()?.Trim('"') ?? "";
+                if (details == "RESET")
+                {
+                    _companyLogoCache[cleanId] = "NONE";
+                    return "";
+                }
+                if (details.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    _companyLogoCache[cleanId] = details;
+                    return details;
+                }
+            }
+        }
+        catch { }
+
+        // 2. Check companies.logo_url if present
+        try
+        {
+            var comp = await GetCompanyByIdAsync(cleanId);
+            string? dbLogo = comp?["logo_url"]?.ToString();
+            if (!string.IsNullOrEmpty(dbLogo) && dbLogo.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            {
+                _companyLogoCache[cleanId] = dbLogo;
+                return dbLogo;
+            }
+        }
+        catch { }
+
+        // 3. Check Supabase Storage bucket 'audit-evidence' under prefix 'logos/'
+        try
+        {
+            using var listReq = new HttpRequestMessage(HttpMethod.Post, $"{_config.Url.TrimEnd('/')}/storage/v1/object/list/audit-evidence");
+            listReq.Headers.Add("apikey", _config.Key);
+            listReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+            listReq.Content = new StringContent("{\"prefix\":\"logos/\",\"limit\":100}", Encoding.UTF8, "application/json");
+
+            var listRes = await _http.SendAsync(listReq);
+            if (listRes.IsSuccessStatusCode)
+            {
+                var listJson = await listRes.Content.ReadAsStringAsync();
+                if (JsonNode.Parse(listJson) is JsonArray items)
+                {
+                    string? latestName = null;
+                    DateTime latestTime = DateTime.MinValue;
+
+                    foreach (var item in items)
+                    {
+                        if (item is JsonObject obj)
+                        {
+                            string name = obj["name"]?.ToString() ?? "";
+                            if (name.StartsWith($"{cleanId}_", StringComparison.OrdinalIgnoreCase) ||
+                                name.Equals($"{cleanId}.png", StringComparison.OrdinalIgnoreCase) ||
+                                name.Equals($"{cleanId}.jpg", StringComparison.OrdinalIgnoreCase))
+                            {
+                                DateTime dt = DateTime.MinValue;
+                                if (DateTime.TryParse(obj["created_at"]?.ToString() ?? obj["updated_at"]?.ToString(), out var parsedDt))
+                                {
+                                    dt = parsedDt;
+                                }
+                                if (latestName == null || dt >= latestTime)
+                                {
+                                    latestTime = dt;
+                                    latestName = name;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(latestName))
+                    {
+                        var (dlOk, dlStream, contentType, _) = await DownloadStorageObjectAsync("audit-evidence", $"logos/{latestName}");
+                        if (dlOk && dlStream != null)
+                        {
+                            using (dlStream)
+                            using (var ms = new MemoryStream())
+                            {
+                                await dlStream.CopyToAsync(ms);
+                                byte[] bytes = ms.ToArray();
+                                if (bytes.Length > 0)
+                                {
+                                    string ext = Path.GetExtension(latestName).ToLowerInvariant();
+                                    string mime = ext switch
+                                    {
+                                        ".jpg" or ".jpeg" => "image/jpeg",
+                                        ".svg" => "image/svg+xml",
+                                        ".webp" => "image/webp",
+                                        _ => !string.IsNullOrEmpty(contentType) && contentType.StartsWith("image/") ? contentType : "image/png"
+                                    };
+                                    string dataUri = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+                                    _companyLogoCache[cleanId] = dataUri;
+                                    return dataUri;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[COMPANY LOGO STORAGE LOOKUP]: {ex.Message}");
+        }
+
+        _companyLogoCache[cleanId] = "NONE";
+        return "";
+    }
 }
 
