@@ -10251,12 +10251,26 @@
     }
 
     async function loadFindingsModule() {
+        const tbody = document.getElementById('findings-table-tbody');
+        if (tbody && (!allFindings || allFindings.length === 0)) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:28px; color:var(--text-muted); font-size:12.5px;">
+                <div style="display:inline-flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:16px; height:16px; border:2px solid #CBD5E1; border-top-color:#2563EB; border-radius:50%; animation:spin 0.8s linear infinite;"></span>
+                    <span>Cargando hallazgos normativos...</span>
+                </div>
+            </td></tr>`;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
+
         try {
             const siteId = getActiveSiteId();
             let url = '/api/findings';
             if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
 
-            const res = await fetch(url);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
             if (!res.ok) {
                 throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             }
@@ -10276,13 +10290,14 @@
             filterFindingsList();
             refreshOpenFindingsBadge();
         } catch(e) {
+            clearTimeout(timeoutId);
             console.error('Error loading findings module:', e);
-            const tbody = document.getElementById('findings-table-tbody');
             if (tbody) {
+                const isTimeout = e.name === 'AbortError';
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:#DC2626; font-size:12.5px;">
-                    ⚠️ Error al cargar los hallazgos: ${escapeHtml(e.message || 'Error de conexión')}
+                    ⚠️ ${isTimeout ? 'La consulta tardó más del tiempo esperado.' : 'Error al cargar los hallazgos: ' + escapeHtml(e.message || 'Error de conexión')}
                     <div style="margin-top:8px;">
-                        <button type="button" class="tab-btn" onclick="loadFindingsModule()" style="font-size:11.5px; padding:4px 12px;">🔄 Reintentar</button>
+                        <button type="button" class="tab-btn" onclick="loadFindingsModule()" style="font-size:11.5px; padding:4px 12px; background:#F1F5F9; font-weight:700;">🔄 Reintentar Carga</button>
                     </div>
                 </td></tr>`;
             }
@@ -10371,8 +10386,13 @@
         const tbody = document.getElementById('findings-table-tbody');
         if (!tbody) return;
         if (!findings || findings.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted); font-size:13px;">
-                No se han registrado hallazgos ni desviaciones normativas en este site.
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:36px 20px; color:var(--text-muted); font-size:13px;">
+                <div style="font-size:32px; margin-bottom:8px;">📋</div>
+                <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">No se encontraron hallazgos registrados</div>
+                <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:14px;">Todos los elementos auditados cumplen con los rangos normativos ANSI/ESD S20.20-2021.</div>
+                <button type="button" class="btn-primary" onclick="openNewFindingModal()" style="font-size:12px; padding:6px 16px; background:#2563EB;">
+                    ➕ Levantar Hallazgo Manual
+                </button>
             </td></tr>`;
             return;
         }

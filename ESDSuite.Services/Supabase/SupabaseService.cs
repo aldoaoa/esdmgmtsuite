@@ -570,6 +570,46 @@ public class SupabaseService
         return await InsertAsync("log_reportes_linea", data);
     }
 
+    // --- ESD FINDINGS (CAPA) ---
+    public async Task<JsonArray> GetFindingsFromSupabaseAsync(string? siteId = null, string? status = null)
+    {
+        var query = new List<string> { "select=*", "order=created_at.desc" };
+        if (!string.IsNullOrEmpty(siteId) && !siteId.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query.Add($"or=(site_id.eq.{siteId},site_id.is.null)");
+        }
+        if (!string.IsNullOrEmpty(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query.Add($"status=eq.{status}");
+        }
+        return await GetAsync($"esd_findings?{string.Join("&", query)}");
+    }
+
+    public async Task<JsonObject?> GetFindingByIdFromSupabaseAsync(string id)
+    {
+        var res = await GetAsync($"esd_findings?id=eq.{id}&select=*");
+        if (res != null && res.Count > 0)
+        {
+            return res[0] as JsonObject;
+        }
+        return null;
+    }
+
+    public async Task<JsonObject?> SaveFindingToSupabaseAsync(object finding)
+    {
+        return await InsertAsync("esd_findings", finding);
+    }
+
+    public async Task<bool> UpdateFindingInSupabaseAsync(string id, object finding)
+    {
+        return await UpdateAsync("esd_findings", $"id=eq.{id}", finding);
+    }
+
+    public async Task<bool> DeleteFindingFromSupabaseAsync(string id)
+    {
+        return await DeleteAsync("esd_findings", $"id=eq.{id}");
+    }
+
     public async Task<JsonArray> GetLogReportesLineaAsync(string? siteId = null, string? companyId = null)
     {
         var query = new List<string> { "select=*", "order=created_at.desc" };

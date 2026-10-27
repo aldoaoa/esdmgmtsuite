@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ESDSuite.Services.Supabase;
 
 namespace ESDSuite.Services.Storage;
 
@@ -8,10 +9,12 @@ public class FindingsStorageService
     private readonly string _findingsFilePath;
     private readonly string _limitsFilePath;
     private readonly string _uploadsDirectory;
+    private readonly SupabaseService? _supabase;
     private readonly object _lock = new();
 
-    public FindingsStorageService(string? contentRootPath = null, string? webRootPath = null)
+    public FindingsStorageService(string? contentRootPath = null, string? webRootPath = null, SupabaseService? supabase = null)
     {
+        _supabase = supabase;
         string root = !string.IsNullOrEmpty(contentRootPath) ? contentRootPath : AppDomain.CurrentDomain.BaseDirectory;
         string wwwroot = !string.IsNullOrEmpty(webRootPath) ? webRootPath : Path.Combine(root, "wwwroot");
         string dataDir = Path.Combine(wwwroot, "data");
@@ -471,6 +474,29 @@ public class FindingsStorageService
 
     public JsonArray GetAllFindings(string? siteId = null)
     {
+        // 1. Intentar consultar desde Supabase si el servicio está configurado
+        if (_supabase != null)
+        {
+            try
+            {
+                var sbTask = _supabase.GetFindingsFromSupabaseAsync(siteId);
+                if (sbTask.Wait(TimeSpan.FromSeconds(3)))
+                {
+                    var sbFindings = sbTask.Result;
+                    if (sbFindings != null && sbFindings.Count > 0)
+                    {
+                        SyncSupabaseFindingsToLocalCache(sbFindings);
+                        return sbFindings;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FindingsStorageService] Supabase GetFindings fallback: {ex.Message}");
+            }
+        }
+
+        // 2. Fallback a caché local JSON en disco
         lock (_lock)
         {
             if (!File.Exists(_findingsFilePath))
@@ -510,6 +536,20 @@ public class FindingsStorageService
 
     public JsonObject? GetFindingById(string id)
     {
+        if (_supabase != null)
+        {
+            try
+            {
+                var sbTask = _supabase.GetFindingByIdFromSupabaseAsync(id);
+                if (sbTask.Wait(TimeSpan.FromSeconds(3)))
+                {
+                    var item = sbTask.Result;
+                    if (item != null) return item;
+                }
+            }
+            catch { }
+        }
+
         lock (_lock)
         {
             if (!File.Exists(_findingsFilePath)) return null;
@@ -529,6 +569,7 @@ public class FindingsStorageService
                 }
             }
             catch { }
+
             return null;
         }
     }
@@ -575,6 +616,7 @@ public class FindingsStorageService
 
     public JsonObject SaveFinding(JsonObject finding)
     {
+        JsonObject savedLocal;
         lock (_lock)
         {
             JsonArray arr = new();
@@ -596,11 +638,13 @@ public class FindingsStorageService
                 string sId = finding["site_id"]?.ToString() ?? "";
                 finding["tracking_code"] = GenerateTrackingCode(sId);
             }
+            finding["tracker_code"] = finding["tracking_code"];
 
             if (finding["opened_at"] == null || string.IsNullOrWhiteSpace(finding["opened_at"]?.ToString()))
             {
                 finding["opened_at"] = DateTime.UtcNow.ToString("o");
             }
+            finding["created_at"] = finding["opened_at"];
 
             if (finding["status"] == null || string.IsNullOrWhiteSpace(finding["status"]?.ToString()))
             {
@@ -640,13 +684,46 @@ public class FindingsStorageService
                 arr.Insert(0, finding.DeepClone());
             }
 
-            File.WriteAllText(_findingsFilePath, arr.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-            return finding;
+            try
+            {
+                File.WriteAllText(_findingsFilePath, arr.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
+
+            savedLocal = finding.DeepClone() as JsonObject ?? finding;
         }
+
+        // Sincronización asíncrona a la tabla esd_findings de Supabase
+        if (_supabase != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var payload = BuildSupabasePayload(savedLocal);
+                    var existing = await _supabase.GetFindingByIdFromSupabaseAsync(savedLocal["id"]?.ToString() ?? "");
+                    if (existing != null)
+                    {
+                        await _supabase.UpdateFindingInSupabaseAsync(savedLocal["id"]!.ToString(), payload);
+                    }
+                    else
+                    {
+                        await _supabase.SaveFindingToSupabaseAsync(payload);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[FindingsStorageService] Supabase save sync note: {ex.Message}");
+                }
+            });
+        }
+
+        return savedLocal;
     }
 
     public bool DeleteFinding(string id)
     {
+        bool ok = false;
         lock (_lock)
         {
             if (!File.Exists(_findingsFilePath)) return false;
@@ -671,11 +748,104 @@ public class FindingsStorageService
                 {
                     arr.RemoveAt(foundIndex);
                     File.WriteAllText(_findingsFilePath, arr.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-                    return true;
+                    ok = true;
                 }
             }
             catch { }
-            return false;
+        }
+
+        if (ok && _supabase != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _supabase.DeleteFindingFromSupabaseAsync(id);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[FindingsStorageService] Supabase delete sync note: {ex.Message}");
+                }
+            });
+        }
+
+        return ok;
+    }
+
+    private JsonObject BuildSupabasePayload(JsonObject f)
+    {
+        var sb = new JsonObject();
+        string id = f["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        sb["id"] = id;
+        sb["tracking_code"] = f["tracking_code"]?.ToString() ?? f["tracker_code"]?.ToString() ?? id;
+
+        string? siteId = f["site_id"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(siteId)) sb["site_id"] = siteId; else sb["site_id"] = null;
+
+        string? compId = f["company_id"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(compId)) sb["company_id"] = compId; else sb["company_id"] = null;
+
+        sb["source_module"] = f["source_module"]?.ToString() ?? "Levantamiento Manual";
+        sb["title"] = f["title"]?.ToString() ?? "Hallazgo Normativo";
+        sb["category"] = f["category"]?.ToString() ?? "General";
+        sb["normative_table"] = f["normative_table"]?.ToString() ?? f["reference_table"]?.ToString() ?? "Tabla 2: Superficies de Trabajo / Mobiliario";
+        sb["element_id"] = f["element_id"]?.ToString() ?? "";
+        sb["area"] = f["area"]?.ToString() ?? "";
+        sb["location"] = f["location"]?.ToString() ?? "";
+        sb["measured_value"] = f["measured_value"]?.ToString() ?? "";
+        sb["required_limit"] = f["required_limit"]?.ToString() ?? f["limit_applied"]?.ToString() ?? "";
+        sb["severity"] = f["severity"]?.ToString() ?? "MAJOR";
+        sb["status"] = f["status"]?.ToString() ?? "OPEN";
+        sb["auditor_id"] = f["auditor_id"]?.ToString();
+        sb["auditor_name"] = f["auditor_name"]?.ToString() ?? f["opened_by"]?.ToString() ?? "Auditor";
+        sb["opened_by"] = f["opened_by"]?.ToString() ?? f["auditor_name"]?.ToString() ?? "Auditor";
+        sb["assignee_name"] = f["assignee_name"]?.ToString() ?? f["assigned_to"]?.ToString();
+        sb["assignee_email"] = f["assignee_email"]?.ToString();
+
+        string? openedAt = f["opened_at"]?.ToString() ?? f["created_at"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(openedAt) && DateTime.TryParse(openedAt, out var dtOpened))
+            sb["opened_at"] = dtOpened.ToString("o");
+
+        string? due = f["due_date"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(due) && DateTime.TryParse(due, out var dtDue))
+            sb["due_date"] = dtDue.ToString("o");
+        else
+            sb["due_date"] = null;
+
+        string? closedAt = f["closed_at"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(closedAt) && DateTime.TryParse(closedAt, out var dtClosed))
+            sb["closed_at"] = dtClosed.ToString("o");
+        else
+            sb["closed_at"] = null;
+
+        sb["closed_by"] = f["closed_by"]?.ToString();
+        sb["description"] = f["description"]?.ToString();
+        sb["containment_action"] = f["containment_action"]?.ToString() ?? f["immediate_containment"]?.ToString();
+        sb["root_cause"] = f["root_cause"]?.ToString();
+        sb["corrective_action"] = f["corrective_action"]?.ToString();
+        sb["preventive_action"] = f["preventive_action"]?.ToString();
+        sb["lessons_learned"] = f["lessons_learned"]?.ToString();
+        sb["evidence_open_url"] = f["evidence_open_url"]?.ToString();
+        sb["evidence_close_url"] = f["evidence_close_url"]?.ToString();
+
+        if (f["timeline"] != null)
+            sb["timeline"] = f["timeline"]!.DeepClone();
+        else
+            sb["timeline"] = new JsonArray();
+
+        sb["updated_at"] = DateTime.UtcNow.ToString("o");
+        return sb;
+    }
+
+    private void SyncSupabaseFindingsToLocalCache(JsonArray sbFindings)
+    {
+        lock (_lock)
+        {
+            try
+            {
+                File.WriteAllText(_findingsFilePath, sbFindings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
         }
     }
 
