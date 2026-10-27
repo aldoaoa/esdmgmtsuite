@@ -552,6 +552,16 @@ public class SupabaseService
         return await InsertAsync("floor_maps", mapData);
     }
 
+    public async Task<bool> DeleteFloorMapFromSupabaseAsync(string mapId)
+    {
+        return await DeleteAsync("floor_maps", $"id=eq.{mapId}");
+    }
+
+    public async Task<bool> DeleteFloorMapsBySiteFromSupabaseAsync(string siteId)
+    {
+        return await DeleteAsync("floor_maps", $"site_id=eq.{siteId}");
+    }
+
     // --- SCHEDULE & REPORTS ---
     public async Task<JsonObject?> InsertLogReportesLineaAsync(object data)
     {
@@ -617,6 +627,42 @@ public class SupabaseService
     public async Task<bool> UpdateCatalogoLineaAsync(string id, object data)
     {
         return await UpdateAsync("catalogo_lineas", $"id=eq.{id}", data);
+    }
+
+    public async Task<(bool success, int deletedCount)> DeleteCatalogoLineaAndChildrenAsync(string siteId, string nombreLinea, bool includeSubOperations = true)
+    {
+        if (string.IsNullOrWhiteSpace(siteId) || string.IsNullOrWhiteSpace(nombreLinea))
+        {
+            return (false, 0);
+        }
+
+        string target = nombreLinea.Trim();
+        string prefix = target + " ->";
+
+        var lines = await GetCatalogoLineasAsync(siteId);
+        int deleted = 0;
+        foreach (var item in lines)
+        {
+            if (item is JsonObject obj)
+            {
+                string id = obj["id"]?.ToString() ?? "";
+                string lineName = obj["nombre_linea"]?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(id)) continue;
+
+                bool match = string.Equals(lineName, target, StringComparison.OrdinalIgnoreCase)
+                    || (includeSubOperations && lineName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+                if (match)
+                {
+                    if (await DeleteAsync("catalogo_lineas", $"id=eq.{id}"))
+                    {
+                        deleted++;
+                    }
+                }
+            }
+        }
+
+        return (deleted > 0, deleted);
     }
 
     // --- EMPLOYEES & TRAINING EXAMS ---
@@ -709,6 +755,69 @@ public class SupabaseService
         return await UpdateAsync("sites", $"id=eq.{id}", data);
     }
 
+    public async Task<JsonObject?> GetSiteByIdAsync(string id)
+    {
+        var res = await GetAsync($"sites?id=eq.{id}&select=*");
+        return res.Count > 0 && res[0] is JsonObject sObj ? sObj : null;
+    }
+
+    public async Task<bool> DeleteSiteCascadeAsync(string siteId)
+    {
+        if (string.IsNullOrWhiteSpace(siteId)) return false;
+
+        // 1. Delete all areas, lines and sub-operations (subtypes) belonging to the site
+        await DeleteAsync("catalogo_lineas", $"site_id=eq.{siteId}");
+        await DeleteAsync("floor_maps", $"site_id=eq.{siteId}");
+
+        // 2. Delete dependent site records across operational tables to prevent FK constraint blocks
+        await DeleteAsync("catalogo_equipos", $"site_id=eq.{siteId}");
+        await DeleteAsync("catalogo_productos", $"site_id=eq.{siteId}");
+        await DeleteAsync("empleados_batas", $"site_id=eq.{siteId}");
+        await DeleteAsync("grounding_logs", $"site_id=eq.{siteId}");
+        await DeleteAsync("floor_validation_logs", $"site_id=eq.{siteId}");
+        await DeleteAsync("isolated_conductors_logs", $"site_id=eq.{siteId}");
+        await DeleteAsync("entrance_checkers_logs", $"site_id=eq.{siteId}");
+        await DeleteAsync("log_reportes_linea", $"site_id=eq.{siteId}");
+        await DeleteAsync("validacion_esd", $"site_id=eq.{siteId}");
+        await DeleteAsync("measurements", $"site_id=eq.{siteId}");
+        await DeleteAsync("assets", $"site_id=eq.{siteId}");
+        await DeleteAsync("app_logs", $"site_id=eq.{siteId}");
+
+        // 3. Unlink users assigned to this site so user accounts are not blocked by site FK
+        await UpdateAsync("users", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+
+        // 4. Delete the site itself
+        return await DeleteAsync("sites", $"id=eq.{siteId}");
+    }
+
+    public async Task<bool> DeleteCompanyCascadeAsync(string companyId)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return false;
+
+        // 1. Delete all sites and their subtypes for this company
+        var sites = await GetSitesAsync(companyId);
+        foreach (var s in sites)
+        {
+            if (s is JsonObject sObj)
+            {
+                string sId = sObj["id"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(sId))
+                {
+                    await DeleteSiteCascadeAsync(sId);
+                }
+            }
+        }
+
+        // 2. Clean up company-level references
+        await DeleteAsync("catalogo_lineas", $"company_id=eq.{companyId}");
+        await DeleteAsync("log_reportes_linea", $"company_id=eq.{companyId}");
+        await UpdateAsync("users", $"company_id=eq.{companyId}", new { company_id = (string?)null, site_id = (string?)null });
+        SetCompanyLogoCache(companyId, null);
+
+        // 3. Delete the company itself
+        return await DeleteAsync("companies", $"id=eq.{companyId}");
+    }
+
     public async Task<JsonArray> GetUsersAsync(string? companyId = null, string? siteId = null)
     {
         if (!string.IsNullOrEmpty(siteId))
@@ -732,8 +841,21 @@ public class SupabaseService
         return await UpdateAsync("users", $"id=eq.{id}", data);
     }
 
+    public async Task<JsonObject?> GetUserByIdAsync(string id)
+    {
+        var res = await GetAsync($"users?id=eq.{id}&select=*");
+        return res.Count > 0 && res[0] is JsonObject uObj ? uObj : null;
+    }
+
     public async Task<bool> DeleteUserAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+        await UpdateAsync("app_logs", $"user_id=eq.{id}", new { user_id = (string?)null });
+        await UpdateAsync("measurements", $"auditor_id=eq.{id}", new { auditor_id = (string?)null });
+        await UpdateAsync("grounding_logs", $"auditor_id=eq.{id}", new { auditor_id = (string?)null });
+        await UpdateAsync("floor_validation_logs", $"auditor_id=eq.{id}", new { auditor_id = (string?)null });
+        await UpdateAsync("isolated_conductors_logs", $"auditor_id=eq.{id}", new { auditor_id = (string?)null });
+        await UpdateAsync("entrance_checkers_logs", $"auditor_id=eq.{id}", new { auditor_id = (string?)null });
         return await DeleteAsync("users", $"id=eq.{id}");
     }
 

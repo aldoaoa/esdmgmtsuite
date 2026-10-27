@@ -85,7 +85,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.2</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.3</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +192,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.2</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.3</span>
             </div>
         </div>
     </aside>
@@ -2218,9 +2218,12 @@
                                     </button>
                                 </div>
 
-                                <div style="margin-top:16px;">
+                                <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
                                     <button type="button" class="btn-primary" style="width:100%; font-size:13.5px; padding:10px;" onclick="saveMapConfigToServer()" data-i18n="maps.btn_save_map">
                                         💾 Guardar Plano & Puntos
+                                    </button>
+                                    <button type="button" id="btn-delete-current-map" class="btn-primary" style="display:none; width:100%; font-size:12.5px; padding:8px; background:var(--accent-rose);" onclick="deleteCurrentMapInEditor()">
+                                        🗑️ Eliminar Plano Actual
                                     </button>
                                 </div>
                             </div>
@@ -2372,9 +2375,14 @@
                                     <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">Recomendado: Imagen con fondo transparente o blanco, resolución mínima 400x120px.</small>
                                 </div>
 
-                                <button type="submit" class="btn-primary" id="btn-save-company-logo" style="width:100%; height:44px; font-weight:700; font-size:13.5px;" data-i18n="settings.branding_btn_upload">
-                                    💾 Subir y Guardar Logotipo
-                                </button>
+                                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                    <button type="submit" class="btn-primary" id="btn-save-company-logo" style="flex:2; min-width:200px; height:44px; font-weight:700; font-size:13.5px;" data-i18n="settings.branding_btn_upload">
+                                        💾 Subir y Guardar Logotipo
+                                    </button>
+                                    <button type="button" class="btn-primary" id="btn-delete-company-logo" style="flex:1; min-width:160px; height:44px; font-weight:700; font-size:13px; background:var(--accent-rose);" onclick="deleteCompanyLogo()">
+                                        🗑️ Eliminar Logotipo
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -7744,6 +7752,34 @@
         }
     }
 
+    async function deleteCompanyLogo() {
+        if (!isUserCompanyAdminOrSuper()) {
+            alert('⛔ No tienes permisos para modificar el logotipo de la empresa.');
+            return;
+        }
+        const targetCompId = brandingSelectedCompanyId || (sessionData && sessionData.company_id) || '';
+        if (!confirm('¿Estás seguro de que deseas eliminar el logotipo personalizado de esta empresa y restablecer el logotipo por defecto?')) return;
+
+        try {
+            const url = targetCompId ? `/api/settings/company-logo?companyId=${encodeURIComponent(targetCompId)}` : '/api/settings/company-logo';
+            const res = await fetch(url, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast('✅ Logotipo restablecido al valor por defecto.');
+                const img = document.getElementById('branding-logo-preview-img');
+                if (img) img.src = '/images/esd360-logo.png';
+                if (!targetCompId || !sessionData || !sessionData.company_id || targetCompId === sessionData.company_id) {
+                    updateSidebarCompanyLogo('/images/esd360-logo.png');
+                    if (sessionData) sessionData.company_logo_url = '/images/esd360-logo.png';
+                }
+            } else {
+                showToast('❌ ' + (data.message || 'Error al eliminar el logotipo.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión: ' + ex.message, 'error');
+        }
+    }
+
     async function loadEquipmentTable() {
         const filterVal = document.getElementById('eq-site-filter')?.value || '';
         const url = filterVal ? `/api/equipment?siteId=${filterVal}` : '/api/equipment';
@@ -7934,6 +7970,8 @@
 
             const canCreateSite = sessionData && sessionData.can_create_site;
             const canCreateArea = sessionData && sessionData.can_create_area;
+            const canDeleteStructure = isUserCompanyAdminOrSuper();
+            const canDeleteCompany = isUserSuperAdmin();
 
             let html = '';
             tree.forEach((comp, cIdx) => {
@@ -7947,6 +7985,7 @@
                         <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-companies.svg" class="ui-icon-3d-sm" alt="" /> <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
                         <div style="display:flex; align-items:center; gap:8px;">
                             ${canCreateSite ? `<button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}', '${compId}')">➕ Site</button>` : ''}
+                            ${canDeleteCompany ? `<button type="button" class="tree-action-btn" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Empresa y todos sus Sites" onclick="event.stopPropagation(); deleteCompanyNode('${comp.id}', '${safeCompName}')">🗑️ Empresa</button>` : ''}
                             <span style="font-size:11px;">▶️</span>
                         </div>
                     </div>
@@ -7966,6 +8005,7 @@
                                 <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-companies.svg" class="ui-icon-3d-sm" style="width:15px; height:15px;" alt="" /> <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     ${canCreateArea ? `<button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}', '${compId}', '${siteId}')">➕ Área / Línea</button>` : ''}
+                                    ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Site y todos sus subtipos" onclick="event.stopPropagation(); deleteSiteNode('${site.id}', '${safeSiteName}', '${compId}')">🗑️ Site</button>` : ''}
                                     <span style="font-size:10px;">▶️</span>
                                 </div>
                             </div>
@@ -7998,15 +8038,22 @@
                                 html += `<div class="area-card-box">
                                     <div class="area-header">
                                         <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-routes.svg" class="ui-icon-3d-sm" alt="" /> <b>${areaName}</b> ${subOps.length > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${subOps.length} Sub-operaciones)</span>` : ''}</span>
-                                        ${canCreateArea ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>` : ''}
+                                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                                            ${canCreateArea ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>` : ''}
+                                            ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px; background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Área y sus Sub-operaciones" onclick="event.stopPropagation(); deleteAreaNode('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">🗑️ Área</button>` : ''}
+                                        </div>
                                     </div>`;
 
                                 if (subOps.length > 0) {
                                     html += `<div class="sub-ops-container">`;
                                     subOps.forEach(sub => {
+                                        const safeSubName = (sub || '').replace(/'/g, "\\'");
                                         html += `<div class="sub-op-item">
                                             <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-machinery.svg" class="ui-icon-3d-sm" alt="" /> <b>${sub}</b></span>
-                                            <span style="font-size:10.5px; color:var(--text-muted); font-weight:600;">Operación</span>
+                                            <div style="display:inline-flex; align-items:center; gap:8px;">
+                                                <span style="font-size:10.5px; color:var(--text-muted); font-weight:600;">Operación</span>
+                                                ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px; background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Operación" onclick="event.stopPropagation(); deleteSubOperationNode('${site.id}', '${safeAreaName}', '${safeSubName}', '${compId}', '${siteId}')">🗑️</button>` : ''}
+                                            </div>
                                         </div>`;
                                     });
                                     html += `</div>`;
@@ -8175,6 +8222,80 @@
         showAddSiteForCompanyModal(selectedCompany.id, selectedCompany.name);
     }
 
+    async function deleteCompanyNode(companyId, companyName) {
+        if (!confirm(`⚠️ ¿Estás seguro de eliminar la Empresa "${companyName}"?\n\nEsta acción eliminará la empresa, todos sus Sites/Plantas, áreas, líneas y sub-operaciones asociadas.`)) return;
+        try {
+            const res = await fetch(`/api/companies/${encodeURIComponent(companyId)}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✅ Empresa "${companyName}" eliminada exitosamente.`);
+                await loadSettings();
+                try { await loadSites(); } catch (e) {}
+            } else {
+                showToast('❌ ' + (data.message || 'Error al eliminar la empresa.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión al eliminar la empresa.', 'error');
+        }
+    }
+
+    async function deleteSiteNode(siteId, siteName, parentCompNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
+        if (!confirm(`⚠️ ¿Estás seguro de eliminar el Site "${siteName}"?\n\nSe eliminarán el site y todos sus subtipos (áreas, líneas, sub-operaciones y registros vinculados).`)) return;
+        try {
+            const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✅ Site "${siteName}" y sus subtipos eliminados exitosamente.`);
+                await loadSettings();
+                try { await loadSites(); } catch (e) {}
+            } else {
+                showToast('❌ ' + (data.message || 'Error al eliminar el Site.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión al eliminar el Site.', 'error');
+        }
+    }
+
+    async function deleteAreaNode(siteId, areaName, parentCompNodeId, parentSiteNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
+        if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
+        if (!confirm(`¿Estás seguro de eliminar el Área / Línea "${areaName}" y todas sus Sub-operaciones?`)) return;
+        try {
+            const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(areaName)}&includeSubOperations=true`;
+            const res = await fetch(url, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✅ Área "${areaName}" y sus sub-operaciones eliminadas.`);
+                await loadSettings();
+            } else {
+                showToast('❌ ' + (data.message || 'Error al eliminar el Área.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión al eliminar el Área.', 'error');
+        }
+    }
+
+    async function deleteSubOperationNode(siteId, areaName, subOpName, parentCompNodeId, parentSiteNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
+        if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
+        const fullName = `${areaName} -> ${subOpName}`;
+        if (!confirm(`¿Estás seguro de eliminar la Sub-operación "${subOpName}" de "${areaName}"?`)) return;
+        try {
+            const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(fullName)}&includeSubOperations=false`;
+            const res = await fetch(url, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✅ Operación "${subOpName}" eliminada.`);
+                await loadSettings();
+            } else {
+                showToast('❌ ' + (data.message || 'Error al eliminar la Operación.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión al eliminar la Operación.', 'error');
+        }
+    }
+
     // --- USER MANAGEMENT & ROLE PERMISSION BADGES ---
     async function loadUsersTable() {
         const res = await fetch('/api/users');
@@ -8251,9 +8372,11 @@
         if (!confirm('¿Estás seguro de que deseas eliminar este usuario?')) return;
         const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) {
-            alert('✅ Usuario eliminado.');
+        if (res.ok && data.success) {
+            showToast('✅ Usuario eliminado correctamente.');
             loadUsersTable();
+        } else {
+            showToast('❌ ' + (data.message || 'No se pudo eliminar el usuario.'), 'error');
         }
     }
 
@@ -8316,6 +8439,8 @@
         editorPointsList = [];
         const sel = document.getElementById('map-select-edit');
         if (sel) sel.value = '';
+        const btnDelMap = document.getElementById('btn-delete-current-map');
+        if (btnDelMap) btnDelMap.style.display = 'none';
 
         document.getElementById('map-input-name').value = '';
         document.getElementById('map-input-area').value = '';
@@ -8342,6 +8467,8 @@
 
         const sel = document.getElementById('map-select-edit');
         if (sel) sel.value = mapId;
+        const btnDelMap = document.getElementById('btn-delete-current-map');
+        if (btnDelMap) btnDelMap.style.display = (sessionData && sessionData.can_create_area) ? 'block' : 'none';
 
         document.getElementById('map-input-name').value = map.mapName || '';
         document.getElementById('map-input-area').value = map.areaName || '';
@@ -8353,6 +8480,26 @@
         document.getElementById('editor-floorplan-img').src = map.imageUrl || '/images/mockups/smt1_layout.svg';
 
         renderEditorPoints();
+    }
+
+    async function deleteCurrentMapInEditor() {
+        if (!editorCurrentMap || !editorCurrentMap.id) return;
+        const mapLabel = editorCurrentMap.mapName || editorCurrentMap.areaName || 'seleccionado';
+        if (!confirm(`¿Estás seguro de eliminar el plano "${mapLabel}"?`)) return;
+        try {
+            const res = await fetch(`/api/maps/${encodeURIComponent(editorCurrentMap.id)}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✅ Plano "${mapLabel}" eliminado correctamente.`);
+                editorCurrentMap = null;
+                await loadMapsEditor();
+                await loadFloorMapsForViewer();
+            } else {
+                showToast('❌ ' + (data.message || 'Error al eliminar el plano.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión al eliminar el plano.', 'error');
+        }
     }
 
     function onMapFileSelected(event) {

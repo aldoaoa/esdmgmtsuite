@@ -48,12 +48,6 @@ public class FloorMapStorageService
                 {
                     string json = File.ReadAllText(_storageFilePath);
                     list = JsonSerializer.Deserialize<List<FloorMapConfig>>(json) ?? new List<FloorMapConfig>();
-                    if (list.Count == 0)
-                    {
-                        list = GetDefaultMaps();
-                        string jsonDefault = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
-                        File.WriteAllText(_storageFilePath, jsonDefault);
-                    }
                 }
                 catch
                 {
@@ -209,9 +203,42 @@ public class FloorMapStorageService
         if (removed > 0)
         {
             SaveAllMaps(maps);
-            return true;
         }
-        return false;
+
+        bool sbDeleted = false;
+        if (_supabase != null)
+        {
+            try
+            {
+                sbDeleted = await _supabase.DeleteFloorMapFromSupabaseAsync(mapId);
+            }
+            catch { }
+        }
+
+        return removed > 0 || sbDeleted;
+    }
+
+    public async Task<bool> DeleteMapsBySiteAsync(string siteId)
+    {
+        if (string.IsNullOrWhiteSpace(siteId)) return false;
+        var maps = await GetMapsAsync();
+        int removed = maps.RemoveAll(m => m.SiteId.Equals(siteId, StringComparison.OrdinalIgnoreCase));
+        if (removed > 0)
+        {
+            SaveAllMaps(maps);
+        }
+
+        bool sbDeleted = false;
+        if (_supabase != null)
+        {
+            try
+            {
+                sbDeleted = await _supabase.DeleteFloorMapsBySiteFromSupabaseAsync(siteId);
+            }
+            catch { }
+        }
+
+        return removed > 0 || sbDeleted;
     }
 
     public async Task<string> SaveImageFromBase64Async(string fileName, string base64Data)

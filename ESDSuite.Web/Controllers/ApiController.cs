@@ -2304,6 +2304,37 @@ public class ApiController : ControllerBase
         return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
+    [HttpDelete("lines")]
+    [HttpDelete("routes/lines")]
+    public async Task<IActionResult> DeleteLineOrSubtype([FromQuery] string? siteId, [FromQuery] string? name, [FromQuery] bool includeSubOperations = true)
+    {
+        if (!IsSuperAdmin && !IsCompanyAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar áreas, líneas o sub-operaciones. Requiere rol CompanyAdmin o SuperAdmin." });
+        }
+
+        string targetSiteId = !string.IsNullOrWhiteSpace(siteId) ? siteId.Trim() : CurrentUserSiteId;
+        string targetName = name?.Trim() ?? "";
+
+        if (string.IsNullOrEmpty(targetSiteId) || string.IsNullOrEmpty(targetName))
+        {
+            return BadRequest(new { success = false, message = "El site y el nombre del área/operación son obligatorios." });
+        }
+
+        if (!IsSuperAdmin)
+        {
+            var siteObj = await _supabase.GetSiteByIdAsync(targetSiteId);
+            string siteCompanyId = siteObj?["company_id"]?.ToString() ?? "";
+            if (!string.Equals(siteCompanyId, CurrentUserCompanyId, StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar elementos de un site que pertenece a otra empresa." });
+            }
+        }
+
+        var (success, deletedCount) = await _supabase.DeleteCatalogoLineaAndChildrenAsync(targetSiteId, targetName, includeSubOperations);
+        return Ok(new { success, deletedCount, message = success ? $"Se eliminaron {deletedCount} registro(s) correctamente." : "No se encontró el elemento a eliminar." });
+    }
+
     private async Task BackfillLinesCompanyIdAsync()
     {
         try
@@ -3052,6 +3083,22 @@ public class ApiController : ControllerBase
             return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar equipos de medición." });
         }
         bool success = await _supabase.DeleteCatalogoEquipoAsync(id);
+        if (success)
+        {
+            try
+            {
+                string certMapFile = Path.Combine(_env.WebRootPath, "data", "equipment_certificates.json");
+                if (System.IO.File.Exists(certMapFile))
+                {
+                    var certMap = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(certMapFile)) as JsonObject;
+                    if (certMap != null && certMap.Remove(id))
+                    {
+                        await System.IO.File.WriteAllTextAsync(certMapFile, certMap.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                    }
+                }
+            }
+            catch { }
+        }
         return Ok(new { success });
     }
 
@@ -3110,6 +3157,36 @@ public class ApiController : ControllerBase
         return Ok(new { success = result != null && result["id"] != null, data = result });
     }
 
+    [HttpDelete("companies/{id}")]
+    public async Task<IActionResult> DeleteCompany(string id)
+    {
+        if (!IsSuperAdmin && !IsCompanyAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar empresas. Requiere rol SuperAdmin o CompanyAdmin." });
+        }
+
+        if (!IsSuperAdmin && !string.Equals(id, CurrentUserCompanyId, StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(403, new { success = false, message = "Solo puedes gestionar tu propia empresa asignada." });
+        }
+
+        var sites = await _supabase.GetSitesAsync(id);
+        foreach (var s in sites)
+        {
+            if (s is JsonObject sObj)
+            {
+                string sId = sObj["id"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(sId))
+                {
+                    await _mapStorage.DeleteMapsBySiteAsync(sId);
+                }
+            }
+        }
+
+        bool success = await _supabase.DeleteCompanyCascadeAsync(id);
+        return Ok(new { success, message = success ? "Empresa y todos sus sitios/subtipos eliminados correctamente." : "No se pudo eliminar la empresa." });
+    }
+
     [HttpGet("sites")]
     public async Task<IActionResult> GetSites([FromQuery] string? companyId)
     {
@@ -3157,6 +3234,42 @@ public class ApiController : ControllerBase
 
         var result = await _supabase.InsertSiteAsync(payload);
         return Ok(new { success = result != null && result["id"] != null, data = result });
+    }
+
+    [HttpDelete("sites/{id}")]
+    public async Task<IActionResult> DeleteSite(string id)
+    {
+        if (!IsSuperAdmin && !IsCompanyAdmin)
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar sites/plantas. Requiere rol CompanyAdmin o SuperAdmin." });
+        }
+
+        var siteObj = await _supabase.GetSiteByIdAsync(id);
+        if (siteObj == null)
+        {
+            return NotFound(new { success = false, message = "El site especificado no existe." });
+        }
+
+        string siteCompanyId = siteObj["company_id"]?.ToString() ?? "";
+        if (!IsSuperAdmin && !string.Equals(siteCompanyId, CurrentUserCompanyId, StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar un site que pertenece a otra empresa." });
+        }
+
+        await _mapStorage.DeleteMapsBySiteAsync(id);
+        bool success = await _supabase.DeleteSiteCascadeAsync(id);
+
+        if (success && string.Equals(HttpContext.Session.GetString("site_id"), id, StringComparison.OrdinalIgnoreCase))
+        {
+            var remainingSites = await _supabase.GetSitesAsync(siteCompanyId);
+            if (remainingSites.Count > 0 && remainingSites[0] is JsonObject nextSite)
+            {
+                HttpContext.Session.SetString("site_id", nextSite["id"]?.ToString() ?? "");
+                HttpContext.Session.SetString("site_name", nextSite["name"]?.ToString() ?? "");
+            }
+        }
+
+        return Ok(new { success, message = success ? "Site y todos sus subtipos eliminados exitosamente." : "Error al eliminar el site." });
     }
 
     [HttpGet("hierarchy")]
@@ -3291,8 +3404,33 @@ public class ApiController : ControllerBase
         {
             return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar usuarios." });
         }
+
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.Equals(id, currentUserId, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { success = false, message = "No puedes eliminar tu propia cuenta activa." });
+        }
+
+        if (!IsSuperAdmin)
+        {
+            var targetUser = await _supabase.GetUserByIdAsync(id);
+            if (targetUser != null)
+            {
+                string targetRole = targetUser["role"]?.ToString() ?? "";
+                string targetCompanyId = targetUser["company_id"]?.ToString() ?? "";
+                if (string.Equals(targetRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar un usuario SuperAdmin." });
+                }
+                if (!string.IsNullOrEmpty(targetCompanyId) && !string.Equals(targetCompanyId, CurrentUserCompanyId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(403, new { success = false, message = "No puedes eliminar usuarios de otra empresa." });
+                }
+            }
+        }
+
         bool success = await _supabase.DeleteUserAsync(id);
-        return Ok(new { success });
+        return Ok(new { success, message = success ? "Usuario eliminado correctamente." : "No se pudo eliminar el usuario." });
     }
 
     // --- ESD FLOOR MAPS & HEATMAP ENGINE ---
