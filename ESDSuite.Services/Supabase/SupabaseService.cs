@@ -16,7 +16,11 @@ public class SupabaseService
     {
         _http = http;
         _config = config;
-        _http.BaseAddress = new Uri(_config.Url.TrimEnd('/') + "/rest/v1/");
+        string baseUrl = (!string.IsNullOrWhiteSpace(_config.Url) && Uri.TryCreate(_config.Url.TrimEnd('/') + "/rest/v1/", UriKind.Absolute, out _))
+            ? _config.Url.TrimEnd('/')
+            : "https://yukhljzgstlechfsweul.supabase.co";
+        _config.Url = baseUrl;
+        _http.BaseAddress = new Uri(baseUrl + "/rest/v1/");
         _http.DefaultRequestHeaders.Clear();
         _http.DefaultRequestHeaders.Add("apikey", _config.Key);
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);

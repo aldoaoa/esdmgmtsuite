@@ -18,15 +18,14 @@ public class ApiController : ControllerBase
     private const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
     private const string DefaultAuditorId = "84d85bea-272c-42d1-ad14-35eb702f1e56";
 
+    private bool IsAuthenticated => HttpContext.Session.GetString("is_logged_in") == "true";
+
     private string CurrentUserRole
     {
         get
         {
+            if (!IsAuthenticated) return "";
             string? role = HttpContext.Session.GetString("user_role");
-            if (string.IsNullOrEmpty(role))
-            {
-                role = Request.Headers["X-User-Role"].FirstOrDefault();
-            }
             return !string.IsNullOrWhiteSpace(role) ? role : "Auditor";
         }
     }
@@ -108,66 +107,78 @@ public class ApiController : ControllerBase
     [HttpGet("session")]
     public async Task<IActionResult> GetSession()
     {
-        bool isLoggedIn = HttpContext.Session.GetString("is_logged_in") == "true";
-        if (!isLoggedIn)
+        try
         {
-            return Ok(new { isLoggedIn = false });
-        }
-
-        string activeSiteId = CurrentUserSiteId;
-        string? activeCompanyId = CurrentUserCompanyId;
-        string? activeCompanyName = HttpContext.Session.GetString("company_name");
-
-        if (string.IsNullOrEmpty(activeCompanyId) && !string.IsNullOrEmpty(activeSiteId))
-        {
-            try
+            bool isLoggedIn = HttpContext.Session.GetString("is_logged_in") == "true";
+            if (!isLoggedIn)
             {
-                var allSites = await _supabase.GetSitesAsync();
-                var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), activeSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
-                if (matchedSite != null)
+                return Ok(new { isLoggedIn = false, version = EsdConstants.SystemVersion });
+            }
+
+            string activeSiteId = CurrentUserSiteId;
+            string? activeCompanyId = CurrentUserCompanyId;
+            string? activeCompanyName = HttpContext.Session.GetString("company_name");
+
+            if (string.IsNullOrEmpty(activeCompanyId) && !string.IsNullOrEmpty(activeSiteId))
+            {
+                try
                 {
-                    activeCompanyId = matchedSite["company_id"]?.ToString();
-                    if (!string.IsNullOrEmpty(activeCompanyId))
+                    var allSites = await _supabase.GetSitesAsync();
+                    var matchedSite = allSites.FirstOrDefault(s => s is JsonObject sObj && string.Equals(sObj["id"]?.ToString(), activeSiteId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+                    if (matchedSite != null)
                     {
-                        HttpContext.Session.SetString("company_id", activeCompanyId);
-                        if (string.IsNullOrEmpty(activeCompanyName))
+                        activeCompanyId = matchedSite["company_id"]?.ToString();
+                        if (!string.IsNullOrEmpty(activeCompanyId))
                         {
-                            var comp = await _supabase.GetCompanyByIdAsync(activeCompanyId);
-                            activeCompanyName = comp?["name"]?.ToString();
-                            if (!string.IsNullOrEmpty(activeCompanyName))
+                            HttpContext.Session.SetString("company_id", activeCompanyId);
+                            if (string.IsNullOrEmpty(activeCompanyName))
                             {
-                                HttpContext.Session.SetString("company_name", activeCompanyName);
+                                var comp = await _supabase.GetCompanyByIdAsync(activeCompanyId);
+                                activeCompanyName = comp?["name"]?.ToString();
+                                if (!string.IsNullOrEmpty(activeCompanyName))
+                                {
+                                    HttpContext.Session.SetString("company_name", activeCompanyName);
+                                }
                             }
                         }
                     }
                 }
+                catch { }
+            }
+
+            string companyLogoUrl = "/images/esd360-logo.png";
+            try
+            {
+                companyLogoUrl = await ResolveCompanyLogoAsync(activeCompanyId);
             }
             catch { }
+
+            return Ok(new
+            {
+                isLoggedIn = true,
+                user_id = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId,
+                user_email = HttpContext.Session.GetString("user_email"),
+                user_name = HttpContext.Session.GetString("user_name"),
+                user_role = CurrentUserRole,
+                site_id = activeSiteId,
+                company_id = activeCompanyId,
+                site_name = HttpContext.Session.GetString("site_name"),
+                company_name = activeCompanyName,
+                company_logo_url = companyLogoUrl,
+                can_create_company = IsSuperAdmin,
+                can_create_site = IsCompanyAdmin,
+                can_create_area = IsSiteAdmin,
+                can_create_user = IsSiteAdmin,
+                can_change_site = IsCompanyAdmin,
+                lang = HttpContext.Session.GetString("lang") ?? Request.Cookies["esd360_lang"] ?? "es",
+                report_lang = HttpContext.Session.GetString("report_lang") ?? Request.Cookies["esd360_report_lang"] ?? HttpContext.Session.GetString("lang") ?? "es",
+                version = EsdConstants.SystemVersion
+            });
         }
-
-        string companyLogoUrl = await ResolveCompanyLogoAsync(activeCompanyId);
-
-        return Ok(new
+        catch
         {
-            isLoggedIn = true,
-            user_id = HttpContext.Session.GetString("user_id") ?? DefaultAuditorId,
-            user_email = HttpContext.Session.GetString("user_email"),
-            user_name = HttpContext.Session.GetString("user_name"),
-            user_role = CurrentUserRole,
-            site_id = activeSiteId,
-            company_id = activeCompanyId,
-            site_name = HttpContext.Session.GetString("site_name"),
-            company_name = activeCompanyName,
-            company_logo_url = companyLogoUrl,
-            can_create_company = IsSuperAdmin,
-            can_create_site = IsCompanyAdmin,
-            can_create_area = IsSiteAdmin,
-            can_create_user = IsSiteAdmin,
-            can_change_site = IsCompanyAdmin,
-            lang = HttpContext.Session.GetString("lang") ?? Request.Cookies["esd360_lang"] ?? "es",
-            report_lang = HttpContext.Session.GetString("report_lang") ?? Request.Cookies["esd360_report_lang"] ?? HttpContext.Session.GetString("lang") ?? "es",
-            version = EsdConstants.SystemVersion
-        });
+            return Ok(new { isLoggedIn = false, version = EsdConstants.SystemVersion });
+        }
     }
 
     [HttpPost("set-site")]

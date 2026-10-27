@@ -55,6 +55,30 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseSession();
+
+// Enforce session authentication for all non-public /api/* endpoints
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
+    if (path.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
+    {
+        bool isPublicApi = path.Equals("/api/login", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/api/logout", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/api/session", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/api/set-lang", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/api/set-report-lang", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPublicApi && context.Session.GetString("is_logged_in") != "true")
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            await context.Response.WriteAsync("{\"success\":false,\"message\":\"Sesión no válida o expirada. Inicie sesión nuevamente.\"}");
+            return;
+        }
+    }
+    await next();
+});
+
 app.UseAuthorization();
 
 app.MapRazorPages();
