@@ -241,6 +241,45 @@ public class FloorMapStorageService
         return removed > 0 || sbDeleted;
     }
 
+    public async Task<int> RenameAreaInMapsAsync(string siteId, string oldName, string newName, bool isArea)
+    {
+        if (string.IsNullOrWhiteSpace(siteId) || string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName)) return 0;
+        string oldTarget = oldName.Trim();
+        string newTarget = newName.Trim();
+        string oldPrefix = oldTarget + " ->";
+        string newPrefix = newTarget + " ->";
+
+        var maps = await GetMapsAsync();
+        int changed = 0;
+        foreach (var m in maps)
+        {
+            if (!m.SiteId.Equals(siteId, StringComparison.OrdinalIgnoreCase)) continue;
+            string curArea = m.AreaName?.Trim() ?? "";
+            string? updatedArea = null;
+            if (curArea.Equals(oldTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                updatedArea = newTarget;
+            }
+            else if (isArea && curArea.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                updatedArea = newPrefix + curArea.Substring(oldPrefix.Length);
+            }
+
+            if (updatedArea != null)
+            {
+                m.AreaName = updatedArea;
+                m.AreaId = updatedArea;
+                changed++;
+            }
+        }
+
+        if (changed > 0)
+        {
+            SaveAllMaps(maps);
+        }
+        return changed;
+    }
+
     public async Task<string> SaveImageFromBase64Async(string fileName, string base64Data)
     {
         try

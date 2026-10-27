@@ -85,7 +85,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.3</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.4</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +192,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.3</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.4</span>
             </div>
         </div>
     </aside>
@@ -1914,6 +1914,96 @@
 
                         <div class="tree-container" id="multi-tenant-tree">
                             <p style="font-size:12.5px; color:var(--text-muted);">Cargando estructura jerárquica...</p>
+                        </div>
+
+                        <!-- ARCHIVED LOCATION GROUPS VAULT (FOR REASSIGNMENT OF MACHINES, MEASUREMENTS & HISTORY) -->
+                        <div id="archived-groups-panel" class="glass-card" style="display:none; margin-top:20px; border-left:4px solid #F59E0B; background:#FFFBEB; padding:18px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                                <div>
+                                    <h4 style="margin:0; font-size:14.5px; font-weight:800; color:#92400E; display:flex; align-items:center; gap:8px;">
+                                        <span>📦</span>
+                                        <span>Elementos e Historial en Resguardo (Disponibles para Reasignar)</span>
+                                    </h4>
+                                    <p style="margin:4px 0 0 0; font-size:12px; color:#B45309;">
+                                        Al eliminar un Site, Área o Sub-operación, sus máquinas, mediciones, historial y equipos se conservan agrupados aquí para que puedas reasignarlos a otro Site o ubicación sin perder trazabilidad.
+                                    </p>
+                                </div>
+                                <button type="button" class="tree-action-btn" style="background:#FEF3C7; color:#92400E; border-color:#FDE68A;" onclick="loadArchivedLocationGroups()">🔄 Actualizar</button>
+                            </div>
+                            <div id="archived-groups-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px;"></div>
+                        </div>
+
+                        <!-- MODAL 1: SECURITY DELETE CONFIRMATION (REQUIRES TYPING "DELETE") -->
+                        <div id="modal-confirm-delete" style="display:none; position:fixed; inset:0; z-index:10050; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px;">
+                            <div class="glass-card" style="width:480px; max-width:95vw; background:#FFFFFF; border-radius:14px; border:1px solid #FECACA; box-shadow:0 20px 50px rgba(15,23,42,0.25); padding:22px;">
+                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                    <span style="font-size:24px;">⚠️</span>
+                                    <div>
+                                        <h4 id="confirm-delete-title" style="margin:0; font-size:16px; font-weight:800; color:#DC2626;">Confirmación de Eliminación</h4>
+                                        <div style="font-size:11.5px; color:var(--text-muted);">Acción protegida contra borrado accidental</div>
+                                    </div>
+                                </div>
+                                <p id="confirm-delete-desc" style="font-size:13px; color:var(--text-primary); line-height:1.5; margin:10px 0;"></p>
+                                <div id="confirm-delete-preservation-box" style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:10px 12px; font-size:12px; color:#1E40AF; margin-bottom:14px; line-height:1.45;">
+                                    📦 <b>Resguardo Automático:</b> Las máquinas, mediciones, historial y equipos que dependan de esta ubicación <b>no se perderán</b>; quedarán almacenados agrupados por su estructura original (Site / Área / Operación) disponibles para reasignarse a otro Site.
+                                </div>
+                                <div class="form-group" style="margin-bottom:16px;">
+                                    <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">
+                                        Para confirmar, escribe exactamente la palabra <code style="background:#FEE2E2; color:#DC2626; padding:2px 6px; border-radius:4px; font-weight:800;">DELETE</code>:
+                                    </label>
+                                    <input type="text" id="confirm-delete-input" class="form-control" placeholder="Escribe DELETE aquí..." autocomplete="off" oninput="onConfirmDeleteInputChange(this.value)" style="font-weight:800; letter-spacing:1px; border-color:#FCA5A5;" />
+                                </div>
+                                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                                    <button type="button" class="btn-primary" style="background:#64748B;" onclick="closeDeleteConfirmModal()">Cancelar</button>
+                                    <button type="button" id="btn-confirm-delete-exec" class="btn-primary" style="background:#DC2626; opacity:0.5; cursor:not-allowed;" disabled onclick="executeConfirmedDelete()">🗑️ Confirmar Eliminación</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MODAL 2: EDIT LOCATION NAME (COMPANY, SITE, AREA, SUB-OPERATION) -->
+                        <div id="modal-edit-location-name" style="display:none; position:fixed; inset:0; z-index:10050; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px;">
+                            <div class="glass-card" style="width:440px; max-width:95vw; background:#FFFFFF; border-radius:14px; border:1px solid var(--border-color); box-shadow:0 20px 50px rgba(15,23,42,0.25); padding:22px;">
+                                <h4 id="edit-loc-modal-title" style="margin:0 0 6px 0; font-size:16px; font-weight:800; color:var(--text-primary);">✏️ Editar Nombre de Ubicación</h4>
+                                <p id="edit-loc-modal-sub" style="margin:0 0 14px 0; font-size:12px; color:var(--text-muted);">Todos los activos, mediciones, planos y bitácoras vinculadas actualizarán su ubicación automáticamente.</p>
+                                <div class="form-group" style="margin-bottom:16px;">
+                                    <label style="font-size:12px; font-weight:700;">Nuevo Nombre*:</label>
+                                    <input type="text" id="edit-loc-input-name" class="form-control" placeholder="Ingresa el nuevo nombre..." />
+                                </div>
+                                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                                    <button type="button" class="btn-primary" style="background:#64748B;" onclick="closeEditLocationModal()">Cancelar</button>
+                                    <button type="button" id="btn-save-edit-loc" class="btn-primary" onclick="submitEditLocationModal()">💾 Guardar Cambios</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MODAL 3: REASSIGN ARCHIVED GROUP TO ANOTHER SITE / LOCATION -->
+                        <div id="modal-reassign-group" style="display:none; position:fixed; inset:0; z-index:10050; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px;">
+                            <div class="glass-card" style="width:500px; max-width:95vw; background:#FFFFFF; border-radius:14px; border:1px solid var(--border-color); box-shadow:0 20px 50px rgba(15,23,42,0.25); padding:22px;">
+                                <h4 style="margin:0 0 6px 0; font-size:16px; font-weight:800; color:var(--text-primary);">🔄 Reasignar Elementos e Historial en Resguardo</h4>
+                                <p id="reassign-group-summary" style="margin:0 0 14px 0; font-size:12.5px; color:var(--text-muted); line-height:1.45;"></p>
+                                <div class="form-group" style="margin-bottom:14px;">
+                                    <label style="font-size:12px; font-weight:700;">Site / Planta Destino*:</label>
+                                    <select id="reassign-target-site" class="form-control" onchange="onReassignTargetSiteChange(this.value)"></select>
+                                </div>
+                                <div class="form-group" style="margin-bottom:14px;">
+                                    <label style="font-size:12px; font-weight:700;">Asignación de Área / Operación en el Site Destino:</label>
+                                    <select id="reassign-loc-mode" class="form-control" onchange="onReassignLocModeChange(this.value)">
+                                        <option value="keep">Conservar y recrear su estructura original de Área / Operación</option>
+                                        <option value="custom">Asignar todo el grupo a un Área / Operación específica</option>
+                                    </select>
+                                </div>
+                                <div id="reassign-custom-loc-container" class="form-group" style="display:none; margin-bottom:16px;">
+                                    <label style="font-size:12px; font-weight:700;">Ubicación Destino (Selecciona existente o escribe una nueva)*:</label>
+                                    <select id="reassign-existing-loc-select" class="form-control" style="margin-bottom:8px;" onchange="document.getElementById('reassign-custom-loc-input').value = this.value">
+                                        <option value="">-- Seleccionar ubicación existente del Site --</option>
+                                    </select>
+                                    <input type="text" id="reassign-custom-loc-input" class="form-control" placeholder="Ej: SMT o SMT -> SMT 1" />
+                                </div>
+                                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                                    <button type="button" class="btn-primary" style="background:#64748B;" onclick="closeReassignGroupModal()">Cancelar</button>
+                                    <button type="button" id="btn-submit-reassign-group" class="btn-primary" style="background:#0891B2;" onclick="submitReassignGroup()">🔄 Reasignar Todo al Site Destino</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -7545,6 +7635,7 @@
         const tabEl = document.getElementById('set-tab-' + tabName);
         if (tabEl) tabEl.classList.add('active');
 
+        if (tabName === 'hierarchy') { loadHierarchyTree(); loadArchivedLocationGroups(); }
         if (tabName === 'equipment') loadEquipmentTable();
         if (tabName === 'maps') loadMapsEditor();
         if (tabName === 'photos') loadPhotoPolicySettingsTab();
@@ -7554,6 +7645,7 @@
     // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW & SETTINGS ---
     async function loadSettings() {
         loadHierarchyTree();
+        loadArchivedLocationGroups();
         loadUsersTable();
         loadCompaniesAndSitesSelects();
         loadEquipmentTable();
@@ -7985,6 +8077,7 @@
                         <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-companies.svg" class="ui-icon-3d-sm" alt="" /> <b>${comp.name}</b> <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${sites.length} Sites)</span></span>
                         <div style="display:flex; align-items:center; gap:8px;">
                             ${canCreateSite ? `<button type="button" class="tree-action-btn" title="Agregar Site a esta Empresa" onclick="event.stopPropagation(); showAddSiteForCompanyModal('${comp.id}', '${safeCompName}', '${compId}')">➕ Site</button>` : ''}
+                            ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="background:#EFF6FF; color:#2563EB; border-color:#BFDBFE;" title="Editar nombre de la Empresa" onclick="event.stopPropagation(); openEditLocationModal('company', '${comp.id}', '${safeCompName}', '', '${compId}', '')">✏️ Editar</button>` : ''}
                             ${canDeleteCompany ? `<button type="button" class="tree-action-btn" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Empresa y todos sus Sites" onclick="event.stopPropagation(); deleteCompanyNode('${comp.id}', '${safeCompName}')">🗑️ Empresa</button>` : ''}
                             <span style="font-size:11px;">▶️</span>
                         </div>
@@ -8005,7 +8098,8 @@
                                 <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-companies.svg" class="ui-icon-3d-sm" style="width:15px; height:15px;" alt="" /> <b>${site.name}</b> <span style="font-size:11px; color:var(--text-muted);">(${locs.length} Áreas/Líneas)</span></span>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     ${canCreateArea ? `<button type="button" class="tree-action-btn" title="Agregar Área a este Site" onclick="event.stopPropagation(); showAddAreaForSiteModal('${site.id}', '${safeSiteName}', '${compId}', '${siteId}')">➕ Área / Línea</button>` : ''}
-                                    ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Site y todos sus subtipos" onclick="event.stopPropagation(); deleteSiteNode('${site.id}', '${safeSiteName}', '${compId}')">🗑️ Site</button>` : ''}
+                                    ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="background:#EFF6FF; color:#2563EB; border-color:#BFDBFE;" title="Editar nombre del Site" onclick="event.stopPropagation(); openEditLocationModal('site', '${site.id}', '${safeSiteName}', '', '${compId}', '${siteId}')">✏️ Editar</button>` : ''}
+                                    ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Site y guardar máquinas/mediciones en resguardo" onclick="event.stopPropagation(); deleteSiteNode('${site.id}', '${safeSiteName}', '${compId}')">🗑️ Site</button>` : ''}
                                     <span style="font-size:10px;">▶️</span>
                                 </div>
                             </div>
@@ -8040,7 +8134,8 @@
                                         <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-routes.svg" class="ui-icon-3d-sm" alt="" /> <b>${areaName}</b> ${subOps.length > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${subOps.length} Sub-operaciones)</span>` : ''}</span>
                                         <div style="display:inline-flex; align-items:center; gap:6px;">
                                             ${canCreateArea ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px;" title="Agregar Operación a ${safeAreaName}" onclick="event.stopPropagation(); showAddSubOperationModal('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">➕ Operación</button>` : ''}
-                                            ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px; background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Área y sus Sub-operaciones" onclick="event.stopPropagation(); deleteAreaNode('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">🗑️ Área</button>` : ''}
+                                            ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px; background:#EFF6FF; color:#2563EB; border-color:#BFDBFE;" title="Editar nombre del Área" onclick="event.stopPropagation(); openEditLocationModal('area', '${site.id}', '${safeAreaName}', '', '${compId}', '${siteId}')">✏️</button>` : ''}
+                                            ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:2px 8px; font-size:10.5px; background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Área y resguardar sus máquinas/mediciones" onclick="event.stopPropagation(); deleteAreaNode('${site.id}', '${safeAreaName}', '${compId}', '${siteId}')">🗑️ Área</button>` : ''}
                                         </div>
                                     </div>`;
 
@@ -8050,9 +8145,10 @@
                                         const safeSubName = (sub || '').replace(/'/g, "\\'");
                                         html += `<div class="sub-op-item">
                                             <span style="display:inline-flex; align-items:center; gap:6px;"><img src="/images/icons/icon-machinery.svg" class="ui-icon-3d-sm" alt="" /> <b>${sub}</b></span>
-                                            <div style="display:inline-flex; align-items:center; gap:8px;">
+                                            <div style="display:inline-flex; align-items:center; gap:6px;">
                                                 <span style="font-size:10.5px; color:var(--text-muted); font-weight:600;">Operación</span>
-                                                ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px; background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Operación" onclick="event.stopPropagation(); deleteSubOperationNode('${site.id}', '${safeAreaName}', '${safeSubName}', '${compId}', '${siteId}')">🗑️</button>` : ''}
+                                                ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px; background:#EFF6FF; color:#2563EB; border-color:#BFDBFE;" title="Editar nombre de la Operación" onclick="event.stopPropagation(); openEditLocationModal('suboperation', '${site.id}', '${safeSubName}', '${safeAreaName}', '${compId}', '${siteId}')">✏️</button>` : ''}
+                                                ${canDeleteStructure ? `<button type="button" class="tree-action-btn" style="padding:1px 6px; font-size:10px; background:#FEE2E2; color:#DC2626; border-color:#FECACA;" title="Eliminar Operación y resguardar sus máquinas/mediciones" onclick="event.stopPropagation(); deleteSubOperationNode('${site.id}', '${safeAreaName}', '${safeSubName}', '${compId}', '${siteId}')">🗑️</button>` : ''}
                                             </div>
                                         </div>`;
                                     });
@@ -8222,78 +8318,460 @@
         showAddSiteForCompanyModal(selectedCompany.id, selectedCompany.name);
     }
 
-    async function deleteCompanyNode(companyId, companyName) {
-        if (!confirm(`⚠️ ¿Estás seguro de eliminar la Empresa "${companyName}"?\n\nEsta acción eliminará la empresa, todos sus Sites/Plantas, áreas, líneas y sub-operaciones asociadas.`)) return;
-        try {
-            const res = await fetch(`/api/companies/${encodeURIComponent(companyId)}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                showToast(`✅ Empresa "${companyName}" eliminada exitosamente.`);
-                await loadSettings();
-                try { await loadSites(); } catch (e) {}
-            } else {
-                showToast('❌ ' + (data.message || 'Error al eliminar la empresa.'), 'error');
-            }
-        } catch (ex) {
-            showToast('❌ Error de conexión al eliminar la empresa.', 'error');
+    // --- PROTECTED DELETE MODAL (REQUIRES TYPING "DELETE"), LOCATION RENAME & ARCHIVE REASSIGNMENT ---
+    let pendingDeleteCallback = null;
+
+    function openDeleteConfirmModal(title, messageHtml, onConfirmAsync) {
+        const modal = document.getElementById('modal-confirm-delete');
+        const titleEl = document.getElementById('modal-confirm-delete-title');
+        const msgEl = document.getElementById('modal-confirm-delete-msg');
+        const inputEl = document.getElementById('modal-confirm-delete-input');
+        const btnEl = document.getElementById('btn-modal-confirm-delete');
+
+        if (!modal || !inputEl || !btnEl) return;
+
+        titleEl.innerHTML = title || '⚠️ Confirmar Eliminación Protegida';
+        msgEl.innerHTML = messageHtml || '';
+        inputEl.value = '';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.5';
+        btnEl.style.cursor = 'not-allowed';
+        btnEl.innerText = '🗑️ Confirmar Eliminación';
+
+        pendingDeleteCallback = onConfirmAsync;
+        modal.style.display = 'flex';
+        setTimeout(() => inputEl.focus(), 50);
+    }
+
+    function onConfirmDeleteInputChange(val) {
+        const btnEl = document.getElementById('btn-modal-confirm-delete');
+        if (!btnEl) return;
+        const isMatch = (val || '').trim() === 'DELETE';
+        btnEl.disabled = !isMatch;
+        btnEl.style.opacity = isMatch ? '1' : '0.5';
+        btnEl.style.cursor = isMatch ? 'pointer' : 'not-allowed';
+    }
+
+    function closeDeleteConfirmModal() {
+        const modal = document.getElementById('modal-confirm-delete');
+        if (modal) modal.style.display = 'none';
+        pendingDeleteCallback = null;
+    }
+
+    async function executeConfirmedDelete() {
+        const inputEl = document.getElementById('modal-confirm-delete-input');
+        const btnEl = document.getElementById('btn-modal-confirm-delete');
+        if (!inputEl || inputEl.value.trim() !== 'DELETE' || !pendingDeleteCallback) return;
+
+        const fn = pendingDeleteCallback;
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerText = '⏳ Procesando...';
         }
+        try {
+            await fn();
+        } finally {
+            closeDeleteConfirmModal();
+        }
+    }
+
+    async function deleteCompanyNode(companyId, companyName) {
+        openDeleteConfirmModal(
+            `⚠️ Eliminar Empresa "${companyName}"`,
+            `Estás a punto de eliminar la Empresa <b>"${companyName}"</b> y todos sus Sites/Plantas, áreas y sub-operaciones.<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Todas las máquinas, mediciones, equipos de calibración e historial EPA de sus Sites se almacenarán agrupados en la Bóveda de Resguardo para que puedas reasignarlos a otro Site.</span>`,
+            async () => {
+                try {
+                    const res = await fetch(`/api/companies/${encodeURIComponent(companyId)}?confirmText=DELETE`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast(`✅ ${data.message || `Empresa "${companyName}" eliminada y activos resguardados.`}`);
+                        await loadSettings();
+                        try { await loadSites(); } catch (e) {}
+                    } else {
+                        showToast('❌ ' + (data.message || 'Error al eliminar la empresa.'), 'error');
+                    }
+                } catch (ex) {
+                    showToast('❌ Error de conexión al eliminar la empresa.', 'error');
+                }
+            }
+        );
     }
 
     async function deleteSiteNode(siteId, siteName, parentCompNodeId) {
         if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
-        if (!confirm(`⚠️ ¿Estás seguro de eliminar el Site "${siteName}"?\n\nSe eliminarán el site y todos sus subtipos (áreas, líneas, sub-operaciones y registros vinculados).`)) return;
-        try {
-            const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                showToast(`✅ Site "${siteName}" y sus subtipos eliminados exitosamente.`);
-                await loadSettings();
-                try { await loadSites(); } catch (e) {}
-            } else {
-                showToast('❌ ' + (data.message || 'Error al eliminar el Site.'), 'error');
+        openDeleteConfirmModal(
+            `⚠️ Eliminar Site / Planta "${siteName}"`,
+            `Estás a punto de eliminar el Site <b>"${siteName}"</b> y todos sus subtipos (áreas, líneas y operaciones).<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Todas sus máquinas, mediciones, equipos e historial EPA se guardarán agrupados por su estructura original en la Bóveda de Resguardo y quedarán disponibles para reasignar a otro Site.</span>`,
+            async () => {
+                try {
+                    const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}?confirmText=DELETE`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast(`✅ ${data.message || `Site "${siteName}" eliminado y elementos resguardados.`}`);
+                        await loadSettings();
+                        try { await loadSites(); } catch (e) {}
+                    } else {
+                        showToast('❌ ' + (data.message || 'Error al eliminar el Site.'), 'error');
+                    }
+                } catch (ex) {
+                    showToast('❌ Error de conexión al eliminar el Site.', 'error');
+                }
             }
-        } catch (ex) {
-            showToast('❌ Error de conexión al eliminar el Site.', 'error');
-        }
+        );
     }
 
     async function deleteAreaNode(siteId, areaName, parentCompNodeId, parentSiteNodeId) {
         if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
         if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
-        if (!confirm(`¿Estás seguro de eliminar el Área / Línea "${areaName}" y todas sus Sub-operaciones?`)) return;
-        try {
-            const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(areaName)}&includeSubOperations=true`;
-            const res = await fetch(url, { method: 'DELETE' });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                showToast(`✅ Área "${areaName}" y sus sub-operaciones eliminadas.`);
-                await loadSettings();
-            } else {
-                showToast('❌ ' + (data.message || 'Error al eliminar el Área.'), 'error');
+        openDeleteConfirmModal(
+            `⚠️ Eliminar Área / Línea "${areaName}"`,
+            `Estás a punto de eliminar el Área / Línea <b>"${areaName}"</b> y todas sus Sub-operaciones.<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Todas las máquinas, mediciones e historial asociados a esta Área y sus operaciones se almacenarán agrupados en la Bóveda de Resguardo para poder reasignarlos a otro Site o Área.</span>`,
+            async () => {
+                try {
+                    const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(areaName)}&includeSubOperations=true&confirmText=DELETE`;
+                    const res = await fetch(url, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast(`✅ ${data.message || `Área "${areaName}" eliminada y activos resguardados.`}`);
+                        await loadSettings();
+                    } else {
+                        showToast('❌ ' + (data.message || 'Error al eliminar el Área.'), 'error');
+                    }
+                } catch (ex) {
+                    showToast('❌ Error de conexión al eliminar el Área.', 'error');
+                }
             }
-        } catch (ex) {
-            showToast('❌ Error de conexión al eliminar el Área.', 'error');
-        }
+        );
     }
 
     async function deleteSubOperationNode(siteId, areaName, subOpName, parentCompNodeId, parentSiteNodeId) {
         if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
         if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
         const fullName = `${areaName} -> ${subOpName}`;
-        if (!confirm(`¿Estás seguro de eliminar la Sub-operación "${subOpName}" de "${areaName}"?`)) return;
+        openDeleteConfirmModal(
+            `⚠️ Eliminar Operación "${subOpName}"`,
+            `Estás a punto de eliminar la Operación <b>"${subOpName}"</b> del Área <b>"${areaName}"</b>.<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Las máquinas, mediciones e historial vinculados a "${fullName}" se guardarán agrupados en la Bóveda de Resguardo para que puedas reasignarlos a otro Site o ubicación.</span>`,
+            async () => {
+                try {
+                    const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(fullName)}&includeSubOperations=false&confirmText=DELETE`;
+                    const res = await fetch(url, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast(`✅ ${data.message || `Operación "${subOpName}" eliminada y activos resguardados.`}`);
+                        await loadSettings();
+                    } else {
+                        showToast('❌ ' + (data.message || 'Error al eliminar la Operación.'), 'error');
+                    }
+                } catch (ex) {
+                    showToast('❌ Error de conexión al eliminar la Operación.', 'error');
+                }
+            }
+        );
+    }
+
+    // --- EDIT / RENAME LOCATION MODAL ---
+    function openEditLocationModal(entityType, targetIdOrSiteId, oldName, parentAreaName, parentCompNodeId, parentSiteNodeId) {
+        if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
+        if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
+
+        document.getElementById('edit-loc-type').value = entityType;
+        document.getElementById('edit-loc-id').value = targetIdOrSiteId;
+        document.getElementById('edit-loc-old-name').value = oldName;
+        document.getElementById('edit-loc-parent-area').value = parentAreaName || '';
+        document.getElementById('edit-loc-new-name').value = oldName;
+
+        const titleMap = {
+            company: '✏️ Editar Nombre de Empresa',
+            site: '✏️ Editar Nombre de Site / Planta',
+            area: '✏️ Editar Nombre de Área / Línea',
+            suboperation: `✏️ Editar Operación (en ${parentAreaName})`
+        };
+        document.getElementById('modal-edit-location-title').innerText = titleMap[entityType] || '✏️ Editar Nombre de Ubicación';
+        document.getElementById('modal-edit-location-subtitle').innerText =
+            entityType === 'area' || entityType === 'suboperation'
+                ? 'Se actualizarán automáticamente todas las máquinas, mediciones, planos ESD y bitácoras vinculadas a esta ubicación.'
+                : 'Se actualizará el nombre en toda la estructura multi-tenant.';
+
+        const modal = document.getElementById('modal-edit-location-name');
+        if (modal) {
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                const inp = document.getElementById('edit-loc-new-name');
+                if (inp) { inp.focus(); inp.select(); }
+            }, 50);
+        }
+    }
+
+    function closeEditLocationModal() {
+        const modal = document.getElementById('modal-edit-location-name');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function submitEditLocationModal(e) {
+        e.preventDefault();
+        const entityType = document.getElementById('edit-loc-type').value;
+        const targetId = document.getElementById('edit-loc-id').value;
+        const oldName = document.getElementById('edit-loc-old-name').value;
+        const parentArea = document.getElementById('edit-loc-parent-area').value;
+        const newName = (document.getElementById('edit-loc-new-name').value || '').trim();
+
+        if (!newName) return;
+        if (newName === oldName) {
+            closeEditLocationModal();
+            return;
+        }
+
+        const btn = document.getElementById('btn-save-edit-location');
+        if (btn) { btn.disabled = true; btn.innerText = '⏳ Guardando...'; }
+
         try {
-            const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(fullName)}&includeSubOperations=false`;
-            const res = await fetch(url, { method: 'DELETE' });
+            let res;
+            if (entityType === 'company') {
+                res = await fetch(`/api/companies/${encodeURIComponent(targetId)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+            } else if (entityType === 'site') {
+                res = await fetch(`/api/sites/${encodeURIComponent(targetId)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+            } else {
+                const isArea = entityType === 'area';
+                const fullOld = isArea ? oldName : `${parentArea} -> ${oldName}`;
+                const fullNew = isArea ? newName : `${parentArea} -> ${newName}`;
+                res = await fetch('/api/lines/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        site_id: targetId,
+                        old_name: fullOld,
+                        new_name: fullNew,
+                        is_area: isArea
+                    })
+                });
+            }
+
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast(`✅ Operación "${subOpName}" eliminada.`);
+                showToast(`✅ ${data.message || 'Nombre actualizado correctamente.'}`);
+                closeEditLocationModal();
                 await loadSettings();
+                try { await loadSites(); } catch (err) {}
             } else {
-                showToast('❌ ' + (data.message || 'Error al eliminar la Operación.'), 'error');
+                showToast('❌ ' + (data.message || 'Error al actualizar el nombre.'), 'error');
             }
         } catch (ex) {
-            showToast('❌ Error de conexión al eliminar la Operación.', 'error');
+            showToast('❌ Error de conexión al actualizar el nombre.', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerText = '💾 Guardar Cambios'; }
         }
+    }
+
+    // --- ARCHIVED LOCATION GROUPS (BÓVEDA DE RESGUARDO & REASIGNACIÓN) ---
+    let cachedArchivedGroups = [];
+
+    async function loadArchivedLocationGroups() {
+        const panel = document.getElementById('archived-groups-panel');
+        const listEl = document.getElementById('archived-groups-list');
+        const badgeEl = document.getElementById('archived-groups-count-badge');
+        if (!panel || !listEl) return;
+
+        if (!isUserCompanyAdminOrSuper()) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/hierarchy/archived-groups');
+            if (!res.ok) return;
+            cachedArchivedGroups = await res.json();
+
+            if (!cachedArchivedGroups || cachedArchivedGroups.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            panel.style.display = 'block';
+            if (badgeEl) badgeEl.innerText = `${cachedArchivedGroups.length} grupo(s)`;
+
+            const typeLabels = {
+                site: '🏢 Site Completo',
+                area: '🏭 Área / Línea',
+                suboperation: '⚙️ Operación'
+            };
+
+            let html = '';
+            cachedArchivedGroups.forEach(g => {
+                const counts = g.counts || {};
+                const typeBadge = typeLabels[g.group_type] || g.group_type;
+                const dateStr = g.deleted_at ? new Date(g.deleted_at).toLocaleString() : '';
+                const safeGroupName = (g.group_name || '').replace(/'/g, "\\'");
+                const locsPreview = (g.locations || []).slice(0, 4).join(', ') + ((g.locations || []).length > 4 ? ` (+${g.locations.length - 4} más)` : '');
+
+                html += `<div style="background:#fff; border:1px solid #BAE6FD; border-radius:8px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="flex:1; min-width:260px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="background:#E0F2FE; color:#0369A1; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px;">${typeBadge}</span>
+                            <b style="font-size:13.5px; color:#0F172A;">${g.group_name}</b>
+                            <span style="font-size:11.5px; color:#64748B;">(Origen: <b>${g.source_site_name || 'N/A'}</b> · ${g.company_name || 'Corporativo'})</span>
+                        </div>
+                        ${locsPreview ? `<div style="font-size:11.5px; color:#475569; margin-top:4px;">📍 <b>Ubicaciones agrupadas:</b> ${locsPreview}</div>` : ''}
+                        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:6px; font-size:11.5px; color:#0284C7; font-weight:600;">
+                            <span>🛠️ ${counts.assets || 0} Máquinas/Activos</span>
+                            <span>📊 ${counts.measurements || 0} Mediciones</span>
+                            <span>🎛️ ${counts.equipment || 0} Equipos Calibración</span>
+                            <span>📋 ${counts.epa_logs || 0} Registros Historial EPA</span>
+                            ${dateStr ? `<span style="color:#94A3B8; font-weight:400;">🕒 ${dateStr}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="btn-primary" style="background:#0284C7; padding:6px 12px; font-size:12px;" onclick="openReassignGroupModal('${g.group_id}')">🔄 Reasignar a otro Site</button>
+                        <button type="button" class="btn-primary" style="background:#FEE2E2; color:#DC2626; border:1px solid #FECACA; padding:6px 10px; font-size:12px;" title="Eliminar permanentemente este paquete en resguardo" onclick="deleteArchivedGroupPermanently('${g.group_id}', '${safeGroupName}')">🗑️</button>
+                    </div>
+                </div>`;
+            });
+
+            listEl.innerHTML = html;
+        } catch (ex) {
+            console.warn('Error loading archived location groups:', ex);
+        }
+    }
+
+    async function openReassignGroupModal(groupId) {
+        const group = cachedArchivedGroups.find(g => g.group_id === groupId);
+        if (!group) return;
+
+        document.getElementById('reassign-group-id').value = group.group_id;
+        const counts = group.counts || {};
+        document.getElementById('reassign-group-summary').innerHTML = `
+            <div><b>📦 Paquete Agrupado:</b> ${group.group_name} <span style="color:#64748B;">(Origen: ${group.source_site_name || 'N/A'})</span></div>
+            <div style="margin-top:4px;">Incluye <b>${counts.assets || 0}</b> máquinas, <b>${counts.measurements || 0}</b> mediciones, <b>${counts.equipment || 0}</b> equipos y <b>${counts.epa_logs || 0}</b> registros de historial EPA.</div>
+        `;
+
+        if (!allSites || allSites.length === 0) {
+            try {
+                const sRes = await fetch('/api/sites');
+                if (sRes.ok) allSites = await sRes.json();
+            } catch (e) {}
+        }
+
+        const siteSel = document.getElementById('reassign-target-site');
+        siteSel.innerHTML = '<option value="">-- Seleccionar Site Destino --</option>';
+        (allSites || []).forEach(s => {
+            siteSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+
+        const radios = document.querySelectorAll('input[name="reassign-loc-mode"]');
+        radios.forEach(r => { r.checked = (r.value === 'keep'); });
+        onReassignLocModeChange();
+
+        const modal = document.getElementById('modal-reassign-group');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closeReassignGroupModal() {
+        const modal = document.getElementById('modal-reassign-group');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function onReassignLocModeChange() {
+        const mode = document.querySelector('input[name="reassign-loc-mode"]:checked')?.value || 'keep';
+        const customBox = document.getElementById('reassign-custom-loc-container');
+        if (customBox) {
+            customBox.style.display = mode === 'custom' ? 'block' : 'none';
+        }
+    }
+
+    async function onReassignTargetSiteChange(siteId) {
+        const locSel = document.getElementById('reassign-target-location');
+        if (!locSel) return;
+        locSel.innerHTML = '<option value="">-- Seleccionar Área / Operación del Site --</option>';
+        if (!siteId) return;
+
+        try {
+            const res = await fetch(`/api/lines?siteId=${encodeURIComponent(siteId)}`);
+            if (res.ok) {
+                const lines = await res.json();
+                lines.forEach(l => {
+                    const name = l.nombre_linea || l.name;
+                    if (name) locSel.innerHTML += `<option value="${name}">${name}</option>`;
+                });
+            }
+        } catch (e) {}
+    }
+
+    async function submitReassignGroup(e) {
+        e.preventDefault();
+        const groupId = document.getElementById('reassign-group-id').value;
+        const targetSiteId = document.getElementById('reassign-target-site').value;
+        const mode = document.querySelector('input[name="reassign-loc-mode"]:checked')?.value || 'keep';
+
+        if (!groupId || !targetSiteId) {
+            alert('Por favor selecciona un Site destino.');
+            return;
+        }
+
+        let targetLocationOverride = null;
+        if (mode === 'custom') {
+            const typed = (document.getElementById('reassign-target-location-custom')?.value || '').trim();
+            const selected = (document.getElementById('reassign-target-location')?.value || '').trim();
+            targetLocationOverride = typed || selected || null;
+            if (!targetLocationOverride) {
+                alert('Por favor selecciona o escribe el Área / Operación destino.');
+                return;
+            }
+        }
+
+        const btn = document.getElementById('btn-submit-reassign-group');
+        if (btn) { btn.disabled = true; btn.innerText = '⏳ Reasignando...'; }
+
+        try {
+            const res = await fetch(`/api/hierarchy/archived-groups/${encodeURIComponent(groupId)}/reassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_site_id: targetSiteId,
+                    target_location_override: targetLocationOverride
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✅ ${data.message || 'Elementos reasignados exitosamente.'}`);
+                closeReassignGroupModal();
+                await loadSettings();
+                try { await loadSites(); } catch (err) {}
+            } else {
+                showToast('❌ ' + (data.message || 'Error al reasignar el grupo.'), 'error');
+            }
+        } catch (ex) {
+            showToast('❌ Error de conexión al reasignar el grupo.', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerText = '✅ Reasignar Elementos e Historial'; }
+        }
+    }
+
+    async function deleteArchivedGroupPermanently(groupId, groupName) {
+        openDeleteConfirmModal(
+            `⚠️ Eliminar Definitivamente Paquete "${groupName}"`,
+            `Estás a punto de eliminar <b>permanentemente</b> el paquete en resguardo <b>"${groupName}"</b> y todas sus máquinas, mediciones e historial asociados.<br><br><span style="color:#DC2626; font-weight:700;">⚠️ Esta acción destruirá definitivamente los elementos sin asignarlos a ningún Site.</span>`,
+            async () => {
+                try {
+                    const res = await fetch(`/api/hierarchy/archived-groups/${encodeURIComponent(groupId)}?confirmText=DELETE`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast(`✅ ${data.message || 'Paquete en resguardo eliminado permanentemente.'}`);
+                        await loadArchivedLocationGroups();
+                    } else {
+                        showToast('❌ ' + (data.message || 'Error al eliminar el paquete.'), 'error');
+                    }
+                } catch (ex) {
+                    showToast('❌ Error de conexión al eliminar el paquete.', 'error');
+                }
+            }
+        );
     }
 
     // --- USER MANAGEMENT & ROLE PERMISSION BADGES ---
@@ -8485,21 +8963,26 @@
     async function deleteCurrentMapInEditor() {
         if (!editorCurrentMap || !editorCurrentMap.id) return;
         const mapLabel = editorCurrentMap.mapName || editorCurrentMap.areaName || 'seleccionado';
-        if (!confirm(`¿Estás seguro de eliminar el plano "${mapLabel}"?`)) return;
-        try {
-            const res = await fetch(`/api/maps/${encodeURIComponent(editorCurrentMap.id)}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                showToast(`✅ Plano "${mapLabel}" eliminado correctamente.`);
-                editorCurrentMap = null;
-                await loadMapsEditor();
-                await loadFloorMapsForViewer();
-            } else {
-                showToast('❌ ' + (data.message || 'Error al eliminar el plano.'), 'error');
+        openDeleteConfirmModal(
+            `⚠️ Eliminar Plano ESD "${mapLabel}"`,
+            `Estás a punto de eliminar el plano de piso ESD <b>"${mapLabel}"</b> y sus puntos de medición configurados.`,
+            async () => {
+                try {
+                    const res = await fetch(`/api/maps/${encodeURIComponent(editorCurrentMap.id)}`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast(`✅ Plano "${mapLabel}" eliminado correctamente.`);
+                        editorCurrentMap = null;
+                        await loadMapsEditor();
+                        await loadFloorMapsForViewer();
+                    } else {
+                        showToast('❌ ' + (data.message || 'Error al eliminar el plano.'), 'error');
+                    }
+                } catch (ex) {
+                    showToast('❌ Error de conexión al eliminar el plano.', 'error');
+                }
             }
-        } catch (ex) {
-            showToast('❌ Error de conexión al eliminar el plano.', 'error');
-        }
+        );
     }
 
     function onMapFileSelected(event) {

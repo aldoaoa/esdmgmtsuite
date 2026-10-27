@@ -631,16 +631,30 @@ public class SupabaseService
 
     public async Task<(bool success, int deletedCount)> DeleteCatalogoLineaAndChildrenAsync(string siteId, string nombreLinea, bool includeSubOperations = true)
     {
-        if (string.IsNullOrWhiteSpace(siteId) || string.IsNullOrWhiteSpace(nombreLinea))
+        var (success, deletedCount, _) = await ArchiveAndDeleteLineAsync(siteId, nombreLinea, includeSubOperations);
+        return (success, deletedCount);
+    }
+
+    public async Task<(bool success, int updatedCount, string message)> RenameLocationCascadeAsync(string siteId, string oldName, string newName, bool isArea)
+    {
+        if (string.IsNullOrWhiteSpace(siteId) || string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName))
         {
-            return (false, 0);
+            return (false, 0, "El site, el nombre actual y el nuevo nombre son obligatorios.");
         }
 
-        string target = nombreLinea.Trim();
-        string prefix = target + " ->";
+        string oldTarget = oldName.Trim();
+        string newTarget = newName.Trim();
+        if (string.Equals(oldTarget, newTarget, StringComparison.OrdinalIgnoreCase))
+        {
+            return (true, 0, "El nombre no cambió.");
+        }
 
+        string oldPrefix = oldTarget + " ->";
+        string newPrefix = newTarget + " ->";
+        int updated = 0;
+
+        // 1. Update catalogo_lineas
         var lines = await GetCatalogoLineasAsync(siteId);
-        int deleted = 0;
         foreach (var item in lines)
         {
             if (item is JsonObject obj)
@@ -649,20 +663,339 @@ public class SupabaseService
                 string lineName = obj["nombre_linea"]?.ToString()?.Trim() ?? "";
                 if (string.IsNullOrEmpty(id)) continue;
 
-                bool match = string.Equals(lineName, target, StringComparison.OrdinalIgnoreCase)
-                    || (includeSubOperations && lineName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-
-                if (match)
+                string? updatedLineName = null;
+                if (string.Equals(lineName, oldTarget, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (await DeleteAsync("catalogo_lineas", $"id=eq.{id}"))
+                    updatedLineName = newTarget;
+                }
+                else if (isArea && lineName.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    updatedLineName = newPrefix + lineName.Substring(oldPrefix.Length);
+                }
+
+                if (updatedLineName != null)
+                {
+                    if (await UpdateCatalogoLineaAsync(id, new { nombre_linea = updatedLineName }))
                     {
-                        deleted++;
+                        updated++;
                     }
                 }
             }
         }
 
-        return (deleted > 0, deleted);
+        // 2. Update assets in this site
+        var assets = await GetAssetsAsync(siteId);
+        foreach (var item in assets)
+        {
+            if (item is JsonObject aObj)
+            {
+                string aId = aObj["id"]?.ToString() ?? "";
+                string loc = aObj["location"]?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(aId)) continue;
+
+                string? newLoc = null;
+                if (string.Equals(loc, oldTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    newLoc = newTarget;
+                }
+                else if (isArea && loc.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    newLoc = newPrefix + loc.Substring(oldPrefix.Length);
+                }
+
+                if (newLoc != null)
+                {
+                    string rawClass = aObj["classification"]?.ToString() ?? "";
+                    string newClass = rawClass;
+                    if (!string.IsNullOrEmpty(rawClass) && rawClass.TrimStart().StartsWith("{"))
+                    {
+                        try
+                        {
+                            var classObj = JsonNode.Parse(rawClass) as JsonObject;
+                            if (classObj != null)
+                            {
+                                string newArea = newLoc.Contains("->") ? newLoc.Split("->")[0].Trim() : newLoc;
+                                classObj["area"] = newArea;
+                                newClass = classObj.ToJsonString();
+                            }
+                        }
+                        catch { }
+                    }
+
+                    await UpdateAssetAsync(aId, new { location = newLoc, classification = newClass });
+                    updated++;
+                }
+            }
+        }
+
+        // 3. Update measurements in this site
+        var measurements = await GetMeasurementsForSiteAsync(siteId);
+        foreach (var item in measurements)
+        {
+            if (item is JsonObject mObj && mObj["extra_data"] is JsonObject ed)
+            {
+                string mId = mObj["id"]?.ToString() ?? "";
+                string ub = ed["ubicacion"]?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(mId)) continue;
+
+                string? newUb = null;
+                if (string.Equals(ub, oldTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    newUb = newTarget;
+                }
+                else if (isArea && ub.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    newUb = newPrefix + ub.Substring(oldPrefix.Length);
+                }
+
+                if (newUb != null)
+                {
+                    var edClone = ed.DeepClone() as JsonObject ?? new JsonObject();
+                    edClone["ubicacion"] = newUb;
+                    await UpdateAsync("measurements", $"id=eq.{mId}", new { extra_data = edClone });
+                    updated++;
+                }
+            }
+        }
+
+        // 4. Update EPA logs (grounding_logs, floor_validation_logs, isolated_conductors_logs, entrance_checkers_logs)
+        await RenameInLogsTableAsync("grounding_logs", "location", siteId, oldTarget, newTarget, oldPrefix, newPrefix, isArea);
+        await RenameInLogsTableAsync("floor_validation_logs", "room_name", siteId, oldTarget, newTarget, oldPrefix, newPrefix, isArea);
+        await RenameInLogsTableAsync("isolated_conductors_logs", "location", siteId, oldTarget, newTarget, oldPrefix, newPrefix, isArea);
+        await RenameInLogsTableAsync("entrance_checkers_logs", "location", siteId, oldTarget, newTarget, oldPrefix, newPrefix, isArea);
+
+        return (true, updated, $"Ubicación actualizada a '{newTarget}' ({updated} registros vinculados actualizados).");
+    }
+
+    private async Task RenameInLogsTableAsync(string table, string colName, string siteId, string oldTarget, string newTarget, string oldPrefix, string newPrefix, bool isArea)
+    {
+        try
+        {
+            var rows = await GetAsync($"{table}?site_id=eq.{siteId}&select=id,{colName}");
+            foreach (var r in rows)
+            {
+                if (r is JsonObject rObj)
+                {
+                    string rId = rObj["id"]?.ToString() ?? "";
+                    string val = rObj[colName]?.ToString()?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(rId)) continue;
+
+                    string? newVal = null;
+                    if (string.Equals(val, oldTarget, StringComparison.OrdinalIgnoreCase))
+                    {
+                        newVal = newTarget;
+                    }
+                    else if (isArea && val.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        newVal = newPrefix + val.Substring(oldPrefix.Length);
+                    }
+
+                    if (newVal != null)
+                    {
+                        var patch = new JsonObject { [colName] = newVal };
+                        await UpdateAsync(table, $"id=eq.{rId}", patch);
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+
+    public async Task<(bool success, int deletedCount, JsonObject? archivedGroup)> ArchiveAndDeleteLineAsync(
+        string siteId,
+        string nombreLinea,
+        bool includeSubOperations = true,
+        string? userId = null,
+        string? userName = null)
+    {
+        if (string.IsNullOrWhiteSpace(siteId) || string.IsNullOrWhiteSpace(nombreLinea))
+        {
+            return (false, 0, null);
+        }
+
+        string target = nombreLinea.Trim();
+        string prefix = target + " ->";
+
+        bool MatchesLoc(string? loc)
+        {
+            if (string.IsNullOrWhiteSpace(loc)) return false;
+            string clean = loc.Trim();
+            return string.Equals(clean, target, StringComparison.OrdinalIgnoreCase)
+                || (includeSubOperations && clean.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var siteObj = await GetSiteByIdAsync(siteId);
+        string siteName = siteObj?["name"]?.ToString() ?? "Site";
+        string companyId = siteObj?["company_id"]?.ToString() ?? "";
+        var compObj = !string.IsNullOrEmpty(companyId) ? await GetCompanyByIdAsync(companyId) : null;
+        string companyName = compObj?["name"]?.ToString() ?? "Empresa";
+
+        // 1. Collect matching lines
+        var lines = await GetCatalogoLineasAsync(siteId);
+        var matchedLineIds = new List<string>();
+        var matchedLineNames = new JsonArray();
+        foreach (var item in lines)
+        {
+            if (item is JsonObject obj)
+            {
+                string id = obj["id"]?.ToString() ?? "";
+                string lineName = obj["nombre_linea"]?.ToString()?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(id) && MatchesLoc(lineName))
+                {
+                    matchedLineIds.Add(id);
+                    matchedLineNames.Add(lineName);
+                }
+            }
+        }
+
+        // 2. Collect matching assets & measurements & EPA logs
+        var assetsSnapshot = new JsonArray();
+        var siteAssets = await GetAssetsAsync(siteId);
+        var matchedAssetIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var matchedCustomIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in siteAssets)
+        {
+            if (item is JsonObject aObj)
+            {
+                string loc = aObj["location"]?.ToString() ?? "";
+                if (MatchesLoc(loc))
+                {
+                    assetsSnapshot.Add(aObj.DeepClone());
+                    string aId = aObj["id"]?.ToString() ?? "";
+                    string cId = aObj["custom_id"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(aId)) matchedAssetIds.Add(aId);
+                    if (!string.IsNullOrEmpty(cId)) matchedCustomIds.Add(cId);
+                }
+            }
+        }
+
+        var measurementsSnapshot = new JsonArray();
+        var siteMeasurements = await GetMeasurementsForSiteAsync(siteId);
+        foreach (var item in siteMeasurements)
+        {
+            if (item is JsonObject mObj)
+            {
+                string aId = mObj["asset_id"]?.ToString() ?? "";
+                string ub = "";
+                string idElem = "";
+                if (mObj["extra_data"] is JsonObject ed)
+                {
+                    ub = ed["ubicacion"]?.ToString() ?? "";
+                    idElem = ed["id_elemento"]?.ToString() ?? "";
+                }
+
+                if (MatchesLoc(ub) || (!string.IsNullOrEmpty(aId) && matchedAssetIds.Contains(aId)) || (!string.IsNullOrEmpty(idElem) && matchedCustomIds.Contains(idElem)))
+                {
+                    measurementsSnapshot.Add(mObj.DeepClone());
+                }
+            }
+        }
+
+        var groundingSnapshot = new JsonArray();
+        foreach (var item in await GetGroundingLogsAsync(siteId))
+        {
+            if (item is JsonObject gObj && MatchesLoc(gObj["location"]?.ToString())) groundingSnapshot.Add(gObj.DeepClone());
+        }
+
+        var floorSnapshot = new JsonArray();
+        foreach (var item in await GetFloorValidationLogsAsync(siteId))
+        {
+            if (item is JsonObject fObj && (MatchesLoc(fObj["room_name"]?.ToString()) || MatchesLoc(fObj["location"]?.ToString()))) floorSnapshot.Add(fObj.DeepClone());
+        }
+
+        var isolatedSnapshot = new JsonArray();
+        foreach (var item in await GetIsolatedConductorsLogsAsync(siteId))
+        {
+            if (item is JsonObject iObj && MatchesLoc(iObj["location"]?.ToString())) isolatedSnapshot.Add(iObj.DeepClone());
+        }
+
+        var checkersSnapshot = new JsonArray();
+        foreach (var item in await GetEntranceCheckersLogsAsync(siteId))
+        {
+            if (item is JsonObject cObj && MatchesLoc(cObj["location"]?.ToString())) checkersSnapshot.Add(cObj.DeepClone());
+        }
+
+        // 3. Create Archive Group in app_logs if there are any assets, measurements, logs, or lines
+        string groupId = Guid.NewGuid().ToString();
+        string areaPart = target.Contains("->") ? target.Split("->")[0].Trim() : target;
+        string opPart = target.Contains("->") ? string.Join(" -> ", target.Split("->").Skip(1)).Trim() : "";
+
+        var groupRecord = new JsonObject
+        {
+            ["group_id"] = groupId,
+            ["scope_type"] = includeSubOperations ? "AREA" : "OPERATION",
+            ["company_id"] = companyId,
+            ["company_name"] = companyName,
+            ["original_site_id"] = siteId,
+            ["original_site_name"] = siteName,
+            ["original_location"] = target,
+            ["original_area"] = areaPart,
+            ["original_operation"] = opPart,
+            ["deleted_at"] = DateTime.UtcNow.ToString("o"),
+            ["deleted_by"] = userName ?? "Administrador",
+            ["lines_count"] = matchedLineNames.Count,
+            ["assets_count"] = assetsSnapshot.Count,
+            ["measurements_count"] = measurementsSnapshot.Count,
+            ["equipment_count"] = 0,
+            ["logs_count"] = groundingSnapshot.Count + floorSnapshot.Count + isolatedSnapshot.Count + checkersSnapshot.Count,
+            ["lines"] = matchedLineNames,
+            ["assets"] = assetsSnapshot,
+            ["measurements"] = measurementsSnapshot,
+            ["equipment"] = new JsonArray(),
+            ["grounding_logs"] = groundingSnapshot,
+            ["floor_logs"] = floorSnapshot,
+            ["isolated_logs"] = isolatedSnapshot,
+            ["checker_logs"] = checkersSnapshot
+        };
+
+        await LogAuditEventAsync(userId, null, "ARCHIVE", "archived_location_group", groupId, groupRecord);
+
+        // 4. Unlink matched assets & measurements (set site_id = null) so they are held in the archive group without losing any history
+        foreach (var item in assetsSnapshot)
+        {
+            if (item is JsonObject aObj && aObj["id"] != null)
+            {
+                string id = aObj["id"]!.ToString();
+                await UpdateAsync("assets", $"id=eq.{id}", new { site_id = (string?)null });
+            }
+        }
+        foreach (var item in measurementsSnapshot)
+        {
+            if (item is JsonObject mObj && mObj["id"] != null)
+            {
+                string id = mObj["id"]!.ToString();
+                await UpdateAsync("measurements", $"id=eq.{id}", new { site_id = (string?)null });
+            }
+        }
+        foreach (var item in groundingSnapshot)
+        {
+            if (item is JsonObject gObj && gObj["id"] != null) await UpdateAsync("grounding_logs", $"id=eq.{gObj["id"]}", new { site_id = (string?)null });
+        }
+        foreach (var item in floorSnapshot)
+        {
+            if (item is JsonObject fObj && fObj["id"] != null) await UpdateAsync("floor_validation_logs", $"id=eq.{fObj["id"]}", new { site_id = (string?)null });
+        }
+        foreach (var item in isolatedSnapshot)
+        {
+            if (item is JsonObject iObj && iObj["id"] != null) await UpdateAsync("isolated_conductors_logs", $"id=eq.{iObj["id"]}", new { site_id = (string?)null });
+        }
+        foreach (var item in checkersSnapshot)
+        {
+            if (item is JsonObject cObj && cObj["id"] != null) await UpdateAsync("entrance_checkers_logs", $"id=eq.{cObj["id"]}", new { site_id = (string?)null });
+        }
+
+        // 5. Delete the lines from catalogo_lineas
+        int deleted = 0;
+        foreach (var lineId in matchedLineIds)
+        {
+            if (await DeleteAsync("catalogo_lineas", $"id=eq.{lineId}"))
+            {
+                deleted++;
+            }
+        }
+
+        return (deleted > 0, deleted, groupRecord);
     }
 
     // --- EMPLOYEES & TRAINING EXAMS ---
@@ -763,31 +1096,429 @@ public class SupabaseService
 
     public async Task<bool> DeleteSiteCascadeAsync(string siteId)
     {
-        if (string.IsNullOrWhiteSpace(siteId)) return false;
+        var (success, _) = await ArchiveAndDeleteSiteAsync(siteId);
+        return success;
+    }
 
-        // 1. Delete all areas, lines and sub-operations (subtypes) belonging to the site
+    public async Task<(bool success, JsonObject? archivedGroup)> ArchiveAndDeleteSiteAsync(string siteId, string? userId = null, string? userName = null)
+    {
+        if (string.IsNullOrWhiteSpace(siteId)) return (false, null);
+
+        var siteObj = await GetSiteByIdAsync(siteId);
+        string siteName = siteObj?["name"]?.ToString() ?? "Site Eliminado";
+        string companyId = siteObj?["company_id"]?.ToString() ?? "";
+        var compObj = !string.IsNullOrEmpty(companyId) ? await GetCompanyByIdAsync(companyId) : null;
+        string companyName = compObj?["name"]?.ToString() ?? "Empresa";
+
+        // 1. Collect all site data before deletion so everything is preserved & grouped
+        var linesList = await GetCatalogoLineasAsync(siteId);
+        var lineNames = new JsonArray();
+        foreach (var l in linesList)
+        {
+            if (l is JsonObject lObj && lObj["nombre_linea"] != null)
+            {
+                lineNames.Add(lObj["nombre_linea"]!.ToString());
+            }
+        }
+
+        var assetsSnapshot = await GetAssetsAsync(siteId);
+        var measurementsSnapshot = await GetAsync($"measurements?site_id=eq.{siteId}&select=*&order=measured_at.desc");
+        var equipmentSnapshot = await GetCatalogoEquiposAsync(siteId);
+        var groundingSnapshot = await GetGroundingLogsAsync(siteId);
+        var floorSnapshot = await GetFloorValidationLogsAsync(siteId);
+        var isolatedSnapshot = await GetIsolatedConductorsLogsAsync(siteId);
+        var checkersSnapshot = await GetEntranceCheckersLogsAsync(siteId);
+        var reportsSnapshot = await GetLogReportesLineaAsync(siteId, null);
+        var employeesSnapshot = await GetEmpleadosBatasAsync(siteId);
+
+        string groupId = Guid.NewGuid().ToString();
+        var groupRecord = new JsonObject
+        {
+            ["group_id"] = groupId,
+            ["scope_type"] = "SITE",
+            ["company_id"] = companyId,
+            ["company_name"] = companyName,
+            ["original_site_id"] = siteId,
+            ["original_site_name"] = siteName,
+            ["original_location"] = siteName,
+            ["original_area"] = "Todas las Áreas del Site",
+            ["original_operation"] = "",
+            ["deleted_at"] = DateTime.UtcNow.ToString("o"),
+            ["deleted_by"] = userName ?? "Administrador",
+            ["lines_count"] = lineNames.Count,
+            ["assets_count"] = assetsSnapshot.Count,
+            ["measurements_count"] = measurementsSnapshot.Count,
+            ["equipment_count"] = equipmentSnapshot.Count,
+            ["logs_count"] = groundingSnapshot.Count + floorSnapshot.Count + isolatedSnapshot.Count + checkersSnapshot.Count + reportsSnapshot.Count,
+            ["lines"] = lineNames,
+            ["assets"] = assetsSnapshot,
+            ["measurements"] = measurementsSnapshot,
+            ["equipment"] = equipmentSnapshot,
+            ["grounding_logs"] = groundingSnapshot,
+            ["floor_logs"] = floorSnapshot,
+            ["isolated_logs"] = isolatedSnapshot,
+            ["checker_logs"] = checkersSnapshot,
+            ["reports"] = reportsSnapshot,
+            ["employees"] = employeesSnapshot
+        };
+
+        // Save archived group in app_logs with site_id = null so it survives site deletion
+        await LogAuditEventAsync(userId, null, "ARCHIVE", "archived_location_group", groupId, groupRecord);
+
+        // 2. Unlink operational records (set site_id = null) so they are preserved in Supabase instead of deleted
+        await UpdateAsync("assets", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("measurements", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("catalogo_equipos", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("catalogo_productos", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("empleados_batas", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("grounding_logs", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("floor_validation_logs", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("isolated_conductors_logs", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("entrance_checkers_logs", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("log_reportes_linea", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("validacion_esd", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("app_logs", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        await UpdateAsync("users", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+
+        // 3. Delete site lines and floor_maps
         await DeleteAsync("catalogo_lineas", $"site_id=eq.{siteId}");
         await DeleteAsync("floor_maps", $"site_id=eq.{siteId}");
 
-        // 2. Delete dependent site records across operational tables to prevent FK constraint blocks
-        await DeleteAsync("catalogo_equipos", $"site_id=eq.{siteId}");
-        await DeleteAsync("catalogo_productos", $"site_id=eq.{siteId}");
-        await DeleteAsync("empleados_batas", $"site_id=eq.{siteId}");
-        await DeleteAsync("grounding_logs", $"site_id=eq.{siteId}");
-        await DeleteAsync("floor_validation_logs", $"site_id=eq.{siteId}");
-        await DeleteAsync("isolated_conductors_logs", $"site_id=eq.{siteId}");
-        await DeleteAsync("entrance_checkers_logs", $"site_id=eq.{siteId}");
-        await DeleteAsync("log_reportes_linea", $"site_id=eq.{siteId}");
-        await DeleteAsync("validacion_esd", $"site_id=eq.{siteId}");
-        await DeleteAsync("measurements", $"site_id=eq.{siteId}");
-        await DeleteAsync("assets", $"site_id=eq.{siteId}");
-        await DeleteAsync("app_logs", $"site_id=eq.{siteId}");
+        // 4. Delete the site row; if any table had a NOT NULL constraint on site_id, clean remaining FK rows (already safely snapshotted in groupRecord)
+        bool ok = await DeleteAsync("sites", $"id=eq.{siteId}");
+        if (!ok)
+        {
+            await DeleteAsync("catalogo_equipos", $"site_id=eq.{siteId}");
+            await DeleteAsync("catalogo_productos", $"site_id=eq.{siteId}");
+            await DeleteAsync("empleados_batas", $"site_id=eq.{siteId}");
+            await DeleteAsync("grounding_logs", $"site_id=eq.{siteId}");
+            await DeleteAsync("floor_validation_logs", $"site_id=eq.{siteId}");
+            await DeleteAsync("isolated_conductors_logs", $"site_id=eq.{siteId}");
+            await DeleteAsync("entrance_checkers_logs", $"site_id=eq.{siteId}");
+            await DeleteAsync("log_reportes_linea", $"site_id=eq.{siteId}");
+            await DeleteAsync("validacion_esd", $"site_id=eq.{siteId}");
+            await DeleteAsync("measurements", $"site_id=eq.{siteId}");
+            await DeleteAsync("assets", $"site_id=eq.{siteId}");
+            await DeleteAsync("app_logs", $"site_id=eq.{siteId}");
+            ok = await DeleteAsync("sites", $"id=eq.{siteId}");
+        }
 
-        // 3. Unlink users assigned to this site so user accounts are not blocked by site FK
-        await UpdateAsync("users", $"site_id=eq.{siteId}", new { site_id = (string?)null });
+        return (ok, groupRecord);
+    }
 
-        // 4. Delete the site itself
-        return await DeleteAsync("sites", $"id=eq.{siteId}");
+    public async Task<JsonArray> GetArchivedLocationGroupsAsync(string? companyId = null)
+    {
+        var result = new JsonArray();
+        try
+        {
+            var logs = await GetAsync("app_logs?page=eq.archived_location_group&select=id,message,details,created_at&order=created_at.desc&limit=100");
+            var seenGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var item in logs)
+            {
+                if (item is JsonObject logObj)
+                {
+                    string groupId = logObj["message"]?.ToString() ?? "";
+                    string detailsRaw = logObj["details"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(groupId) || seenGroups.Contains(groupId)) continue;
+
+                    JsonObject? parsed = null;
+                    try
+                    {
+                        parsed = JsonNode.Parse(detailsRaw) as JsonObject;
+                    }
+                    catch { }
+
+                    if (parsed == null) continue;
+                    seenGroups.Add(groupId);
+
+                    if (string.Equals(parsed["status"]?.ToString(), "REASSIGNED", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(parsed["status"]?.ToString(), "DELETED", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string grpCompId = parsed["company_id"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(companyId) && !string.IsNullOrEmpty(grpCompId) && !string.Equals(grpCompId, companyId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var summary = new JsonObject
+                    {
+                        ["group_id"] = groupId,
+                        ["log_row_id"] = logObj["id"]?.ToString(),
+                        ["scope_type"] = parsed["scope_type"]?.ToString() ?? "SITE",
+                        ["company_id"] = grpCompId,
+                        ["company_name"] = parsed["company_name"]?.ToString() ?? "Empresa",
+                        ["original_site_id"] = parsed["original_site_id"]?.ToString() ?? "",
+                        ["original_site_name"] = parsed["original_site_name"]?.ToString() ?? "Site",
+                        ["original_location"] = parsed["original_location"]?.ToString() ?? "",
+                        ["original_area"] = parsed["original_area"]?.ToString() ?? "",
+                        ["original_operation"] = parsed["original_operation"]?.ToString() ?? "",
+                        ["deleted_at"] = parsed["deleted_at"]?.ToString() ?? logObj["created_at"]?.ToString(),
+                        ["deleted_by"] = parsed["deleted_by"]?.ToString() ?? "Administrador",
+                        ["lines_count"] = parsed["lines_count"]?.GetValue<int>() ?? (parsed["lines"] as JsonArray)?.Count ?? 0,
+                        ["assets_count"] = parsed["assets_count"]?.GetValue<int>() ?? (parsed["assets"] as JsonArray)?.Count ?? 0,
+                        ["measurements_count"] = parsed["measurements_count"]?.GetValue<int>() ?? (parsed["measurements"] as JsonArray)?.Count ?? 0,
+                        ["equipment_count"] = parsed["equipment_count"]?.GetValue<int>() ?? (parsed["equipment"] as JsonArray)?.Count ?? 0,
+                        ["logs_count"] = parsed["logs_count"]?.GetValue<int>() ?? 0,
+                        ["lines"] = (parsed["lines"] as JsonArray)?.DeepClone() ?? new JsonArray()
+                    };
+
+                    result.Add(summary);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GetArchivedLocationGroupsAsync Error: {ex.Message}");
+        }
+        return result;
+    }
+
+    public async Task<(bool success, string message)> ReassignArchivedLocationGroupAsync(string groupId, string targetSiteId, string? targetLocationOverride = null)
+    {
+        if (string.IsNullOrWhiteSpace(groupId) || string.IsNullOrWhiteSpace(targetSiteId))
+        {
+            return (false, "El ID del grupo y el Site destino son obligatorios.");
+        }
+
+        var logs = await GetAsync($"app_logs?page=eq.archived_location_group&message=eq.{groupId}&select=id,details&order=created_at.desc&limit=1");
+        if (logs.Count == 0 || logs[0] is not JsonObject logRow)
+        {
+            return (false, "No se encontró el grupo en resguardo.");
+        }
+
+        JsonObject? groupObj = null;
+        try
+        {
+            groupObj = JsonNode.Parse(logRow["details"]?.ToString() ?? "") as JsonObject;
+        }
+        catch { }
+
+        if (groupObj == null)
+        {
+            return (false, "Error al leer los datos del grupo en resguardo.");
+        }
+
+        var targetSiteObj = await GetSiteByIdAsync(targetSiteId);
+        if (targetSiteObj == null)
+        {
+            return (false, "El Site destino seleccionado no existe.");
+        }
+
+        string targetCompanyId = targetSiteObj["company_id"]?.ToString() ?? "";
+        string targetSiteName = targetSiteObj["name"]?.ToString() ?? "Site Destino";
+        string? cleanLocationOverride = !string.IsNullOrWhiteSpace(targetLocationOverride) ? targetLocationOverride.Trim() : null;
+
+        // 1. Ensure lines exist in target site
+        var existingTargetLines = await GetCatalogoLineasAsync(targetSiteId);
+        var existingLineNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var l in existingTargetLines)
+        {
+            if (l is JsonObject lObj && lObj["nombre_linea"] != null)
+            {
+                existingLineNames.Add(lObj["nombre_linea"]!.ToString().Trim());
+            }
+        }
+
+        if (!string.IsNullOrEmpty(cleanLocationOverride))
+        {
+            if (cleanLocationOverride.Contains("->"))
+            {
+                string parentArea = cleanLocationOverride.Split("->")[0].Trim();
+                if (!string.IsNullOrEmpty(parentArea) && existingLineNames.Add(parentArea))
+                {
+                    await InsertCatalogoLineaAsync(new { site_id = targetSiteId, company_id = targetCompanyId, nombre_linea = parentArea });
+                }
+            }
+            if (existingLineNames.Add(cleanLocationOverride))
+            {
+                await InsertCatalogoLineaAsync(new { site_id = targetSiteId, company_id = targetCompanyId, nombre_linea = cleanLocationOverride });
+            }
+        }
+        else if (groupObj["lines"] is JsonArray linesArr)
+        {
+            foreach (var lNode in linesArr)
+            {
+                string lName = lNode?.ToString()?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(lName) && existingLineNames.Add(lName))
+                {
+                    await InsertCatalogoLineaAsync(new { site_id = targetSiteId, company_id = targetCompanyId, nombre_linea = lName });
+                }
+            }
+        }
+
+        int restoredAssets = 0;
+        int restoredMeasurements = 0;
+        int restoredEquipment = 0;
+
+        // 2. Restore / reassign assets
+        if (groupObj["assets"] is JsonArray assetsArr)
+        {
+            foreach (var item in assetsArr)
+            {
+                if (item is JsonObject aObj)
+                {
+                    string aId = aObj["id"]?.ToString() ?? "";
+                    string finalLoc = !string.IsNullOrEmpty(cleanLocationOverride) ? cleanLocationOverride : (aObj["location"]?.ToString() ?? "General");
+
+                    // Ensure finalLoc exists in catalogo_lineas of target site
+                    if (!string.IsNullOrEmpty(finalLoc) && finalLoc != "N/A" && finalLoc != "General" && existingLineNames.Add(finalLoc))
+                    {
+                        await InsertCatalogoLineaAsync(new { site_id = targetSiteId, company_id = targetCompanyId, nombre_linea = finalLoc });
+                    }
+
+                    var existingAsset = !string.IsNullOrEmpty(aId) ? await GetAsync($"assets?id=eq.{aId}&select=id") : new JsonArray();
+                    if (existingAsset.Count > 0)
+                    {
+                        await UpdateAsync("assets", $"id=eq.{aId}", new { site_id = targetSiteId, location = finalLoc });
+                    }
+                    else
+                    {
+                        var clone = aObj.DeepClone() as JsonObject ?? new JsonObject();
+                        clone["site_id"] = targetSiteId;
+                        clone["location"] = finalLoc;
+                        await InsertAsync("assets", clone);
+                    }
+                    restoredAssets++;
+                }
+            }
+        }
+
+        // 3. Restore / reassign measurements
+        if (groupObj["measurements"] is JsonArray measArr)
+        {
+            foreach (var item in measArr)
+            {
+                if (item is JsonObject mObj)
+                {
+                    string mId = mObj["id"]?.ToString() ?? "";
+                    var edClone = (mObj["extra_data"] as JsonObject)?.DeepClone() as JsonObject ?? new JsonObject();
+                    if (!string.IsNullOrEmpty(cleanLocationOverride))
+                    {
+                        edClone["ubicacion"] = cleanLocationOverride;
+                    }
+
+                    var existingMeas = !string.IsNullOrEmpty(mId) ? await GetAsync($"measurements?id=eq.{mId}&select=id") : new JsonArray();
+                    if (existingMeas.Count > 0)
+                    {
+                        await UpdateAsync("measurements", $"id=eq.{mId}", new { site_id = targetSiteId, extra_data = edClone });
+                    }
+                    else
+                    {
+                        var clone = mObj.DeepClone() as JsonObject ?? new JsonObject();
+                        clone["site_id"] = targetSiteId;
+                        clone["extra_data"] = edClone;
+                        await InsertAsync("measurements", clone);
+                    }
+                    restoredMeasurements++;
+                }
+            }
+        }
+
+        // 4. Restore / reassign equipment
+        if (groupObj["equipment"] is JsonArray eqArr)
+        {
+            foreach (var item in eqArr)
+            {
+                if (item is JsonObject eqObj)
+                {
+                    string eqId = eqObj["id"]?.ToString() ?? "";
+                    var existingEq = !string.IsNullOrEmpty(eqId) ? await GetAsync($"catalogo_equipos?id=eq.{eqId}&select=id") : new JsonArray();
+                    if (existingEq.Count > 0)
+                    {
+                        await UpdateAsync("catalogo_equipos", $"id=eq.{eqId}", new { site_id = targetSiteId });
+                    }
+                    else
+                    {
+                        var clone = eqObj.DeepClone() as JsonObject ?? new JsonObject();
+                        clone["site_id"] = targetSiteId;
+                        await InsertAsync("catalogo_equipos", clone);
+                    }
+                    restoredEquipment++;
+                }
+            }
+        }
+
+        // 5. Restore EPA logs
+        await RestoreSnapshottedLogsAsync("grounding_logs", "location", groupObj["grounding_logs"] as JsonArray, targetSiteId, cleanLocationOverride);
+        await RestoreSnapshottedLogsAsync("floor_validation_logs", "room_name", groupObj["floor_logs"] as JsonArray, targetSiteId, cleanLocationOverride);
+        await RestoreSnapshottedLogsAsync("isolated_conductors_logs", "location", groupObj["isolated_logs"] as JsonArray, targetSiteId, cleanLocationOverride);
+        await RestoreSnapshottedLogsAsync("entrance_checkers_logs", "location", groupObj["checker_logs"] as JsonArray, targetSiteId, cleanLocationOverride);
+
+        // 6. Mark archive group as reassigned / remove from active archive
+        await DeleteAsync("app_logs", $"page=eq.archived_location_group&message=eq.{groupId}");
+
+        return (true, $"Grupo reasignado exitosamente a '{targetSiteName}' ({restoredAssets} activos, {restoredMeasurements} mediciones y {restoredEquipment} equipos restaurados).");
+    }
+
+    private async Task RestoreSnapshottedLogsAsync(string table, string locCol, JsonArray? arr, string targetSiteId, string? cleanLocationOverride)
+    {
+        if (arr == null) return;
+        foreach (var item in arr)
+        {
+            if (item is JsonObject obj)
+            {
+                string id = obj["id"]?.ToString() ?? "";
+                var existing = !string.IsNullOrEmpty(id) ? await GetAsync($"{table}?id=eq.{id}&select=id") : new JsonArray();
+                if (existing.Count > 0)
+                {
+                    var patch = new JsonObject { ["site_id"] = targetSiteId };
+                    if (!string.IsNullOrEmpty(cleanLocationOverride)) patch[locCol] = cleanLocationOverride;
+                    await UpdateAsync(table, $"id=eq.{id}", patch);
+                }
+                else
+                {
+                    var clone = obj.DeepClone() as JsonObject ?? new JsonObject();
+                    clone["site_id"] = targetSiteId;
+                    if (!string.IsNullOrEmpty(cleanLocationOverride)) clone[locCol] = cleanLocationOverride;
+                    await InsertAsync(table, clone);
+                }
+            }
+        }
+    }
+
+    public async Task<bool> DeleteArchivedLocationGroupPermanentlyAsync(string groupId)
+    {
+        if (string.IsNullOrWhiteSpace(groupId)) return false;
+
+        var logs = await GetAsync($"app_logs?page=eq.archived_location_group&message=eq.{groupId}&select=id,details&order=created_at.desc&limit=1");
+        if (logs.Count > 0 && logs[0] is JsonObject logRow)
+        {
+            try
+            {
+                var groupObj = JsonNode.Parse(logRow["details"]?.ToString() ?? "") as JsonObject;
+                if (groupObj != null)
+                {
+                    if (groupObj["measurements"] is JsonArray measArr)
+                    {
+                        foreach (var m in measArr)
+                        {
+                            if (m is JsonObject mObj && mObj["id"] != null) await DeleteAsync("measurements", $"id=eq.{mObj["id"]}");
+                        }
+                    }
+                    if (groupObj["assets"] is JsonArray assetsArr)
+                    {
+                        foreach (var a in assetsArr)
+                        {
+                            if (a is JsonObject aObj && aObj["id"] != null) await DeleteAsync("assets", $"id=eq.{aObj["id"]}");
+                        }
+                    }
+                    if (groupObj["equipment"] is JsonArray eqArr)
+                    {
+                        foreach (var eq in eqArr)
+                        {
+                            if (eq is JsonObject eqObj && eqObj["id"] != null) await DeleteAsync("catalogo_equipos", $"id=eq.{eqObj["id"]}");
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        return await DeleteAsync("app_logs", $"page=eq.archived_location_group&message=eq.{groupId}");
     }
 
     public async Task<bool> DeleteCompanyCascadeAsync(string companyId)
