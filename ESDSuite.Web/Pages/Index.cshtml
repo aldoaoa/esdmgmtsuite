@@ -91,7 +91,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.0</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.1</span>
                     </div>
                 </div>
             </div>
@@ -203,7 +203,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.0</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.1</span>
             </div>
         </div>
     </aside>
@@ -10732,17 +10732,25 @@
                 method: 'POST',
                 body: formData
             });
-            const data = await res.json();
-            if (data.success) {
-                alert('📸 Evidencia fotográfica subida correctamente.');
+            const resText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(resText);
+            } catch(pe) {
+                console.error('Non-JSON response from upload-evidence:', resText);
+                alert(`❌ Error del servidor al subir evidencia (${res.status})`);
+                return;
+            }
+            if (data && data.success) {
+                alert('📸 Evidencia fotográfica subida correctamente a Supabase.');
                 await openFindingModal(currentFinding.id);
                 loadFindingsModule();
             } else {
-                alert('❌ ' + (data.message || 'Error al subir la evidencia.'));
+                alert('❌ ' + (data && data.message ? data.message : 'Error al subir la evidencia.'));
             }
         } catch(e) {
             console.error('Error uploading evidence:', e);
-            alert('❌ Error al subir la imagen.');
+            alert('❌ Error al subir la imagen: ' + (e.message || e));
         }
     }
 
@@ -10758,10 +10766,16 @@
     }
 
     async function submitNewFinding() {
+        const titleVal = (document.getElementById('fnd-new-title')?.value || '').trim();
+        if (!titleVal) {
+            alert('⚠️ Por favor ingresa el título o descripción del hallazgo.');
+            return;
+        }
+
         const fileInput = document.getElementById('fnd-new-photo-file');
         let evidenceUrl = null;
 
-        if (fileInput.files && fileInput.files.length > 0) {
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
             try {
                 const formData = new FormData();
                 formData.append('file', fileInput.files[0]);
@@ -10770,8 +10784,18 @@
                 formData.append('type', 'open');
                 formData.append('evidence_type', 'open');
                 const upRes = await fetch('/api/findings/upload-evidence', { method: 'POST', body: formData });
-                const upData = await upRes.json();
-                if (upData.success) evidenceUrl = upData.url;
+                const upText = await upRes.text();
+                let upData;
+                try {
+                    upData = JSON.parse(upText);
+                } catch(pe) {
+                    console.warn('Non-JSON response from upload-evidence:', upText);
+                }
+                if (upData && upData.success) {
+                    evidenceUrl = upData.url;
+                } else if (upData && upData.message) {
+                    console.warn('Photo upload backend message:', upData.message);
+                }
             } catch(e) {
                 console.warn('Could not pre-upload photo:', e);
             }
@@ -10783,7 +10807,7 @@
         const containmentVal = document.getElementById('fnd-new-containment').value.trim();
 
         const payload = {
-            title: document.getElementById('fnd-new-title').value.trim(),
+            title: titleVal,
             normative_table: tableVal,
             reference_table: tableVal,
             severity: document.getElementById('fnd-new-severity').value,
@@ -10811,20 +10835,32 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (data.success) {
+            const resText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(resText);
+            } catch(pe) {
+                console.error('Non-JSON response from /api/findings:', resText);
+                alert(`❌ Error del servidor (${res.status}): ${resText.substring(0, 150)}`);
+                return;
+            }
+
+            if (data && data.success) {
                 const code = (data.finding && (data.finding.tracking_code || data.finding.tracker_code))
                     || (data.data && (data.data.tracking_code || data.data.tracker_code))
                     || '';
-                alert('✅ Hallazgo creado con éxito' + (code ? `: ${code}` : '.'));
+                alert('✅ Hallazgo creado con éxito en Supabase' + (code ? `: ${code}` : '.'));
                 closeNewFindingModal();
                 await loadFindingsModule();
+                if (typeof loadFindingsDashboard === 'function') {
+                    await loadFindingsDashboard();
+                }
             } else {
-                alert('❌ ' + (data.message || 'Error al crear el hallazgo.'));
+                alert('❌ ' + (data && data.message ? data.message : 'Error al crear el hallazgo en Supabase.'));
             }
         } catch(e) {
             console.error('Error creating manual finding:', e);
-            alert('❌ Error de conexión al crear el hallazgo.');
+            alert('❌ Error al procesar la solicitud: ' + (e.message || e));
         }
     }
 
@@ -11134,8 +11170,14 @@
                 formData.append('type', 'open');
                 formData.append('evidence_type', 'open');
                 const upRes = await fetch('/api/findings/upload-evidence', { method: 'POST', body: formData });
-                const upData = await upRes.json();
-                if (upData.success && upData.url) evidenceUrl = upData.url;
+                const upText = await upRes.text();
+                let upData;
+                try {
+                    upData = JSON.parse(upText);
+                } catch(pe) {
+                    console.warn('Non-JSON response from upload-evidence for lesson:', upText);
+                }
+                if (upData && upData.success && upData.url) evidenceUrl = upData.url;
             } catch(e) {
                 console.warn('Could not pre-upload photo:', e);
             }
@@ -11163,19 +11205,27 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (data.success) {
+            const resText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(resText);
+            } catch(pe) {
+                console.error('Non-JSON response from /api/lessons-learned:', resText);
+                alert(`❌ Error del servidor (${res.status}): ${resText.substring(0, 150)}`);
+                return;
+            }
+            if (data && data.success) {
                 const code = data.tracking_code || (data.lesson && (data.lesson.tracking_code || data.lesson.tracker_code)) || '';
                 alert('✅ Lección aprendida guardada exitosamente en Supabase' + (code ? `: ${code}` : '.'));
                 closeNewLessonModal();
                 await loadLessonsLearned();
                 if (typeof loadFindingsDashboard === 'function') loadFindingsDashboard();
             } else {
-                alert('❌ ' + (data.message || 'Error al guardar la lección aprendida.'));
+                alert('❌ ' + (data && data.message ? data.message : 'Error al guardar la lección aprendida.'));
             }
         } catch(err) {
             console.error('Error saving manual lesson learned:', err);
-            alert('❌ Error de comunicación al registrar la lección aprendida.');
+            alert('❌ Error al registrar la lección aprendida: ' + (err.message || err));
         }
     }
 

@@ -3298,7 +3298,24 @@ public class ApiController : ControllerBase
             return File(stream, contentType ?? "image/jpeg");
         }
 
-        // 3. Check Supabase Storage bucket 'audit-evidence' at {fileName} directly
+        // 3. Check Supabase Storage bucket 'audit-evidence' at {fileName} directly or in findings subfolder
+        int curYear = DateTime.UtcNow.Year;
+        var (fndSuccess, fndStream, fndCt, _) = await _supabase.DownloadStorageObjectAsync("audit-evidence", $"findings/{curYear}/{fileName}");
+        if (fndSuccess && fndStream != null)
+        {
+            return File(fndStream, fndCt ?? "image/jpeg");
+        }
+        var (fndPrevSuccess, fndPrevStream, fndPrevCt, _) = await _supabase.DownloadStorageObjectAsync("audit-evidence", $"findings/{curYear - 1}/{fileName}");
+        if (fndPrevSuccess && fndPrevStream != null)
+        {
+            return File(fndPrevStream, fndPrevCt ?? "image/jpeg");
+        }
+        var (fndDirectSuccess, fndDirectStream, fndDirectCt, _) = await _supabase.DownloadStorageObjectAsync("audit-evidence", $"findings/{fileName}");
+        if (fndDirectSuccess && fndDirectStream != null)
+        {
+            return File(fndDirectStream, fndDirectCt ?? "image/jpeg");
+        }
+
         var (successDirect, streamDirect, ctDirect, _) = await _supabase.DownloadStorageObjectAsync("audit-evidence", fileName);
         if (successDirect && streamDirect != null)
         {
@@ -5115,92 +5132,110 @@ public class ApiController : ControllerBase
     [HttpPost("findings")]
     public async Task<IActionResult> CreateFinding([FromBody] JsonObject payload)
     {
-        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
-        string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
-        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
-
-        string title = payload["title"]?.ToString() ?? "Hallazgo de Auditoría";
-        string elementId = payload["element_id"]?.ToString() ?? "";
-        string category = payload["category"]?.ToString() ?? "General";
-        string normTable = payload["normative_table"]?.ToString() 
-            ?? payload["reference_table"]?.ToString() 
-            ?? "Tabla 2: Superficies de Trabajo / Mobiliario";
-        string location = payload["location"]?.ToString() ?? "N/A";
-        string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
-        string measuredVal = payload["measured_value"]?.ToString() ?? "Fuera de rango";
-        string reqLimit = payload["required_limit"]?.ToString() 
-            ?? payload["limit_applied"]?.ToString() 
-            ?? payload["limit"]?.ToString() 
-            ?? "Conforme a norma";
-        string severity = payload["severity"]?.ToString() ?? "MAJOR";
-        string desc = payload["description"]?.ToString() ?? "";
-        string assignee = payload["assignee_name"]?.ToString() 
-            ?? payload["assigned_to"]?.ToString() 
-            ?? "Sin Asignar";
-        string dueDate = payload["due_date"]?.ToString() ?? DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd");
-        string containment = payload["containment_action"]?.ToString() 
-            ?? payload["immediate_containment"]?.ToString() 
-            ?? "";
-        string openEvidence = payload["evidence_open_url"]?.ToString() ?? "";
-
-        string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite);
-        var finding = new JsonObject
+        try
         {
-            ["id"] = Guid.NewGuid().ToString(),
-            ["tracking_code"] = code,
-            ["tracker_code"] = code,
-            ["site_id"] = targetSite,
-            ["source_module"] = payload["source_module"]?.ToString() ?? "Levantamiento Manual",
-            ["title"] = title,
-            ["category"] = category,
-            ["normative_table"] = normTable,
-            ["reference_table"] = normTable,
-            ["element_id"] = elementId,
-            ["area"] = area,
-            ["location"] = location,
-            ["measured_value"] = measuredVal,
-            ["required_limit"] = reqLimit,
-            ["limit_applied"] = reqLimit,
-            ["severity"] = severity,
-            ["status"] = "OPEN",
-            ["auditor_id"] = currentUserId,
-            ["auditor_name"] = currentUserName,
-            ["opened_by"] = currentUserName,
-            ["assignee_name"] = assignee,
-            ["assigned_to"] = assignee,
-            ["opened_at"] = DateTime.UtcNow.ToString("o"),
-            ["created_at"] = DateTime.UtcNow.ToString("o"),
-            ["due_date"] = dueDate,
-            ["description"] = desc,
-            ["containment_action"] = containment,
-            ["immediate_containment"] = containment,
-            ["evidence_open_url"] = openEvidence,
-            ["timeline"] = new JsonArray
+            if (payload == null)
             {
-                new JsonObject
-                {
-                    ["timestamp"] = DateTime.UtcNow.ToString("o"),
-                    ["user"] = currentUserName,
-                    ["action"] = "Apertura de Hallazgo",
-                    ["notes"] = $"Hallazgo {code} levantado manualmente por {currentUserName}."
-                }
+                return BadRequest(new { success = false, message = "El contenido del hallazgo es obligatorio." });
             }
-        };
 
-        var (success, saved, error) = await _findingsStorage.SaveFindingAsync(finding);
-        if (!success)
-        {
-            return StatusCode(500, new { 
-                success = false, 
-                message = "Error al persistir el hallazgo en Supabase: " + (error ?? "Fallo de comunicación o esquema."),
-                error = error 
-            });
+            string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+            string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+            string targetSite = payload["site_id"]?.ToString()?.Trim() ?? "";
+            if (string.IsNullOrEmpty(targetSite)) targetSite = CurrentUserSiteId;
+
+            string title = payload["title"]?.ToString()?.Trim() ?? "Hallazgo de Auditoría";
+            string elementId = payload["element_id"]?.ToString()?.Trim() ?? "";
+            string category = payload["category"]?.ToString()?.Trim() ?? "General";
+            string normTable = payload["normative_table"]?.ToString()?.Trim() 
+                ?? payload["reference_table"]?.ToString()?.Trim() 
+                ?? "Tabla 2: Superficies de Trabajo / Mobiliario";
+            string location = payload["location"]?.ToString()?.Trim() ?? "N/A";
+            string area = payload["area"]?.ToString()?.Trim() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
+            string measuredVal = payload["measured_value"]?.ToString()?.Trim() ?? "Fuera de rango";
+            string reqLimit = payload["required_limit"]?.ToString()?.Trim() 
+                ?? payload["limit_applied"]?.ToString()?.Trim() 
+                ?? payload["limit"]?.ToString()?.Trim() 
+                ?? "Conforme a norma";
+            string severity = payload["severity"]?.ToString()?.Trim() ?? "MAJOR";
+            string desc = payload["description"]?.ToString()?.Trim() ?? "";
+            string assignee = payload["assignee_name"]?.ToString()?.Trim() 
+                ?? payload["assigned_to"]?.ToString()?.Trim() 
+                ?? "Sin Asignar";
+            string dueDate = payload["due_date"]?.ToString()?.Trim() ?? DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd");
+            string containment = payload["containment_action"]?.ToString()?.Trim() 
+                ?? payload["immediate_containment"]?.ToString()?.Trim() 
+                ?? "";
+            string openEvidence = payload["evidence_open_url"]?.ToString()?.Trim() ?? "";
+
+            string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite);
+            var finding = new JsonObject
+            {
+                ["id"] = Guid.NewGuid().ToString(),
+                ["tracking_code"] = code,
+                ["tracker_code"] = code,
+                ["site_id"] = targetSite,
+                ["source_module"] = payload["source_module"]?.ToString() ?? "Levantamiento Manual",
+                ["title"] = title,
+                ["category"] = category,
+                ["normative_table"] = normTable,
+                ["reference_table"] = normTable,
+                ["element_id"] = elementId,
+                ["area"] = area,
+                ["location"] = location,
+                ["measured_value"] = measuredVal,
+                ["required_limit"] = reqLimit,
+                ["limit_applied"] = reqLimit,
+                ["severity"] = severity,
+                ["status"] = "OPEN",
+                ["auditor_id"] = currentUserId,
+                ["auditor_name"] = currentUserName,
+                ["opened_by"] = currentUserName,
+                ["assignee_name"] = assignee,
+                ["assigned_to"] = assignee,
+                ["opened_at"] = DateTime.UtcNow.ToString("o"),
+                ["created_at"] = DateTime.UtcNow.ToString("o"),
+                ["due_date"] = dueDate,
+                ["description"] = desc,
+                ["containment_action"] = containment,
+                ["immediate_containment"] = containment,
+                ["evidence_open_url"] = openEvidence,
+                ["timeline"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["timestamp"] = DateTime.UtcNow.ToString("o"),
+                        ["user"] = currentUserName,
+                        ["action"] = "Apertura de Hallazgo",
+                        ["notes"] = $"Hallazgo {code} levantado manualmente por {currentUserName}."
+                    }
+                }
+            };
+
+            var (success, saved, error) = await _findingsStorage.SaveFindingAsync(finding);
+            if (!success)
+            {
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Error al persistir el hallazgo en Supabase: " + (error ?? "Fallo de comunicación o esquema."),
+                    error = error 
+                });
+            }
+
+            try
+            {
+                await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "Findings",
+                    $"Nuevo hallazgo '{code}' para equipo '{elementId}'", new { trackingCode = code, severity, elementId });
+            }
+            catch { }
+
+            return Ok(new { success = true, data = saved, finding = saved, message = $"Hallazgo '{code}' registrado exitosamente." });
         }
-
-        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "Findings",
-            $"Nuevo hallazgo '{code}' para equipo '{elementId}'", new { trackingCode = code, severity, elementId });
-
-        return Ok(new { success = true, data = saved, finding = saved, message = $"Hallazgo '{code}' registrado exitosamente." });
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CreateFinding Exception]: {ex.Message}");
+            return StatusCode(500, new { success = false, message = "Error en el servidor al registrar el hallazgo: " + ex.Message });
+        }
     }
 
     [HttpPut("findings/{id}")]
@@ -5361,24 +5396,32 @@ public class ApiController : ControllerBase
             byte[] fileBytes = ms.ToArray();
 
             int year = DateTime.UtcNow.Year;
-            string fileName = $"ev_{type}_{Guid.NewGuid()}{ext}";
+            string fileName = $"ev_{type}_{Guid.NewGuid():N}{ext}";
+            string storagePath = $"findings/{year}/{fileName}";
 
-            // 1. Subir directamente a Supabase Storage ('evidence' o 'audit-evidence')
-            string? publicUrl = await _supabase.UploadStorageFileAsync("evidence", $"findings/{year}/{fileName}", fileBytes, contentType);
-            if (string.IsNullOrEmpty(publicUrl))
+            // 1. Subir directamente a Supabase Storage bucket 'audit-evidence'
+            var (uploadOk, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, fileBytes, contentType);
+            string evidenceUrl = "";
+
+            if (uploadOk)
             {
-                publicUrl = await _supabase.UploadStorageFileAsync("audit-evidence", $"findings/{year}/{fileName}", fileBytes, contentType);
+                evidenceUrl = $"/api/evidence/{fileName}";
+            }
+            else
+            {
+                string? sUrl = await _supabase.UploadStorageFileAsync("audit-evidence", storagePath, fileBytes, contentType);
+                if (!string.IsNullOrEmpty(sUrl))
+                {
+                    evidenceUrl = sUrl;
+                }
+                else
+                {
+                    string base64 = Convert.ToBase64String(fileBytes);
+                    evidenceUrl = $"data:{contentType};base64,{base64}";
+                }
             }
 
-            // 2. Si el bucket no está disponible en Supabase, almacenar como Data URI (Base64)
-            // de modo que la evidencia persista 100% en Supabase y NUNCA en disco local.
-            if (string.IsNullOrEmpty(publicUrl))
-            {
-                string base64 = Convert.ToBase64String(fileBytes);
-                publicUrl = $"data:{contentType};base64,{base64}";
-            }
-
-            return Ok(new { success = true, url = publicUrl, message = "Evidencia guardada exitosamente en Supabase." });
+            return Ok(new { success = true, url = evidenceUrl, evidence_url = evidenceUrl, message = "Evidencia procesada exitosamente." });
         }
         catch (Exception ex)
         {
@@ -5406,109 +5449,127 @@ public class ApiController : ControllerBase
     [HttpPost("lessons-learned")]
     public async Task<IActionResult> CreateManualLessonLearned([FromBody] JsonObject payload)
     {
-        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
-        string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
-        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
-
-        string title = payload["title"]?.ToString()?.Trim() ?? "Lección Aprendida";
-        string lesson = payload["lessons_learned"]?.ToString()?.Trim() 
-            ?? payload["lesson"]?.ToString()?.Trim() 
-            ?? "";
-        if (string.IsNullOrWhiteSpace(lesson))
+        try
         {
-            return BadRequest(new { success = false, message = "El contenido de la lección aprendida es obligatorio." });
-        }
-
-        string rootCause = payload["root_cause"]?.ToString()?.Trim() ?? "Causa analizada en mejora continua";
-        string corrective = payload["corrective_action"]?.ToString()?.Trim() ?? "Acción preventiva implementada";
-        string preventive = payload["preventive_action"]?.ToString()?.Trim() ?? "";
-        string category = payload["category"]?.ToString()?.Trim() ?? "General";
-        string normativeTable = payload["normative_table"]?.ToString()?.Trim() ?? "Buenas Prácticas ANSI/ESD S20.20";
-        string elementId = payload["element_id"]?.ToString()?.Trim() ?? "";
-        string location = payload["location"]?.ToString()?.Trim() ?? "Planta";
-        string area = payload["area"]?.ToString()?.Trim() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
-        string author = payload["author"]?.ToString()?.Trim() 
-            ?? payload["assigned_to"]?.ToString()?.Trim() 
-            ?? payload["assignee_name"]?.ToString()?.Trim() 
-            ?? currentUserName;
-        string evidenceUrl = payload["evidence_url"]?.ToString() 
-            ?? payload["evidence_open_url"]?.ToString() 
-            ?? "";
-        string desc = payload["description"]?.ToString()?.Trim() ?? "";
-
-        string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite, "LRN");
-        string nowIso = DateTime.UtcNow.ToString("o");
-
-        var finding = new JsonObject
-        {
-            ["id"] = Guid.NewGuid().ToString(),
-            ["tracking_code"] = code,
-            ["tracker_code"] = code,
-            ["site_id"] = targetSite,
-            ["source_module"] = "Lección Aprendida Manual",
-            ["title"] = title,
-            ["category"] = category,
-            ["normative_table"] = normativeTable,
-            ["reference_table"] = normativeTable,
-            ["element_id"] = elementId,
-            ["area"] = area,
-            ["location"] = location,
-            ["measured_value"] = "Mejora Continua",
-            ["required_limit"] = "Estándar S20.20",
-            ["limit_applied"] = "Estándar S20.20",
-            ["severity"] = "MINOR",
-            ["status"] = "CLOSED",
-            ["auditor_id"] = currentUserId,
-            ["auditor_name"] = author,
-            ["opened_by"] = author,
-            ["assignee_name"] = author,
-            ["assigned_to"] = author,
-            ["closed_by"] = author,
-            ["closed_by_name"] = author,
-            ["opened_at"] = nowIso,
-            ["created_at"] = nowIso,
-            ["closed_at"] = nowIso,
-            ["due_date"] = nowIso,
-            ["description"] = desc,
-            ["containment_action"] = "N/A - Registro Proactivo",
-            ["root_cause"] = rootCause,
-            ["corrective_action"] = corrective,
-            ["preventive_action"] = preventive,
-            ["lessons_learned"] = lesson,
-            ["evidence_open_url"] = evidenceUrl,
-            ["evidence_close_url"] = evidenceUrl,
-            ["timeline"] = new JsonArray
+            if (payload == null)
             {
-                new JsonObject
-                {
-                    ["timestamp"] = nowIso,
-                    ["user"] = currentUserName,
-                    ["action"] = "Registro Manual de Lección Aprendida",
-                    ["notes"] = $"Lección aprendida '{code}' documentada por {currentUserName} para capitalización del conocimiento."
-                }
+                return BadRequest(new { success = false, message = "El contenido de la lección aprendida es obligatorio." });
             }
-        };
 
-        var (success, saved, error) = await _findingsStorage.SaveFindingAsync(finding);
-        if (!success)
-        {
-            return StatusCode(500, new { 
-                success = false, 
-                message = "Error al persistir la lección aprendida en Supabase: " + (error ?? "Fallo de comunicación"),
-                error = error 
+            string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+            string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+            string targetSite = payload["site_id"]?.ToString()?.Trim() ?? "";
+            if (string.IsNullOrEmpty(targetSite)) targetSite = CurrentUserSiteId;
+
+            string title = payload["title"]?.ToString()?.Trim() ?? "Lección Aprendida";
+            string lesson = payload["lessons_learned"]?.ToString()?.Trim() 
+                ?? payload["lesson"]?.ToString()?.Trim() 
+                ?? "";
+            if (string.IsNullOrWhiteSpace(lesson))
+            {
+                return BadRequest(new { success = false, message = "El contenido de la lección aprendida es obligatorio." });
+            }
+
+            string rootCause = payload["root_cause"]?.ToString()?.Trim() ?? "Causa analizada en mejora continua";
+            string corrective = payload["corrective_action"]?.ToString()?.Trim() ?? "Acción preventiva implementada";
+            string preventive = payload["preventive_action"]?.ToString()?.Trim() ?? "";
+            string category = payload["category"]?.ToString()?.Trim() ?? "General";
+            string normativeTable = payload["normative_table"]?.ToString()?.Trim() ?? "Buenas Prácticas ANSI/ESD S20.20";
+            string elementId = payload["element_id"]?.ToString()?.Trim() ?? "";
+            string location = payload["location"]?.ToString()?.Trim() ?? "Planta";
+            string area = payload["area"]?.ToString()?.Trim() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
+            string author = payload["author"]?.ToString()?.Trim() 
+                ?? payload["assigned_to"]?.ToString()?.Trim() 
+                ?? payload["assignee_name"]?.ToString()?.Trim() 
+                ?? currentUserName;
+            string evidenceUrl = payload["evidence_url"]?.ToString() 
+                ?? payload["evidence_open_url"]?.ToString() 
+                ?? "";
+            string desc = payload["description"]?.ToString()?.Trim() ?? "";
+
+            string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite, "LRN");
+            string nowIso = DateTime.UtcNow.ToString("o");
+
+            var finding = new JsonObject
+            {
+                ["id"] = Guid.NewGuid().ToString(),
+                ["tracking_code"] = code,
+                ["tracker_code"] = code,
+                ["site_id"] = targetSite,
+                ["source_module"] = "Lección Aprendida Manual",
+                ["title"] = title,
+                ["category"] = category,
+                ["normative_table"] = normativeTable,
+                ["reference_table"] = normativeTable,
+                ["element_id"] = elementId,
+                ["area"] = area,
+                ["location"] = location,
+                ["measured_value"] = "Mejora Continua",
+                ["required_limit"] = "Estándar S20.20",
+                ["limit_applied"] = "Estándar S20.20",
+                ["severity"] = "MINOR",
+                ["status"] = "CLOSED",
+                ["auditor_id"] = currentUserId,
+                ["auditor_name"] = author,
+                ["opened_by"] = author,
+                ["assignee_name"] = author,
+                ["assigned_to"] = author,
+                ["closed_by"] = author,
+                ["closed_by_name"] = author,
+                ["opened_at"] = nowIso,
+                ["created_at"] = nowIso,
+                ["closed_at"] = nowIso,
+                ["due_date"] = nowIso,
+                ["description"] = desc,
+                ["containment_action"] = "N/A - Registro Proactivo",
+                ["root_cause"] = rootCause,
+                ["corrective_action"] = corrective,
+                ["preventive_action"] = preventive,
+                ["lessons_learned"] = lesson,
+                ["evidence_open_url"] = evidenceUrl,
+                ["evidence_close_url"] = evidenceUrl,
+                ["timeline"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["timestamp"] = nowIso,
+                        ["user"] = currentUserName,
+                        ["action"] = "Registro Manual de Lección Aprendida",
+                        ["notes"] = $"Lección aprendida '{code}' documentada por {currentUserName} para capitalización del conocimiento."
+                    }
+                }
+            };
+
+            var (success, saved, error) = await _findingsStorage.SaveFindingAsync(finding);
+            if (!success)
+            {
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Error al persistir la lección aprendida en Supabase: " + (error ?? "Fallo de comunicación"),
+                    error = error 
+                });
+            }
+
+            try
+            {
+                await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "LessonsLearned",
+                    $"Nueva lección aprendida '{code}': {title}", new { trackingCode = code, category, author });
+            }
+            catch { }
+
+            return Ok(new { 
+                success = true, 
+                data = saved, 
+                lesson = saved, 
+                tracking_code = code,
+                message = $"Lección aprendida '{code}' guardada exitosamente en Supabase." 
             });
         }
-
-        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "LessonsLearned",
-            $"Nueva lección aprendida '{code}': {title}", new { trackingCode = code, category, author });
-
-        return Ok(new { 
-            success = true, 
-            data = saved, 
-            lesson = saved, 
-            tracking_code = code,
-            message = $"Lección aprendida '{code}' guardada exitosamente en Supabase." 
-        });
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CreateManualLessonLearned Exception]: {ex.Message}");
+            return StatusCode(500, new { success = false, message = "Error en el servidor al registrar la lección: " + ex.Message });
+        }
     }
 }
 

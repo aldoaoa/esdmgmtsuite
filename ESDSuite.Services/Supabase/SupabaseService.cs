@@ -590,9 +590,9 @@ public class SupabaseService
                 Content = new ByteArrayContent(bytes)
             };
             request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-            request.Headers.Add("apikey", _config.Key);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
-            request.Headers.Add("x-upsert", "true");
+            if (!request.Headers.Contains("apikey")) request.Headers.Add("apikey", _config.Key);
+            if (request.Headers.Authorization == null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.Key);
+            if (!request.Headers.Contains("x-upsert")) request.Headers.Add("x-upsert", "true");
 
             var response = await _http.SendAsync(request);
             if (response.IsSuccessStatusCode)
