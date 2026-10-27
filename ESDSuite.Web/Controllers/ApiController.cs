@@ -1700,55 +1700,63 @@ public class ApiController : ControllerBase
     [HttpPost("inventory/assets")]
     public async Task<IActionResult> AddAsset([FromBody] JsonObject payload)
     {
-        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
-        if (string.IsNullOrEmpty(currentUserId))
+        try
         {
-            return Unauthorized(new { success = false, message = "Sesión no válida." });
+            string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                return Unauthorized(new { success = false, message = "Sesión no válida." });
+            }
+
+            string customId = payload["custom_id"]?.ToString().Trim() ?? "";
+            if (string.IsNullOrEmpty(customId))
+            {
+                return BadRequest(new { success = false, message = "El ID / Código del activo es obligatorio." });
+            }
+
+            string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+            string category = payload["category"]?.ToString() ?? "Mobiliario ESD";
+            string subtype = payload["subtype"]?.ToString() ?? payload["sub_category"]?.ToString() ?? category;
+            string name = payload["name"]?.ToString() ?? customId;
+            string location = payload["location"]?.ToString() ?? "N/A";
+            string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "General");
+            string periodicity = payload["periodicity"]?.ToString() ?? "1m";
+            string notes = payload["notes"]?.ToString() ?? "";
+            string createdAt = payload["created_at"]?.ToString() ?? DateTime.UtcNow.ToString("o");
+
+            JsonObject classObj = new JsonObject
+            {
+                ["name"] = name,
+                ["subtype"] = subtype,
+                ["area"] = area,
+                ["periodicity"] = periodicity,
+                ["notes"] = notes
+            };
+
+            var insertPayload = new JsonObject
+            {
+                ["site_id"] = targetSite,
+                ["custom_id"] = customId,
+                ["category"] = category,
+                ["classification"] = classObj.ToJsonString(),
+                ["location"] = location,
+                ["status"] = "ACTIVE",
+                ["created_at"] = createdAt
+            };
+
+            var result = await _supabase.InsertAssetAsync(insertPayload);
+
+            await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
+                $"Alta de nuevo activo '{customId}' ({name}) en ubicación '{location}' con periodicidad '{periodicity}'.",
+                new { customId, name, category, subtype, location, area, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+            return Ok(new { success = result != null, data = result });
         }
-
-        string customId = payload["custom_id"]?.ToString().Trim() ?? "";
-        if (string.IsNullOrEmpty(customId))
+        catch (Exception ex)
         {
-            return BadRequest(new { success = false, message = "El ID / Código del activo es obligatorio." });
+            Console.WriteLine($"[AddAsset EXCEPTION]: {ex}");
+            return StatusCode(500, new { success = false, message = ex.Message, stack = ex.ToString() });
         }
-
-        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
-        string category = payload["category"]?.ToString() ?? "Mobiliario ESD";
-        string subtype = payload["subtype"]?.ToString() ?? payload["sub_category"]?.ToString() ?? category;
-        string name = payload["name"]?.ToString() ?? customId;
-        string location = payload["location"]?.ToString() ?? "N/A";
-        string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "General");
-        string periodicity = payload["periodicity"]?.ToString() ?? "1m";
-        string notes = payload["notes"]?.ToString() ?? "";
-        string createdAt = payload["created_at"]?.ToString() ?? DateTime.UtcNow.ToString("o");
-
-        JsonObject classObj = new JsonObject
-        {
-            ["name"] = name,
-            ["subtype"] = subtype,
-            ["area"] = area,
-            ["periodicity"] = periodicity,
-            ["notes"] = notes
-        };
-
-        var insertPayload = new JsonObject
-        {
-            ["site_id"] = targetSite,
-            ["custom_id"] = customId,
-            ["category"] = category,
-            ["classification"] = classObj.ToJsonString(),
-            ["location"] = location,
-            ["status"] = "ACTIVE",
-            ["created_at"] = createdAt
-        };
-
-        var result = await _supabase.InsertAssetAsync(insertPayload);
-
-        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
-            $"Alta de nuevo activo '{customId}' ({name}) en ubicación '{location}' con periodicidad '{periodicity}'.",
-            new { customId, name, category, subtype, location, area, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
-
-        return Ok(new { success = result != null, data = result });
     }
 
     [HttpPut("inventory/assets/{id}")]
