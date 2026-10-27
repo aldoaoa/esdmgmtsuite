@@ -8,9 +8,6 @@ services:
     restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      # Aquí inyectas las variables de entorno para tu backend
-      - SUPABASE_URL=tu_url_de_supabase
-      - SUPABASE_KEY=tu_anon_key_o_service_role
     expose:
       - "8080" # El puerto interno que expone el Dockerfile
 

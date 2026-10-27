@@ -1,5 +1,5 @@
 # Etapa de compilación
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
 
 # 1. Copiar el archivo de solución
@@ -10,8 +10,8 @@ COPY ESDSuite.Core/ESDSuite.Core.csproj ./ESDSuite.Core/
 COPY ESDSuite.Services/ESDSuite.Services.csproj ./ESDSuite.Services/
 COPY ESDSuite.Web/ESDSuite.Web.csproj ./ESDSuite.Web/
 
-# 3. Restaurar las dependencias de toda la solución
-RUN dotnet restore ESDSuite.slnx
+# 3. Restaurar las dependencias del proyecto web y sus referencias
+RUN dotnet restore ESDSuite.Web/ESDSuite.Web.csproj
 
 # 4. Copiar el resto del código fuente
 COPY . ./
@@ -21,7 +21,7 @@ WORKDIR /app/ESDSuite.Web
 RUN dotnet publish ESDSuite.Web.csproj -c Release -o /app/out
 
 # Etapa de ejecución
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 
 # Copiar los archivos compilados de la etapa anterior

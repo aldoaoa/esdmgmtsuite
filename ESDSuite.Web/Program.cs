@@ -19,13 +19,15 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
-var supabaseUrl = builder.Configuration["Supabase:Url"] 
-    ?? Environment.GetEnvironmentVariable("SUPABASE_URL") 
-    ?? "https://yukhljzgstlechfsweul.supabase.co";
+var rawUrl = builder.Configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
+var supabaseUrl = (!string.IsNullOrWhiteSpace(rawUrl) && rawUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+    ? rawUrl
+    : "https://yukhljzgstlechfsweul.supabase.co";
 
-var supabaseKey = builder.Configuration["Supabase:Key"] 
-    ?? Environment.GetEnvironmentVariable("SUPABASE_KEY") 
-    ?? ("sb_secret_" + "bJkFGLcnjtgZeEGW9mZtww_P2aVFb8Y");
+var rawKey = builder.Configuration["Supabase:Key"] ?? Environment.GetEnvironmentVariable("SUPABASE_KEY");
+var supabaseKey = (!string.IsNullOrWhiteSpace(rawKey) && !rawKey.Contains("tu_anon_key") && !rawKey.Contains("YOUR_SUPABASE"))
+    ? rawKey
+    : ("sb_secret_" + "bJkFGLcnjtgZeEGW9mZtww_P2aVFb8Y");
 
 var supabaseConfig = new SupabaseConfig
 {
