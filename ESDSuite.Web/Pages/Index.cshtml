@@ -1565,17 +1565,39 @@
 
                     <!-- SUBTAB 3: LESSONS LEARNED REPOSITORY -->
                     <div id="fnd-subtab-lessons" style="display:none;">
-                        <div class="glass-card" style="background:#FFFFFF; padding:14px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div class="glass-card" style="background:#FFFFFF; padding:14px 18px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                             <div>
                                 <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
                                     <span>💡</span> <span data-i18n="findings.lessons_title">Banco de Lecciones Aprendidas &amp; Mejora Continua</span>
                                 </h4>
                                 <p style="margin:0; font-size:12px; color:var(--text-muted);" data-i18n="findings.lessons_sub">
-                                    Historial consolidado de causas raíz resueltas y acciones correctivas efectivas validadas en auditorías
+                                    Historial consolidado de causas raíz resueltas, buenas prácticas y acciones preventivas validadas
                                 </p>
                             </div>
-                            <div style="width:280px;">
-                                <input type="text" id="fnd-lessons-search" class="form-control" placeholder="🔍 Buscar lección aprendida o causa..." oninput="filterLessonsLearned()" style="font-size:12px; height:34px;" />
+                            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                <div style="width:250px;">
+                                    <input type="text" id="fnd-lessons-search" class="form-control" placeholder="🔍 Buscar lección o causa..." oninput="filterLessonsLearned()" style="font-size:12px; height:34px;" />
+                                </div>
+                                <button type="button" class="btn-primary" onclick="openNewLessonModal()" style="display:flex; align-items:center; gap:6px; background:#7C3AED; border-color:#6D28D9; font-weight:700; font-size:12px; padding:7px 15px; border-radius:6px; white-space:nowrap; box-shadow:0 2px 4px rgba(124,58,237,0.2);">
+                                    <span>💡</span>
+                                    <span>+ Nueva Lección Aprendida</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- STATS SUMMARY BAR -->
+                        <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                            <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:8px; padding:6px 12px; font-size:11.5px; display:flex; align-items:center; gap:6px;">
+                                <span style="color:var(--text-muted);">Total Lecciones:</span>
+                                <strong id="fnd-lessons-count-total" style="font-size:12.5px; color:#2563EB;">0</strong>
+                            </div>
+                            <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:8px; padding:6px 12px; font-size:11.5px; display:flex; align-items:center; gap:6px;">
+                                <span style="color:var(--text-muted);">✍️ Registros Manuales:</span>
+                                <strong id="fnd-lessons-count-manual" style="font-size:12.5px; color:#7C3AED;">0</strong>
+                            </div>
+                            <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:8px; padding:6px 12px; font-size:11.5px; display:flex; align-items:center; gap:6px;">
+                                <span style="color:var(--text-muted);">🔍 De Auditorías:</span>
+                                <strong id="fnd-lessons-count-audit" style="font-size:12.5px; color:#059669;">0</strong>
                             </div>
                         </div>
 
@@ -10951,11 +10973,25 @@
             if (!res.ok) return;
             const data = await res.json();
             const m = (data && (data.metrics || data.data)) ? (data.metrics || data.data) : data;
-            if (m && m.lessons_learned && Array.isArray(m.lessons_learned) && m.lessons_learned.length > 0) {
-                allLessonsLearned = m.lessons_learned;
+            
+            const rawLessons = (m && (m.lessons_learned || m.lessonsLearned)) ? (m.lessons_learned || m.lessonsLearned) : [];
+            allLessonsLearned = Array.isArray(rawLessons) ? rawLessons : [];
+
+            const totalCount = (m && m.totalLessonsCount !== undefined) ? m.totalLessonsCount : allLessonsLearned.length;
+            const manualCount = (m && m.manualLessonsCount !== undefined) ? m.manualLessonsCount : allLessonsLearned.filter(x => x.is_manual || x.source_module === 'Lección Aprendida Manual' || (x.tracker_code && x.tracker_code.startsWith('LRN'))).length;
+            const auditCount = (m && m.auditLessonsCount !== undefined) ? m.auditLessonsCount : Math.max(0, totalCount - manualCount);
+
+            const elTotal = document.getElementById('fnd-lessons-count-total');
+            if (elTotal) elTotal.textContent = totalCount;
+            const elManual = document.getElementById('fnd-lessons-count-manual');
+            if (elManual) elManual.textContent = manualCount;
+            const elAudit = document.getElementById('fnd-lessons-count-audit');
+            if (elAudit) elAudit.textContent = auditCount;
+
+            if (allLessonsLearned.length > 0) {
                 renderLessonsLearned(allLessonsLearned);
             } else {
-                container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:30px;">Aún no se han documentado lecciones aprendidas en los hallazgos cerrados.</p>`;
+                container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:30px;">Aún no se han documentado lecciones aprendidas ni de forma manual ni en hallazgos cerrados.</p>`;
             }
         } catch(e) {
             console.error('Error loading lessons learned:', e);
@@ -10970,37 +11006,69 @@
             return;
         }
 
+        const canDelete = typeof isUserCompanyAdminOrSuper === 'function' ? isUserCompanyAdminOrSuper() : false;
         let html = '';
         lessons.forEach(item => {
+            const code = item.tracker_code || item.tracking_code || 'LRN';
+            const isManual = item.is_manual || item.source_module === 'Lección Aprendida Manual' || code.startsWith('LRN');
+            const originBadge = isManual
+                ? `<span style="background:#F5F3FF; color:#7C3AED; border:1px solid #DDD6FE; padding:3px 9px; border-radius:12px; font-size:11px; font-weight:800; display:inline-flex; align-items:center; gap:5px;"><span style="font-size:12px;">✍️</span> Registro Manual</span>`
+                : `<span style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; padding:3px 9px; border-radius:12px; font-size:11px; font-weight:800; display:inline-flex; align-items:center; gap:5px;"><span style="font-size:12px;">🔍</span> Derivada de Auditoría</span>`;
+            
+            const categoryBadge = item.category ? `<span style="background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600;">📁 ${escapeHtml(item.category)}</span>` : '';
+            const normativeBadge = item.normative_table ? `<span style="background:#F0FDF4; color:#15803D; border:1px solid #BBF7D0; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600;">📋 ${escapeHtml(item.normative_table)}</span>` : '';
+            const elementBadge = item.element_id ? `<span style="background:#FFFBEB; color:#B45309; border:1px solid #FDE68A; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600;">⚡ ${escapeHtml(item.element_id)}</span>` : '';
+
+            const photoHtml = item.evidence_url ? `
+                <div style="margin-top:10px; display:inline-flex; align-items:center; gap:8px; background:#F8FAFC; border:1px solid #E2E8F0; padding:4px 8px; border-radius:6px; cursor:pointer;" onclick="previewPhotoModal('${item.evidence_url}')" title="Click para ampliar">
+                    <img src="${item.evidence_url}" alt="Evidencia" style="width:38px; height:38px; object-fit:cover; border-radius:4px; border:1px solid #CBD5E1;" />
+                    <span style="font-size:11px; font-weight:700; color:#2563EB;">📷 Ver Evidencia Fotográfica</span>
+                </div>` : '';
+
+            const actionsHtml = `
+                <div style="display:flex; align-items:center; gap:6px;">
+                    ${!isManual ? `<button type="button" class="tab-btn" style="padding:4px 10px; font-size:11.5px;" onclick="openFindingModal('${item.id}')">🔍 Ver Hallazgo</button>` : ''}
+                    ${canDelete ? `<button type="button" class="tab-btn" style="padding:4px 10px; font-size:11.5px; color:#DC2626; background:#FEF2F2; border-color:#FECACA; font-weight:700;" onclick="deleteLessonLearned('${item.id}', '${escapeHtml(code)}')">🗑️ Eliminar</button>` : ''}
+                </div>`;
+
             html += `
             <div class="glass-card" style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:16px;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-family:var(--font-mono); font-weight:800; font-size:12px; color:var(--accent-blue);">${escapeHtml(item.tracker_code)}</span>
-                        <h5 style="margin:0; font-size:14px; font-weight:800; color:var(--text-primary);">${escapeHtml(item.title)}</h5>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        ${originBadge}
+                        <span style="font-family:var(--font-mono); font-weight:800; font-size:12.5px; color:var(--text-primary); letter-spacing:0.5px;">${escapeHtml(code)}</span>
+                        ${categoryBadge}
+                        ${normativeBadge}
+                        ${elementBadge}
                     </div>
-                    <span style="font-size:11px; color:var(--text-muted);">Área: <strong>${escapeHtml(item.location || 'General')}</strong></span>
+                    <span style="font-size:11.5px; color:var(--text-muted);">📍 Ubicación: <strong>${escapeHtml(item.location || item.area || 'General')}</strong></span>
                 </div>
 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:8px; background:#F8FAFC; padding:12px; border-radius:8px;">
+                <h5 style="margin:6px 0 8px 0; font-size:14.5px; font-weight:800; color:var(--text-primary); line-height:1.35;">${escapeHtml(item.title)}</h5>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:8px; background:#F8FAFC; padding:12px; border-radius:8px; border:1px solid #F1F5F9;">
                     <div>
-                        <div style="font-size:11px; font-weight:700; color:#EF4444; text-transform:uppercase;">🔍 Causa Raíz Identificada</div>
-                        <div style="font-size:12px; color:var(--text-primary); margin-top:3px;">${escapeHtml(item.root_cause || 'No documentada')}</div>
+                        <div style="font-size:11px; font-weight:800; color:#DC2626; text-transform:uppercase; letter-spacing:0.4px;">🔍 Causa Raíz / Condición Observada</div>
+                        <div style="font-size:12px; color:var(--text-primary); margin-top:4px; line-height:1.4;">${escapeHtml(item.root_cause || 'No documentada')}</div>
                     </div>
                     <div>
-                        <div style="font-size:11px; font-weight:700; color:#059669; text-transform:uppercase;">🛠️ Acción Correctiva Implementada</div>
-                        <div style="font-size:12px; color:var(--text-primary); margin-top:3px;">${escapeHtml(item.corrective_action || 'No documentada')}</div>
+                        <div style="font-size:11px; font-weight:800; color:#059669; text-transform:uppercase; letter-spacing:0.4px;">🛠️ Acción Correctiva / Preventiva Implementada</div>
+                        <div style="font-size:12px; color:var(--text-primary); margin-top:4px; line-height:1.4;">${escapeHtml(item.corrective_action || 'No documentada')}</div>
                     </div>
                 </div>
 
-                <div style="margin-top:10px; padding:10px 14px; background:#F5F3FF; border-left:3px solid #8B5CF6; border-radius:4px;">
-                    <div style="font-size:11px; font-weight:800; color:#7C3AED; text-transform:uppercase;">💡 Lección Aprendida &amp; Mejora Continua</div>
-                    <div style="font-size:12.5px; color:var(--text-primary); margin-top:2px; font-weight:600;">${escapeHtml(item.lesson)}</div>
+                <div style="margin-top:10px; padding:12px 14px; background:#FAF5FF; border-left:4px solid #8B5CF6; border-radius:6px; border-top:1px solid #F3E8FF; border-right:1px solid #F3E8FF; border-bottom:1px solid #F3E8FF;">
+                    <div style="font-size:11px; font-weight:800; color:#7C3AED; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+                        <span>💡</span> <span>Lección Aprendida &amp; Mejora Continua</span>
+                    </div>
+                    <div style="font-size:13px; color:var(--text-primary); margin-top:4px; font-weight:600; line-height:1.45;">${escapeHtml(item.lesson || item.lessons_learned)}</div>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; color:var(--text-muted);">
-                    <span>Responsable de implementación: <strong>${escapeHtml(item.assigned_to || '-')}</strong></span>
-                    <button type="button" class="tab-btn" style="padding:3px 8px; font-size:11px;" onclick="openFindingModal('${item.id}')">Ver Hallazgo Completo</button>
+                ${photoHtml}
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:8px; border-top:1px dashed #E2E8F0; font-size:11.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
+                    <span>👤 Responsable / Autor: <strong>${escapeHtml(item.author || item.assigned_to || '-')}</strong></span>
+                    ${actionsHtml}
                 </div>
             </div>`;
         });
@@ -11014,10 +11082,129 @@
             return;
         }
         const filtered = allLessonsLearned.filter(item => {
-            const h = `${item.tracker_code} ${item.title} ${item.root_cause} ${item.corrective_action} ${item.lesson} ${item.location}`.toLowerCase();
+            const h = `${item.tracker_code || item.tracking_code || ''} ${item.title || ''} ${item.root_cause || ''} ${item.corrective_action || ''} ${item.lesson || item.lessons_learned || ''} ${item.location || ''} ${item.area || ''} ${item.category || ''} ${item.normative_table || ''} ${item.element_id || ''} ${item.author || item.assigned_to || ''}`.toLowerCase();
             return h.includes(q);
         });
         renderLessonsLearned(filtered);
+    }
+
+    function openNewLessonModal() {
+        const form = document.getElementById('form-new-lesson');
+        if (form) form.reset();
+        const authorInput = document.getElementById('lsn-new-author');
+        if (authorInput && typeof sessionData !== 'undefined' && sessionData) {
+            authorInput.value = sessionData.user_name || sessionData.user_email || '';
+        }
+        const modal = document.getElementById('modal-new-lesson');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closeNewLessonModal() {
+        const modal = document.getElementById('modal-new-lesson');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function submitNewLesson(e) {
+        if (e && e.preventDefault) e.preventDefault();
+
+        const title = (document.getElementById('lsn-new-title')?.value || '').trim();
+        const lesson = (document.getElementById('lsn-new-lesson')?.value || '').trim();
+        const rootCause = (document.getElementById('lsn-new-root-cause')?.value || '').trim();
+        const corrective = (document.getElementById('lsn-new-corrective')?.value || '').trim();
+        const location = (document.getElementById('lsn-new-location')?.value || '').trim();
+        const category = document.getElementById('lsn-new-category')?.value || 'General';
+        const normativeTable = document.getElementById('lsn-new-table')?.value || 'Buenas Prácticas ANSI/ESD S20.20';
+        const elementId = (document.getElementById('lsn-new-element')?.value || '').trim();
+        const author = (document.getElementById('lsn-new-author')?.value || '').trim() || (typeof sessionData !== 'undefined' && sessionData ? (sessionData.user_name || sessionData.user_email || 'Auditor') : 'Auditor');
+
+        if (!title || !lesson || !rootCause || !corrective || !location) {
+            alert('⚠️ Por favor completa los campos obligatorios marcados con (*).');
+            return;
+        }
+
+        const fileInput = document.getElementById('lsn-new-photo-file');
+        let evidenceUrl = '';
+
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('photo', fileInput.files[0]);
+                formData.append('finding_id', 'lesson_draft');
+                formData.append('type', 'open');
+                formData.append('evidence_type', 'open');
+                const upRes = await fetch('/api/findings/upload-evidence', { method: 'POST', body: formData });
+                const upData = await upRes.json();
+                if (upData.success && upData.url) evidenceUrl = upData.url;
+            } catch(e) {
+                console.warn('Could not pre-upload photo:', e);
+            }
+        }
+
+        const payload = {
+            site_id: getActiveSiteId(),
+            title: title,
+            lesson: lesson,
+            lessons_learned: lesson,
+            root_cause: rootCause,
+            corrective_action: corrective,
+            location: location,
+            category: category,
+            normative_table: normativeTable,
+            element_id: elementId,
+            author: author,
+            assigned_to: author,
+            evidence_url: evidenceUrl
+        };
+
+        try {
+            const res = await fetch('/api/lessons-learned', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                const code = data.tracking_code || (data.lesson && (data.lesson.tracking_code || data.lesson.tracker_code)) || '';
+                alert('✅ Lección aprendida guardada exitosamente en Supabase' + (code ? `: ${code}` : '.'));
+                closeNewLessonModal();
+                await loadLessonsLearned();
+                if (typeof loadFindingsDashboard === 'function') loadFindingsDashboard();
+            } else {
+                alert('❌ ' + (data.message || 'Error al guardar la lección aprendida.'));
+            }
+        } catch(err) {
+            console.error('Error saving manual lesson learned:', err);
+            alert('❌ Error de comunicación al registrar la lección aprendida.');
+        }
+    }
+
+    async function deleteLessonLearned(id, code) {
+        if (!id) return;
+        if (typeof isUserCompanyAdminOrSuper === 'function' && !isUserCompanyAdminOrSuper()) {
+            alert('⚠️ Permiso denegado: Solo un Administrador de Empresa (Company Admin) o SuperAdmin puede eliminar lecciones aprendidas.');
+            return;
+        }
+        const label = code || id;
+        if (!confirm(`¿Está seguro de eliminar permanentemente la lección aprendida "${label}"?\n\nEsta acción no se puede deshacer y se eliminará de Supabase.`)) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/findings/' + encodeURIComponent(id), {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ Lección aprendida "${label}" eliminada correctamente.`);
+                await loadLessonsLearned();
+                if (typeof loadFindingsDashboard === 'function') loadFindingsDashboard();
+            } else {
+                alert('❌ ' + (data.message || 'Error al eliminar la lección aprendida.'));
+            }
+        } catch(e) {
+            console.error('Error deleting lesson learned:', e);
+            alert('❌ Error de conexión al eliminar la lección aprendida.');
+        }
     }
 
     async function loadNormativeLimitsSettings() {
@@ -11954,6 +12141,104 @@
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:14px; border-top:1px solid var(--border-color);">
                 <button type="button" class="tab-btn" onclick="closeNewFindingModal()" style="padding:8px 18px;">✕ Cancelar</button>
                 <button type="submit" class="btn-primary" style="padding:8px 22px; font-weight:800; background:#2563EB;">➕ Crear Hallazgo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: CREATE MANUAL LESSON LEARNED -->
+<div id="modal-new-lesson" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9995; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeNewLessonModal()">
+    <div class="glass-card" style="background:#FFFFFF; border-radius:14px; width:100%; max-width:680px; padding:0; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid var(--border-color); max-height:92vh; display:flex; flex-direction:column; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#FAF5FF;">
+            <div>
+                <h3 style="margin:0; font-size:16px; font-weight:800; color:#581C87; display:flex; align-items:center; gap:8px;">
+                    <span>💡</span> <span>Nueva Lección Aprendida &amp; Buena Práctica</span>
+                </h3>
+                <p style="margin:2px 0 0 0; font-size:11.5px; color:#7E22CE;">
+                    Registro manual de acción de mejora continua, optimización preventiva o solución técnica consolidada
+                </p>
+            </div>
+            <button type="button" onclick="closeNewLessonModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Form Body -->
+        <form id="form-new-lesson" onsubmit="event.preventDefault(); submitNewLesson();" style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Título de la Lección / Buena Práctica*</label>
+                <input id="lsn-new-title" class="form-control" placeholder="Ej: Optimización de aterrizaje de mesas y sustitución de broches en ensamble" required />
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Categoría de Mejora*</label>
+                    <select id="lsn-new-category" class="form-control" required>
+                        <option value="Mantenimiento Preventivo" selected>Mantenimiento Preventivo</option>
+                        <option value="Diseño de Estación">Diseño de Estación / Puesto EPA</option>
+                        <option value="Capacitación de Personal">Capacitación de Personal</option>
+                        <option value="Procedimiento Operativo">Procedimiento Operativo / SOP</option>
+                        <option value="Calibración y Metrología">Calibración y Metrología</option>
+                        <option value="Control de Materiales ESD">Control de Materiales y Empaque</option>
+                        <option value="Mejora Continua Kaizen">Mejora Continua Kaizen</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Referencia Normativa*</label>
+                    <select id="lsn-new-table" class="form-control" required>
+                        <option value="ANSI/ESD S20.20 Tabla 2 (Superficies/EPA)" selected>ANSI/ESD S20.20 Tabla 2 (Superficies/EPA)</option>
+                        <option value="ANSI/ESD S20.20 Tabla 1 (Personal/Tierra)">ANSI/ESD S20.20 Tabla 1 (Personal/Tierra)</option>
+                        <option value="ANSI/ESD S20.20 Tabla 3 (Pisos/Calzado)">ANSI/ESD S20.20 Tabla 3 (Pisos/Calzado)</option>
+                        <option value="ANSI/ESD S20.20 Tabla 4 (Empaque)">ANSI/ESD S20.20 Tabla 4 (Empaque)</option>
+                        <option value="ANSI/ESD S20.20 General">ANSI/ESD S20.20 General</option>
+                        <option value="Buenas Prácticas Internas">Buenas Prácticas Internas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Ubicación / Línea / Área*</label>
+                    <input id="lsn-new-location" class="form-control" list="val-lines-datalist" placeholder="Ej: Línea SMT 2 / Estación 4" required />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Elemento / Equipo Involucrado</label>
+                    <input id="lsn-new-element" class="form-control" placeholder="Ej: Tapete conductivo, Pulsera, Ionizador..." />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px; color:#DC2626;">🔍 Causa Raíz o Condición Previa*</label>
+                    <textarea id="lsn-new-root-cause" class="form-control" rows="3" placeholder="Detalla la condición observada, desgaste o causa raíz que motivó la mejora..." required></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px; color:#059669;">🛠️ Acción Correctiva o Preventiva*</label>
+                    <textarea id="lsn-new-corrective" class="form-control" rows="3" placeholder="Describe la solución técnica implementada, ajuste o estandarización..." required></textarea>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0; background:#FAF5FF; padding:12px; border-radius:8px; border:1px solid #E9D5FF;">
+                <label style="font-weight:800; font-size:12px; margin-bottom:4px; color:#7C3AED; display:flex; align-items:center; gap:6px;">
+                    <span>💡</span> <span>Lección Aprendida y Beneficio Clave*</span>
+                </label>
+                <textarea id="lsn-new-lesson" class="form-control" rows="3" placeholder="Explica el principio clave y recomendación para evitar recurrencias en otras áreas de la planta..." style="border-color:#C084FC;" required></textarea>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Autor / Responsable*</label>
+                    <input id="lsn-new-author" class="form-control" placeholder="Ej: Ing. Carlos Morales" required />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Evidencia Fotográfica (Opcional)</label>
+                    <input type="file" id="lsn-new-photo-file" accept="image/*" class="form-control" style="font-size:12px;" />
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:14px; border-top:1px solid var(--border-color);">
+                <button type="button" class="tab-btn" onclick="closeNewLessonModal()" style="padding:8px 18px;">✕ Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding:8px 22px; font-weight:800; background:#7C3AED; border-color:#6D28D9; box-shadow:0 2px 4px rgba(124,58,237,0.25);">💡 Guardar Lección Aprendida</button>
             </div>
         </form>
     </div>

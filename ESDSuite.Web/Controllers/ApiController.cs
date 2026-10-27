@@ -5393,5 +5393,122 @@ public class ApiController : ControllerBase
         var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
         return Ok(new { success = true, metrics = metrics, data = metrics });
     }
+
+    [HttpGet("lessons-learned")]
+    public async Task<IActionResult> GetLessonsLearned([FromQuery] string? siteId = null)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
+        var lessons = metrics["lessonsLearned"] as JsonArray ?? new JsonArray();
+        return Ok(new { success = true, lessons = lessons, data = lessons, count = lessons.Count });
+    }
+
+    [HttpPost("lessons-learned")]
+    public async Task<IActionResult> CreateManualLessonLearned([FromBody] JsonObject payload)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+
+        string title = payload["title"]?.ToString()?.Trim() ?? "Lección Aprendida";
+        string lesson = payload["lessons_learned"]?.ToString()?.Trim() 
+            ?? payload["lesson"]?.ToString()?.Trim() 
+            ?? "";
+        if (string.IsNullOrWhiteSpace(lesson))
+        {
+            return BadRequest(new { success = false, message = "El contenido de la lección aprendida es obligatorio." });
+        }
+
+        string rootCause = payload["root_cause"]?.ToString()?.Trim() ?? "Causa analizada en mejora continua";
+        string corrective = payload["corrective_action"]?.ToString()?.Trim() ?? "Acción preventiva implementada";
+        string preventive = payload["preventive_action"]?.ToString()?.Trim() ?? "";
+        string category = payload["category"]?.ToString()?.Trim() ?? "General";
+        string normativeTable = payload["normative_table"]?.ToString()?.Trim() ?? "Buenas Prácticas ANSI/ESD S20.20";
+        string elementId = payload["element_id"]?.ToString()?.Trim() ?? "";
+        string location = payload["location"]?.ToString()?.Trim() ?? "Planta";
+        string area = payload["area"]?.ToString()?.Trim() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
+        string author = payload["author"]?.ToString()?.Trim() 
+            ?? payload["assigned_to"]?.ToString()?.Trim() 
+            ?? payload["assignee_name"]?.ToString()?.Trim() 
+            ?? currentUserName;
+        string evidenceUrl = payload["evidence_url"]?.ToString() 
+            ?? payload["evidence_open_url"]?.ToString() 
+            ?? "";
+        string desc = payload["description"]?.ToString()?.Trim() ?? "";
+
+        string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite, "LRN");
+        string nowIso = DateTime.UtcNow.ToString("o");
+
+        var finding = new JsonObject
+        {
+            ["id"] = Guid.NewGuid().ToString(),
+            ["tracking_code"] = code,
+            ["tracker_code"] = code,
+            ["site_id"] = targetSite,
+            ["source_module"] = "Lección Aprendida Manual",
+            ["title"] = title,
+            ["category"] = category,
+            ["normative_table"] = normativeTable,
+            ["reference_table"] = normativeTable,
+            ["element_id"] = elementId,
+            ["area"] = area,
+            ["location"] = location,
+            ["measured_value"] = "Mejora Continua",
+            ["required_limit"] = "Estándar S20.20",
+            ["limit_applied"] = "Estándar S20.20",
+            ["severity"] = "MINOR",
+            ["status"] = "CLOSED",
+            ["auditor_id"] = currentUserId,
+            ["auditor_name"] = author,
+            ["opened_by"] = author,
+            ["assignee_name"] = author,
+            ["assigned_to"] = author,
+            ["closed_by"] = author,
+            ["closed_by_name"] = author,
+            ["opened_at"] = nowIso,
+            ["created_at"] = nowIso,
+            ["closed_at"] = nowIso,
+            ["due_date"] = nowIso,
+            ["description"] = desc,
+            ["containment_action"] = "N/A - Registro Proactivo",
+            ["root_cause"] = rootCause,
+            ["corrective_action"] = corrective,
+            ["preventive_action"] = preventive,
+            ["lessons_learned"] = lesson,
+            ["evidence_open_url"] = evidenceUrl,
+            ["evidence_close_url"] = evidenceUrl,
+            ["timeline"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["timestamp"] = nowIso,
+                    ["user"] = currentUserName,
+                    ["action"] = "Registro Manual de Lección Aprendida",
+                    ["notes"] = $"Lección aprendida '{code}' documentada por {currentUserName} para capitalización del conocimiento."
+                }
+            }
+        };
+
+        var (success, saved, error) = await _findingsStorage.SaveFindingAsync(finding);
+        if (!success)
+        {
+            return StatusCode(500, new { 
+                success = false, 
+                message = "Error al persistir la lección aprendida en Supabase: " + (error ?? "Fallo de comunicación"),
+                error = error 
+            });
+        }
+
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "LessonsLearned",
+            $"Nueva lección aprendida '{code}': {title}", new { trackingCode = code, category, author });
+
+        return Ok(new { 
+            success = true, 
+            data = saved, 
+            lesson = saved, 
+            tracking_code = code,
+            message = $"Lección aprendida '{code}' guardada exitosamente en Supabase." 
+        });
+    }
 }
 
