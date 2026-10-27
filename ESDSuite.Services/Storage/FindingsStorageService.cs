@@ -493,7 +493,7 @@ public class FindingsStorageService
                     if (item is JsonObject obj)
                     {
                         string sId = obj["site_id"]?.ToString() ?? "";
-                        if (string.Equals(sId, siteId, StringComparison.OrdinalIgnoreCase))
+                        if (string.IsNullOrEmpty(sId) || string.Equals(sId, siteId, StringComparison.OrdinalIgnoreCase))
                         {
                             filtered.Add(obj.DeepClone());
                         }

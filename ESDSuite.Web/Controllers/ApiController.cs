@@ -5063,7 +5063,9 @@ public class ApiController : ControllerBase
     public IActionResult GetFindings([FromQuery] string? siteId = null, [FromQuery] string? status = null, [FromQuery] string? severity = null, [FromQuery] string? area = null, [FromQuery] string? search = null)
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
-        var all = _findingsStorage.GetAllFindings(targetSite);
+        var all = (string.Equals(siteId, "all", StringComparison.OrdinalIgnoreCase) || (IsCompanyAdmin && string.IsNullOrEmpty(siteId) && string.IsNullOrEmpty(CurrentUserSiteId)))
+            ? _findingsStorage.GetAllFindings("all")
+            : _findingsStorage.GetAllFindings(targetSite);
         
         var filtered = all.Where(item => {
             if (item is not JsonObject obj) return false;
@@ -5077,15 +5079,16 @@ public class ApiController : ControllerBase
             }
             if (!string.IsNullOrEmpty(area) && !area.Equals("all", StringComparison.OrdinalIgnoreCase))
             {
-                if (!string.Equals(obj["area"]?.ToString(), area, StringComparison.OrdinalIgnoreCase)) return false;
+                string a = obj["area"]?.ToString() ?? obj["location"]?.ToString() ?? "";
+                if (!a.Contains(area, StringComparison.OrdinalIgnoreCase)) return false;
             }
             if (!string.IsNullOrEmpty(search))
             {
                 string sLower = search.Trim().ToLower();
-                string tCode = obj["tracking_code"]?.ToString().ToLower() ?? "";
+                string tCode = obj["tracking_code"]?.ToString().ToLower() ?? obj["tracker_code"]?.ToString().ToLower() ?? "";
                 string elemId = obj["element_id"]?.ToString().ToLower() ?? "";
                 string title = obj["title"]?.ToString().ToLower() ?? "";
-                string resp = obj["assignee_name"]?.ToString().ToLower() ?? "";
+                string resp = obj["assignee_name"]?.ToString().ToLower() ?? obj["assigned_to"]?.ToString().ToLower() ?? "";
                 string cat = obj["category"]?.ToString().ToLower() ?? "";
                 string loc = obj["location"]?.ToString().ToLower() ?? "";
                 if (!tCode.Contains(sLower) && !elemId.Contains(sLower) && !title.Contains(sLower) && !resp.Contains(sLower) && !cat.Contains(sLower) && !loc.Contains(sLower))
@@ -5094,7 +5097,7 @@ public class ApiController : ControllerBase
             return true;
         }).ToList();
 
-        return Ok(filtered);
+        return Ok(new { success = true, findings = filtered, data = filtered, count = filtered.Count });
     }
 
     [HttpGet("findings/{id}")]
@@ -5102,7 +5105,7 @@ public class ApiController : ControllerBase
     {
         var finding = _findingsStorage.GetFindingById(id);
         if (finding == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
-        return Ok(finding);
+        return Ok(new { success = true, finding = finding, data = finding });
     }
 
     [HttpPost("findings")]
@@ -5115,16 +5118,25 @@ public class ApiController : ControllerBase
         string title = payload["title"]?.ToString() ?? "Hallazgo de Auditoría";
         string elementId = payload["element_id"]?.ToString() ?? "";
         string category = payload["category"]?.ToString() ?? "General";
-        string normTable = payload["normative_table"]?.ToString() ?? "Tabla 3: Elementos de Control ESD en Áreas EPA";
+        string normTable = payload["normative_table"]?.ToString() 
+            ?? payload["reference_table"]?.ToString() 
+            ?? "Tabla 2: Superficies de Trabajo / Mobiliario";
         string location = payload["location"]?.ToString() ?? "N/A";
         string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
         string measuredVal = payload["measured_value"]?.ToString() ?? "Fuera de rango";
-        string reqLimit = payload["required_limit"]?.ToString() ?? "Conforme a norma";
+        string reqLimit = payload["required_limit"]?.ToString() 
+            ?? payload["limit_applied"]?.ToString() 
+            ?? payload["limit"]?.ToString() 
+            ?? "Conforme a norma";
         string severity = payload["severity"]?.ToString() ?? "MAJOR";
         string desc = payload["description"]?.ToString() ?? "";
-        string assignee = payload["assignee_name"]?.ToString() ?? "Sin Asignar";
+        string assignee = payload["assignee_name"]?.ToString() 
+            ?? payload["assigned_to"]?.ToString() 
+            ?? "Sin Asignar";
         string dueDate = payload["due_date"]?.ToString() ?? DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd");
-        string containment = payload["containment_action"]?.ToString() ?? "";
+        string containment = payload["containment_action"]?.ToString() 
+            ?? payload["immediate_containment"]?.ToString() 
+            ?? "";
         string openEvidence = payload["evidence_open_url"]?.ToString() ?? "";
 
         string code = _findingsStorage.GenerateTrackingCode(targetSite);
@@ -5132,25 +5144,32 @@ public class ApiController : ControllerBase
         {
             ["id"] = Guid.NewGuid().ToString(),
             ["tracking_code"] = code,
+            ["tracker_code"] = code,
             ["site_id"] = targetSite,
             ["source_module"] = payload["source_module"]?.ToString() ?? "Levantamiento Manual",
             ["title"] = title,
             ["category"] = category,
             ["normative_table"] = normTable,
+            ["reference_table"] = normTable,
             ["element_id"] = elementId,
             ["area"] = area,
             ["location"] = location,
             ["measured_value"] = measuredVal,
             ["required_limit"] = reqLimit,
+            ["limit_applied"] = reqLimit,
             ["severity"] = severity,
             ["status"] = "OPEN",
             ["auditor_id"] = currentUserId,
             ["auditor_name"] = currentUserName,
+            ["opened_by"] = currentUserName,
             ["assignee_name"] = assignee,
+            ["assigned_to"] = assignee,
             ["opened_at"] = DateTime.UtcNow.ToString("o"),
+            ["created_at"] = DateTime.UtcNow.ToString("o"),
             ["due_date"] = dueDate,
             ["description"] = desc,
             ["containment_action"] = containment,
+            ["immediate_containment"] = containment,
             ["evidence_open_url"] = openEvidence,
             ["timeline"] = new JsonArray
             {
@@ -5168,7 +5187,7 @@ public class ApiController : ControllerBase
         await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "Findings",
             $"Nuevo hallazgo '{code}' para equipo '{elementId}'", new { trackingCode = code, severity, elementId });
 
-        return Ok(new { success = true, data = saved, message = $"Hallazgo '{code}' registrado exitosamente." });
+        return Ok(new { success = true, data = saved, finding = saved, message = $"Hallazgo '{code}' registrado exitosamente." });
     }
 
     [HttpPut("findings/{id}")]
@@ -5185,8 +5204,12 @@ public class ApiController : ControllerBase
         if (payload["area"] != null) existing["area"] = payload["area"]?.ToString();
         if (payload["location"] != null) existing["location"] = payload["location"]?.ToString();
         if (payload["assignee_name"] != null) existing["assignee_name"] = payload["assignee_name"]?.ToString();
+        if (payload["assigned_to"] != null) existing["assignee_name"] = payload["assigned_to"]?.ToString();
+        existing["assigned_to"] = existing["assignee_name"];
         if (payload["due_date"] != null) existing["due_date"] = payload["due_date"]?.ToString();
         if (payload["containment_action"] != null) existing["containment_action"] = payload["containment_action"]?.ToString();
+        if (payload["immediate_containment"] != null) existing["containment_action"] = payload["immediate_containment"]?.ToString();
+        existing["immediate_containment"] = existing["containment_action"];
         if (payload["root_cause"] != null) existing["root_cause"] = payload["root_cause"]?.ToString();
         if (payload["corrective_action"] != null) existing["corrective_action"] = payload["corrective_action"]?.ToString();
         if (payload["lessons_learned"] != null) existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
@@ -5198,6 +5221,15 @@ public class ApiController : ControllerBase
         timeline.Add(new JsonObject
         {
             ["timestamp"] = DateTime.UtcNow.ToString("o"),
+            ["user"] = currentUserName,
+            ["action"] = "Actualización de Plan de Acción",
+            ["notes"] = "Se actualizaron los detalles del plan de acción CAPA."
+        });
+        existing["timeline"] = timeline;
+
+        var saved = _findingsStorage.SaveFinding(existing);
+        return Ok(new { success = true, data = saved, finding = saved, message = "Plan de acción actualizado correctamente." });
+    }
             ["user"] = currentUserName,
             ["action"] = "Actualización de Acciones",
             ["notes"] = payload["timeline_note"]?.ToString() ?? "Se actualizaron detalles y plan de acción del hallazgo."
@@ -5255,11 +5287,35 @@ public class ApiController : ControllerBase
     }
 
     [HttpDelete("findings/{id}")]
-    public IActionResult DeleteFinding(string id)
+    public async Task<IActionResult> DeleteFinding(string id)
     {
-        if (!IsSiteAdmin) return Forbid();
+        if (!IsCompanyAdmin)
+        {
+            return StatusCode(403, new { 
+                success = false, 
+                message = "Permiso denegado. Solo un Administrador de Empresa (Company Admin) o SuperAdmin puede eliminar hallazgos." 
+            });
+        }
+
+        var existing = _findingsStorage.GetFindingById(id);
+        if (existing == null)
+        {
+            return NotFound(new { success = false, message = "Hallazgo no encontrado." });
+        }
+
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        string currentUserName = HttpContext.Session.GetString("user_name") ?? "Admin";
+        string targetSite = existing["site_id"]?.ToString() ?? CurrentUserSiteId;
+        string code = existing["tracking_code"]?.ToString() ?? existing["tracker_code"]?.ToString() ?? id;
+
         bool ok = _findingsStorage.DeleteFinding(id);
-        return Ok(new { success = ok, message = ok ? "Hallazgo eliminado correctamente." : "No se encontró el hallazgo." });
+        if (ok)
+        {
+            await _supabase.LogAuditEventAsync(currentUserId, targetSite, "DELETE", "Findings",
+                $"Hallazgo '{code}' eliminado por {currentUserName}", new { id, trackingCode = code });
+        }
+
+        return Ok(new { success = ok, message = ok ? $"Hallazgo '{code}' eliminado correctamente." : "No se pudo eliminar el hallazgo." });
     }
 
     [HttpPost("findings/upload-evidence")]
@@ -5299,7 +5355,7 @@ public class ApiController : ControllerBase
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var metrics = _findingsStorage.GetDashboardMetrics(targetSite);
-        return Ok(metrics);
+        return Ok(new { success = true, metrics = metrics, data = metrics });
     }
 }
 

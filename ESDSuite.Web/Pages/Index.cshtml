@@ -10257,24 +10257,45 @@
             if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
 
             const res = await fetch(url);
-            const data = await res.json();
-            if (data.success && data.findings) {
-                allFindings = data.findings;
-                updateFindingsKpis(allFindings);
-                filterFindingsList();
-                refreshOpenFindingsBadge();
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             }
+            const data = await res.json();
+            
+            let list = [];
+            if (Array.isArray(data)) {
+                list = data;
+            } else if (data && Array.isArray(data.findings)) {
+                list = data.findings;
+            } else if (data && Array.isArray(data.data)) {
+                list = data.data;
+            }
+
+            allFindings = list;
+            updateFindingsKpis(allFindings);
+            filterFindingsList();
+            refreshOpenFindingsBadge();
         } catch(e) {
             console.error('Error loading findings module:', e);
+            const tbody = document.getElementById('findings-table-tbody');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:#DC2626; font-size:12.5px;">
+                    ⚠️ Error al cargar los hallazgos: ${escapeHtml(e.message || 'Error de conexión')}
+                    <div style="margin-top:8px;">
+                        <button type="button" class="tab-btn" onclick="loadFindingsModule()" style="font-size:11.5px; padding:4px 12px;">🔄 Reintentar</button>
+                    </div>
+                </td></tr>`;
+            }
         }
     }
 
     function updateFindingsKpis(findings) {
+        if (!Array.isArray(findings)) findings = [];
         const total = findings.length;
-        const open = findings.filter(f => f.status === 'OPEN').length;
-        const progress = findings.filter(f => f.status === 'IN_PROGRESS').length;
-        const pending = findings.filter(f => f.status === 'PENDING_VERIFICATION').length;
-        const closed = findings.filter(f => f.status === 'CLOSED').length;
+        const open = findings.filter(f => (f.status || '').toUpperCase() === 'OPEN').length;
+        const progress = findings.filter(f => (f.status || '').toUpperCase() === 'IN_PROGRESS').length;
+        const pending = findings.filter(f => (f.status || '').toUpperCase() === 'PENDING_VERIFICATION').length;
+        const closed = findings.filter(f => (f.status || '').toUpperCase() === 'CLOSED').length;
 
         const elTotal = document.getElementById('fnd-kpi-total');
         const elOpen = document.getElementById('fnd-kpi-open');
@@ -10295,10 +10316,16 @@
             let url = '/api/findings?status=OPEN';
             if (siteId) url += '&site_id=' + encodeURIComponent(siteId);
             const res = await fetch(url);
+            if (!res.ok) return;
             const data = await res.json();
             const badge = document.getElementById('badge-open-findings');
             if (badge) {
-                const count = (data.success && data.findings) ? data.findings.length : 0;
+                let list = [];
+                if (Array.isArray(data)) list = data;
+                else if (data && Array.isArray(data.findings)) list = data.findings;
+                else if (data && Array.isArray(data.data)) list = data.data;
+
+                const count = list.length;
                 if (count > 0) {
                     badge.textContent = count;
                     badge.style.display = 'inline-block';
@@ -10311,6 +10338,35 @@
         }
     }
 
+    async function deleteFindingConfirm(id, code) {
+        if (!id) return;
+        if (!isUserCompanyAdminOrSuper()) {
+            alert('⚠️ Permiso denegado: Solo un Administrador de Empresa (Company Admin) o SuperAdmin puede eliminar hallazgos.');
+            return;
+        }
+        const label = code || id;
+        if (!confirm(`¿Está seguro de eliminar permanentemente el hallazgo "${label}"?\n\nEsta acción no se puede deshacer y quedará registrada en la auditoría del sistema.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/findings/' + encodeURIComponent(id), {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ Hallazgo "${label}" eliminado correctamente.`);
+                closeFindingModal();
+                loadFindingsModule();
+            } else {
+                alert('❌ ' + (data.message || 'Error al eliminar el hallazgo.'));
+            }
+        } catch(e) {
+            console.error('Error deleting finding:', e);
+            alert('❌ Error de conexión al eliminar el hallazgo.');
+        }
+    }
+
     function renderFindingsTable(findings) {
         const tbody = document.getElementById('findings-table-tbody');
         if (!tbody) return;
@@ -10320,6 +10376,8 @@
             </td></tr>`;
             return;
         }
+
+        const canDelete = isUserCompanyAdminOrSuper();
 
         const sevColors = {
             'CRITICAL': { bg: '#FEE2E2', color: '#DC2626', label: 'Crítico' },
@@ -10336,11 +10394,14 @@
 
         let html = '';
         findings.forEach(f => {
-            const sev = sevColors[f.severity] || sevColors['MAJOR'];
-            const stat = statusBadges[f.status] || f.status;
-            const dateStr = (f.created_at || '').substring(0, 10);
+            const code = f.tracking_code || f.tracker_code || f.id;
+            const sevKey = (f.severity || 'MAJOR').toUpperCase();
+            const sev = sevColors[sevKey] || sevColors['MAJOR'];
+            const statusKey = (f.status || 'OPEN').toUpperCase();
+            const stat = statusBadges[statusKey] || statusKey;
+            const dateStr = (f.opened_at || f.created_at || '').substring(0, 10);
             const dueStr = (f.due_date || '').substring(0, 10);
-            const isOverdue = (f.status !== 'CLOSED' && dueStr && new Date(dueStr) < new Date(new Date().setHours(0,0,0,0)));
+            const isOverdue = (statusKey !== 'CLOSED' && dueStr && new Date(dueStr) < new Date(new Date().setHours(0,0,0,0)));
 
             const openPhotoIcon = f.evidence_open_url 
                 ? `<a href="javascript:void(0)" onclick="previewPhotoModal('${f.evidence_open_url}')" title="Ver foto apertura" style="font-size:15px; margin-right:4px;">📸</a>`
@@ -10350,28 +10411,34 @@
                 ? `<a href="javascript:void(0)" onclick="previewPhotoModal('${f.evidence_close_url}')" title="Ver foto cierre" style="font-size:15px; color:#10B981;">✅</a>`
                 : `<span style="color:#CBD5E1; font-size:15px;" title="Sin evidencia cierre">⚪</span>`;
 
+            const deleteBtn = canDelete ? `
+                <button type="button" class="tab-btn" style="padding:4px 8px; font-size:11px; color:#DC2626; background:#FEF2F2; border-color:#FECACA;" onclick="deleteFindingConfirm('${f.id}', '${escapeHtml(code)}')" title="Eliminar Hallazgo (Solo CompanyAdmin / SuperAdmin)">
+                    🗑️
+                </button>
+            ` : '';
+
             html += `
             <tr style="border-bottom:1px solid #F1F5F9;">
                 <td style="padding:10px 12px;">
-                    <div style="font-family:var(--font-mono); font-weight:800; font-size:12.5px; color:var(--accent-blue);">${escapeHtml(f.tracker_code || f.id)}</div>
+                    <div style="font-family:var(--font-mono); font-weight:800; font-size:12.5px; color:var(--accent-blue);">${escapeHtml(code)}</div>
                     <span style="background:${sev.bg}; color:${sev.color}; font-size:9.5px; font-weight:800; padding:1px 6px; border-radius:8px; display:inline-block; margin-top:2px;">
                         ${sev.label}
                     </span>
                 </td>
                 <td style="padding:10px 12px;">
-                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.location || '-')}</div>
-                    <div style="font-size:11px; color:var(--text-muted);">${dateStr}</div>
+                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.location || f.area || '-')}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${dateStr || '-'}</div>
                 </td>
                 <td style="padding:10px 12px;">
-                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.element_id || f.title)}</div>
-                    <div style="font-size:11px; color:var(--text-secondary);">${escapeHtml(f.reference_table || 'ANSI/ESD S20.20')}</div>
+                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.element_id || f.title || '-')}</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">${escapeHtml(f.normative_table || f.reference_table || 'ANSI/ESD S20.20')}</div>
                 </td>
                 <td style="padding:10px 12px; font-family:var(--font-mono); font-size:11.5px;">
                     <div style="color:#EF4444; font-weight:700;">Med: ${escapeHtml(f.measured_value || '-')}</div>
-                    <div style="color:var(--text-muted); font-size:10.5px;">Lím: ${escapeHtml(f.limit_applied || '-')}</div>
+                    <div style="color:var(--text-muted); font-size:10.5px;">Lím: ${escapeHtml(f.required_limit || f.limit_applied || '-')}</div>
                 </td>
                 <td style="padding:10px 12px;">
-                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.assigned_to || 'Sin asignar')}</div>
+                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.assignee_name || f.assigned_to || 'Sin asignar')}</div>
                     <div style="font-size:11px; ${isOverdue ? 'color:#DC2626; font-weight:800;' : 'color:var(--text-muted);'}">
                         📅 ${dueStr || 'Sin fecha'}${isOverdue ? ' ⚠️ Vencido' : ''}
                     </div>
@@ -10383,9 +10450,12 @@
                     ${openPhotoIcon} ${closePhotoIcon}
                 </td>
                 <td style="padding:10px 12px; text-align:center;">
-                    <button type="button" class="tab-btn" style="padding:4px 10px; font-size:11.5px; font-weight:700; background:#F8FAFC;" onclick="openFindingModal('${f.id}')">
-                        ✏️ CAPA
-                    </button>
+                    <div style="display:inline-flex; gap:4px; align-items:center;">
+                        <button type="button" class="tab-btn" style="padding:4px 10px; font-size:11.5px; font-weight:700; background:#F8FAFC;" onclick="openFindingModal('${f.id}')">
+                            ✏️ CAPA
+                        </button>
+                        ${deleteBtn}
+                    </div>
                 </td>
             </tr>`;
         });
@@ -10394,16 +10464,23 @@
 
     function filterFindingsList() {
         const q = (document.getElementById('fnd-filter-search')?.value || '').toLowerCase().trim();
-        const st = document.getElementById('fnd-filter-status')?.value || '';
-        const sev = document.getElementById('fnd-filter-severity')?.value || '';
+        const st = (document.getElementById('fnd-filter-status')?.value || '').toUpperCase();
+        const sev = (document.getElementById('fnd-filter-severity')?.value || '').toUpperCase();
         const tbl = document.getElementById('fnd-filter-table')?.value || '';
 
         const filtered = allFindings.filter(f => {
-            if (st && f.status !== st) return false;
-            if (sev && f.severity !== sev) return false;
-            if (tbl && !(f.reference_table || '').includes(tbl)) return false;
+            const fStatus = (f.status || '').toUpperCase();
+            const fSev = (f.severity || '').toUpperCase();
+            const fTbl = (f.normative_table || f.reference_table || '');
+
+            if (st && fStatus !== st) return false;
+            if (sev && fSev !== sev) return false;
+            if (tbl && !fTbl.includes(tbl)) return false;
             if (q) {
-                const haystack = `${f.tracker_code || ''} ${f.title || ''} ${f.element_id || ''} ${f.location || ''} ${f.assigned_to || ''} ${f.reference_table || ''}`.toLowerCase();
+                const code = f.tracking_code || f.tracker_code || '';
+                const assignee = f.assignee_name || f.assigned_to || '';
+                const loc = f.location || f.area || '';
+                const haystack = `${code} ${f.title || ''} ${f.element_id || ''} ${loc} ${assignee} ${fTbl}`.toLowerCase();
                 if (!haystack.includes(q)) return false;
             }
             return true;
@@ -10416,44 +10493,53 @@
         try {
             const res = await fetch('/api/findings/' + encodeURIComponent(id));
             const data = await res.json();
-            if (!data.success || !data.finding) {
+            const f = data.finding || data.data || data;
+            if (!f || !f.id) {
                 alert('❌ No se encontró el hallazgo solicitado.');
                 return;
             }
-            const f = data.finding;
             currentFinding = f;
 
+            const code = f.tracking_code || f.tracker_code || f.id;
             document.getElementById('fnd-det-id').value = f.id;
-            document.getElementById('fnd-det-tracker-code').textContent = f.tracker_code || f.id;
+            document.getElementById('fnd-det-tracker-code').textContent = code;
             document.getElementById('fnd-det-header-title').textContent = f.title || 'Desviación normativa';
 
+            // Check if user can delete
+            const delBtnModal = document.getElementById('fnd-det-btn-delete');
+            if (delBtnModal) {
+                delBtnModal.style.display = isUserCompanyAdminOrSuper() ? 'inline-block' : 'none';
+            }
+
             // Severity badge
+            const sevKey = (f.severity || 'MAJOR').toUpperCase();
             const sevEl = document.getElementById('fnd-det-severity-badge');
             if (sevEl) {
-                sevEl.textContent = f.severity;
-                sevEl.style.background = f.severity === 'CRITICAL' ? '#FEE2E2' : (f.severity === 'MAJOR' ? '#FEF3C7' : '#E0E7FF');
-                sevEl.style.color = f.severity === 'CRITICAL' ? '#DC2626' : (f.severity === 'MAJOR' ? '#D97706' : '#4F46E5');
+                sevEl.textContent = sevKey;
+                sevEl.style.background = sevKey === 'CRITICAL' ? '#FEE2E2' : (sevKey === 'MAJOR' ? '#FEF3C7' : '#E0E7FF');
+                sevEl.style.color = sevKey === 'CRITICAL' ? '#DC2626' : (sevKey === 'MAJOR' ? '#D97706' : '#4F46E5');
             }
 
             // Status badge
+            const statusKey = (f.status || 'OPEN').toUpperCase();
             const statEl = document.getElementById('fnd-det-status-badge');
             if (statEl) {
-                statEl.textContent = f.status;
-                statEl.style.background = f.status === 'OPEN' ? '#FEE2E2' : (f.status === 'IN_PROGRESS' ? '#FEF3C7' : (f.status === 'PENDING_VERIFICATION' ? '#EDE9FE' : '#D1FAE5'));
-                statEl.style.color = f.status === 'OPEN' ? '#DC2626' : (f.status === 'IN_PROGRESS' ? '#D97706' : (f.status === 'PENDING_VERIFICATION' ? '#7C3AED' : '#059669'));
+                statEl.textContent = statusKey;
+                statEl.style.background = statusKey === 'OPEN' ? '#FEE2E2' : (statusKey === 'IN_PROGRESS' ? '#FEF3C7' : (statusKey === 'PENDING_VERIFICATION' ? '#EDE9FE' : '#D1FAE5'));
+                statEl.style.color = statusKey === 'OPEN' ? '#DC2626' : (statusKey === 'IN_PROGRESS' ? '#D97706' : (statusKey === 'PENDING_VERIFICATION' ? '#7C3AED' : '#059669'));
             }
 
             document.getElementById('fnd-det-element-id').textContent = f.element_id || f.category || '-';
-            document.getElementById('fnd-det-location').textContent = f.location || '-';
-            document.getElementById('fnd-det-table').textContent = f.reference_table || 'ANSI/ESD S20.20';
-            document.getElementById('fnd-det-deviation').textContent = `Medido: ${f.measured_value || '-'} | Límite: ${f.limit_applied || '-'}`;
-            document.getElementById('fnd-det-opened-info').textContent = `${(f.created_at || '').substring(0, 10)} (${f.opened_by || 'Auditor'})`;
-            document.getElementById('fnd-det-source').textContent = f.source || 'Auditoría en Piso';
+            document.getElementById('fnd-det-location').textContent = f.location || f.area || '-';
+            document.getElementById('fnd-det-table').textContent = f.normative_table || f.reference_table || 'ANSI/ESD S20.20';
+            document.getElementById('fnd-det-deviation').textContent = `Medido: ${f.measured_value || '-'} | Límite: ${f.required_limit || f.limit_applied || '-'}`;
+            document.getElementById('fnd-det-opened-info').textContent = `${(f.opened_at || f.created_at || '').substring(0, 10)} (${f.auditor_name || f.opened_by || 'Auditor'})`;
+            document.getElementById('fnd-det-source').textContent = f.source_module || f.source || 'Auditoría en Piso';
 
             // Form fields
-            document.getElementById('fnd-det-assignee').value = f.assigned_to || '';
+            document.getElementById('fnd-det-assignee').value = f.assignee_name || f.assigned_to || '';
             document.getElementById('fnd-det-due-date').value = (f.due_date || '').substring(0, 10);
-            document.getElementById('fnd-det-containment').value = f.immediate_containment || '';
+            document.getElementById('fnd-det-containment').value = f.containment_action || f.immediate_containment || '';
             document.getElementById('fnd-det-root-cause').value = f.root_cause || '';
             document.getElementById('fnd-det-corrective').value = f.corrective_action || '';
             document.getElementById('fnd-det-lessons').value = f.lessons_learned || '';
@@ -10476,14 +10562,16 @@
             // Render timeline
             const tlContainer = document.getElementById('fnd-det-timeline');
             if (tlContainer) {
-                if (f.timeline && f.timeline.length > 0) {
+                const tl = f.timeline || [];
+                if (tl.length > 0) {
                     let tlHtml = '';
-                    f.timeline.forEach(item => {
+                    tl.forEach(item => {
                         const dt = (item.timestamp || '').replace('T', ' ').substring(0, 16);
+                        const notes = item.notes || item.comment || '';
                         tlHtml += `<div style="border-left:2px solid #CBD5E1; padding-left:8px; margin-left:4px; margin-bottom:4px;">
-                            <span style="font-weight:700; color:var(--text-primary);">${item.action}</span>
-                            <span style="color:var(--text-muted); font-size:10.5px;">por ${item.user || 'Sistema'} (${dt})</span>
-                            ${item.comment ? `<div style="color:var(--text-secondary); font-style:italic;">"${escapeHtml(item.comment)}"</div>` : ''}
+                            <span style="font-weight:700; color:var(--text-primary);">${escapeHtml(item.action || 'Evento')}</span>
+                            <span style="color:var(--text-muted); font-size:10.5px;">por ${escapeHtml(item.user || 'Sistema')} (${dt})</span>
+                            ${notes ? `<div style="color:var(--text-secondary); font-style:italic;">"${escapeHtml(notes)}"</div>` : ''}
                         </div>`;
                     });
                     tlContainer.innerHTML = tlHtml;
@@ -10507,10 +10595,15 @@
     async function saveFindingActionPlan() {
         if (!currentFinding) return;
         const id = currentFinding.id;
+        const assignee = document.getElementById('fnd-det-assignee').value.trim();
+        const containment = document.getElementById('fnd-det-containment').value.trim();
+
         const body = {
-            assigned_to: document.getElementById('fnd-det-assignee').value.trim(),
+            assignee_name: assignee,
+            assigned_to: assignee,
             due_date: document.getElementById('fnd-det-due-date').value,
-            immediate_containment: document.getElementById('fnd-det-containment').value.trim(),
+            containment_action: containment,
+            immediate_containment: containment,
             root_cause: document.getElementById('fnd-det-root-cause').value.trim(),
             corrective_action: document.getElementById('fnd-det-corrective').value.trim(),
             lessons_learned: document.getElementById('fnd-det-lessons').value.trim(),
@@ -10564,6 +10657,7 @@
                 body: JSON.stringify({
                     new_status: newStatus,
                     comment: comment,
+                    notes: comment,
                     user: sessionData ? sessionData.user_name : 'Auditor'
                 })
             });
@@ -10585,8 +10679,10 @@
         if (!currentFinding || !fileInput.files || fileInput.files.length === 0) return;
         const file = fileInput.files[0];
         const formData = new FormData();
+        formData.append('file', file);
         formData.append('photo', file);
         formData.append('finding_id', currentFinding.id);
+        formData.append('type', type);
         formData.append('evidence_type', type);
 
         try {
@@ -10626,8 +10722,10 @@
         if (fileInput.files && fileInput.files.length > 0) {
             try {
                 const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
                 formData.append('photo', fileInput.files[0]);
                 formData.append('finding_id', 'draft');
+                formData.append('type', 'open');
                 formData.append('evidence_type', 'open');
                 const upRes = await fetch('/api/findings/upload-evidence', { method: 'POST', body: formData });
                 const upData = await upRes.json();
@@ -10637,20 +10735,31 @@
             }
         }
 
+        const tableVal = document.getElementById('fnd-new-table').value;
+        const limitVal = document.getElementById('fnd-new-limit').value.trim();
+        const assigneeVal = document.getElementById('fnd-new-assignee').value.trim();
+        const containmentVal = document.getElementById('fnd-new-containment').value.trim();
+
         const payload = {
             title: document.getElementById('fnd-new-title').value.trim(),
-            reference_table: document.getElementById('fnd-new-table').value,
+            normative_table: tableVal,
+            reference_table: tableVal,
             severity: document.getElementById('fnd-new-severity').value,
             element_id: document.getElementById('fnd-new-elem-id').value.trim(),
             location: document.getElementById('fnd-new-location').value.trim(),
             measured_value: document.getElementById('fnd-new-measured').value.trim(),
-            limit_applied: document.getElementById('fnd-new-limit').value.trim(),
-            assigned_to: document.getElementById('fnd-new-assignee').value.trim(),
+            required_limit: limitVal,
+            limit_applied: limitVal,
+            assignee_name: assigneeVal,
+            assigned_to: assigneeVal,
             due_date: document.getElementById('fnd-new-due-date').value,
-            immediate_containment: document.getElementById('fnd-new-containment').value.trim(),
+            containment_action: containmentVal,
+            immediate_containment: containmentVal,
             evidence_open_url: evidenceUrl,
             opened_by: sessionData ? sessionData.user_name : 'Auditor',
+            auditor_name: sessionData ? sessionData.user_name : 'Auditor',
             site_id: getActiveSiteId(),
+            source_module: 'Levantamiento Manual',
             source: 'Levantamiento Manual'
         };
 
@@ -10662,9 +10771,12 @@
             });
             const data = await res.json();
             if (data.success) {
-                alert('✅ Hallazgo creado con éxito: ' + (data.finding ? data.finding.tracker_code : ''));
+                const code = (data.finding && (data.finding.tracking_code || data.finding.tracker_code))
+                    || (data.data && (data.data.tracking_code || data.data.tracker_code))
+                    || '';
+                alert('✅ Hallazgo creado con éxito' + (code ? `: ${code}` : '.'));
                 closeNewFindingModal();
-                loadFindingsModule();
+                await loadFindingsModule();
             } else {
                 alert('❌ ' + (data.message || 'Error al crear el hallazgo.'));
             }
@@ -10680,20 +10792,21 @@
             let url = '/api/findings/dashboard';
             if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
             const res = await fetch(url);
+            if (!res.ok) return;
             const data = await res.json();
-            if (!data.success || !data.metrics) return;
+            const m = (data && (data.metrics || data.data)) ? (data.metrics || data.data) : data;
+            if (!m || typeof m !== 'object') return;
 
-            const m = data.metrics;
             const elOntime = document.getElementById('fnd-dash-ontime');
             const elMttr = document.getElementById('fnd-dash-mttr');
             const elCrit = document.getElementById('fnd-dash-critical');
             const elRes = document.getElementById('fnd-dash-resolution');
 
-            if (elOntime) elOntime.textContent = m.on_time_closure_rate + '%';
-            if (elMttr) elMttr.textContent = m.mean_time_to_resolve_days + ' d';
-            if (elCrit) elCrit.textContent = m.open_critical_count;
+            if (elOntime) elOntime.textContent = (m.on_time_closure_rate ?? 0) + '%';
+            if (elMttr) elMttr.textContent = (m.mean_time_to_resolve_days ?? 0) + ' d';
+            if (elCrit) elCrit.textContent = (m.open_critical_count ?? 0);
             
-            const resRate = m.total > 0 ? Math.round((m.closed / m.total) * 100) : 0;
+            const resRate = (m.total && m.total > 0) ? Math.round(((m.closed || 0) / m.total) * 100) : 0;
             if (elRes) elRes.textContent = resRate + '%';
 
             renderFindingsCharts(m);
@@ -10815,9 +10928,11 @@
             let url = '/api/findings/dashboard';
             if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
             const res = await fetch(url);
+            if (!res.ok) return;
             const data = await res.json();
-            if (data.success && data.metrics && data.metrics.lessons_learned) {
-                allLessonsLearned = data.metrics.lessons_learned;
+            const m = (data && (data.metrics || data.data)) ? (data.metrics || data.data) : data;
+            if (m && m.lessons_learned && Array.isArray(m.lessons_learned) && m.lessons_learned.length > 0) {
+                allLessonsLearned = m.lessons_learned;
                 renderLessonsLearned(allLessonsLearned);
             } else {
                 container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:30px;">Aún no se han documentado lecciones aprendidas en los hallazgos cerrados.</p>`;
@@ -11698,10 +11813,15 @@
                     <textarea id="fnd-det-lessons" class="form-control" rows="2" placeholder="Conocimiento adquirido para compartir con otras líneas o plantas..."></textarea>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:12px; border-top:1px solid #E2E8F0;">
-                    <button type="submit" class="btn-primary" style="background:#2563EB; font-weight:700; font-size:12px; padding:8px 18px;">
-                        💾 Guardar Plan de Acción CAPA
-                    </button>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:12px; border-top:1px solid #E2E8F0; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button type="submit" class="btn-primary" style="background:#2563EB; font-weight:700; font-size:12px; padding:8px 18px;">
+                            💾 Guardar Plan de Acción CAPA
+                        </button>
+                        <button type="button" class="tab-btn" id="fnd-det-btn-delete" style="display:none; color:#DC2626; background:#FEF2F2; border-color:#FECACA; font-size:11.5px; font-weight:700;" onclick="deleteFindingConfirm(currentFinding?.id, currentFinding?.tracking_code || currentFinding?.tracker_code || currentFinding?.id)">
+                            🗑️ Eliminar Hallazgo
+                        </button>
+                    </div>
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="tab-btn" id="fnd-btn-status-progress" onclick="changeFindingStatus('IN_PROGRESS')" style="color:#D97706; font-size:11.5px;">
                             🟡 Pasar a En Proceso
