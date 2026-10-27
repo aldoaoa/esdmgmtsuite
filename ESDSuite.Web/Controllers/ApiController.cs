@@ -67,13 +67,15 @@ public class ApiController : ControllerBase
     private readonly FloorMapStorageService _mapStorage;
     private readonly IWebHostEnvironment _env;
     private readonly SupabaseConfig _config;
+    private readonly FindingsStorageService _findingsStorage;
 
-    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage, IWebHostEnvironment env, SupabaseConfig config)
+    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage, IWebHostEnvironment env, SupabaseConfig config, FindingsStorageService findingsStorage)
     {
         _supabase = supabase;
         _mapStorage = mapStorage;
         _env = env;
         _config = config;
+        _findingsStorage = findingsStorage;
     }
 
     public static string CreateRememberMeToken(string userId, string secretKey, int days = 30)
@@ -600,7 +602,19 @@ public class ApiController : ControllerBase
             };
 
             resInsert = await _supabase.InsertMeasurementAsync(measurementData);
-            return Ok(new { success = resInsert != null, estatus = estatusEval, data = resInsert });
+
+            JsonObject? autoFinding = null;
+            if (estatusEval != "PASA")
+            {
+                autoFinding = await AutoCheckAndCreateFindingAsync(
+                    siteId, "Auditoría en Piso (TR53)", idElemento, tipoEquipo,
+                    "Tabla 4: Empaques, Materiales e Ionización",
+                    $"Descarga: {tiempoDescarga}s, Balance: {voltajeBalance}V",
+                    "<= 10.0s, <= ±35V",
+                    ubicacion, null, comentarios, auditor, "CRITICAL");
+            }
+
+            return Ok(new { success = resInsert != null, estatus = estatusEval, data = resInsert, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
         }
         else
         {
@@ -636,7 +650,23 @@ public class ApiController : ControllerBase
             };
 
             resInsert = await _supabase.InsertMeasurementAsync(measurementData);
-            return Ok(new { success = resInsert != null, estatus = estatusEval, data = resInsert });
+
+            JsonObject? autoFinding = null;
+            if (estatusEval != "PASA")
+            {
+                string normTable = "Tabla 3: Elementos de Control ESD en Áreas EPA";
+                if (tipoEquipo.Contains("Tierra", StringComparison.OrdinalIgnoreCase))
+                    normTable = "Tabla 1: Sistemas de Puesta a Tierra y Conexión Equipotencial";
+
+                autoFinding = await AutoCheckAndCreateFindingAsync(
+                    siteId, "Auditoría en Piso (TR53)", idElemento, tipoEquipo,
+                    normTable,
+                    $"Resistencia: {resistencia:E2} Ohms, Campo: {voltajeCampo}V",
+                    "< 1.0x10^9 Ohms, <= 100V",
+                    ubicacion, null, comentarios, auditor, "MAJOR");
+            }
+
+            return Ok(new { success = resInsert != null, estatus = estatusEval, data = resInsert, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
         }
     }
 
@@ -944,7 +974,23 @@ public class ApiController : ControllerBase
         payload["status_result"] = ohms <= limit ? "PASS" : "FAIL";
 
         var result = await _supabase.InsertGroundingLogAsync(payload);
-        return Ok(new { success = result != null, data = result });
+
+        JsonObject? autoFinding = null;
+        if (payload["status_result"]?.ToString() == "FAIL")
+        {
+            string elem = payload["point_id"]?.ToString() ?? "Punto de Tierra";
+            string loc = payload["location"]?.ToString() ?? "Planta";
+            string area = payload["area"]?.ToString() ?? loc;
+            string aud = HttpContext.Session.GetString("user_name") ?? "Auditor";
+            autoFinding = await AutoCheckAndCreateFindingAsync(
+                payload["site_id"]?.ToString() ?? CurrentUserSiteId,
+                "Infraestructura EPA - Tierras", elem, "Punto de Tierra",
+                "Tabla 1: Sistemas de Puesta a Tierra y Conexión Equipotencial",
+                $"{ohms} Ohms", $"< {limit} Ohms", loc, area,
+                payload["notes"]?.ToString() ?? "", aud, "CRITICAL");
+        }
+
+        return Ok(new { success = result != null, data = result, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
     }
 
     [HttpGet("infra/floors")]
@@ -1008,7 +1054,22 @@ public class ApiController : ControllerBase
         payload["status_result"] = ohms <= 1.0e9 ? "PASS" : "FAIL";
 
         var result = await _supabase.InsertFloorValidationLogAsync(payload);
-        return Ok(new { success = result != null, data = result });
+
+        JsonObject? autoFinding = null;
+        if (payload["status_result"]?.ToString() == "FAIL")
+        {
+            string elem = payload["point_id"]?.ToString() ?? "Piso ESD";
+            string loc = payload["location"]?.ToString() ?? "Planta";
+            string aud = HttpContext.Session.GetString("user_name") ?? "Auditor";
+            autoFinding = await AutoCheckAndCreateFindingAsync(
+                payload["site_id"]?.ToString() ?? CurrentUserSiteId,
+                "Infraestructura EPA - Pisos", elem, "Piso ESD",
+                "Tabla 3: Elementos de Control ESD en Áreas EPA",
+                $"Resistencia: {ohms:E2} Ohms", "< 1.0x10^9 Ohms", loc, null,
+                payload["notes"]?.ToString() ?? "", aud, "MAJOR");
+        }
+
+        return Ok(new { success = result != null, data = result, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
     }
 
     [HttpGet("infra/isolated")]
@@ -1117,7 +1178,22 @@ public class ApiController : ControllerBase
         };
 
         var result = await _supabase.InsertIsolatedConductorsLogAsync(insertPayload);
-        return Ok(new { success = result != null, status_result = overallStatus, max_voltage = payload["max_voltage"]?.GetValue<double>() ?? 0, data = result });
+
+        JsonObject? autoFinding = null;
+        if (overallStatus == "FAIL")
+        {
+            string opId = payload["operation_id"]?.ToString() ?? "ISO-01";
+            string loc = payload["location"]?.ToString() ?? "General";
+            string aud = HttpContext.Session.GetString("user_name") ?? "Auditor";
+            autoFinding = await AutoCheckAndCreateFindingAsync(
+                payload["site_id"]?.ToString() ?? CurrentUserSiteId,
+                "Infraestructura EPA - Aislantes", opId, "Conductores Aislados / Aislantes",
+                "Tabla 4: Empaques, Materiales e Ionización",
+                $"{payload["max_voltage"]} Volts", "<= ±35 Volts", loc, null,
+                structuredComments["notes"]?.ToString() ?? "", aud, "MAJOR");
+        }
+
+        return Ok(new { success = result != null, status_result = overallStatus, max_voltage = payload["max_voltage"]?.GetValue<double>() ?? 0, data = result, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
     }
 
     [HttpPost("infra/isolated/upload-photo")]
@@ -2834,7 +2910,20 @@ public class ApiController : ControllerBase
         }
         catch { }
 
-        return Ok(new { success = true, resultado = resultadoStr, data = payload });
+        JsonObject? autoFinding = null;
+        if (!isPass)
+        {
+            string cat = payload["category"]?.ToString() ?? "Prenda ESD";
+            string aud = HttpContext.Session.GetString("user_name") ?? "Auditor ESD";
+            string loc = payload["departamento"]?.ToString() ?? "General";
+            autoFinding = await AutoCheckAndCreateFindingAsync(
+                siteId, "Validación de Batas y Calzado", garmentId, cat,
+                "Tabla 3: Elementos de Control ESD en Áreas EPA",
+                $"{measuredVal:E2} Ohms", $"< {refLimit:E2} Ohms", loc, null,
+                $"Asignada a #{payload["num_empleado"]} ({payload["nombre_empleado"]}). Resultado: {resultadoStr}", aud, "MAJOR");
+        }
+
+        return Ok(new { success = true, resultado = resultadoStr, data = payload, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
     }
 
     [HttpDelete("garments/{id}")]
@@ -4678,7 +4767,21 @@ public class ApiController : ControllerBase
             $"Validación de elemento '{idElemento}' ({payload["elemento_s20_20"]}) registrada con resultado: {calcResult}.",
             new { idElemento, resultado = calcResult, med1, refLimit });
 
-        return Ok(new { success = true, resultado = calcResult, data = inserted });
+        JsonObject? autoFinding = null;
+        if (calcResult.Contains("NO CUMPLE", StringComparison.OrdinalIgnoreCase) || calcResult.Contains("RECHAZADO", StringComparison.OrdinalIgnoreCase))
+        {
+            string elemType = payload["elemento_s20_20"]?.ToString() ?? "Elemento ESD";
+            string loc = payload["ubicacion"]?.ToString() ?? "General";
+            string aud = payload["auditor"]?.ToString() ?? "Auditor ESD";
+            string measuredDisplay = med1.HasValue ? $"{med1.Value} {payload["unidad"] ?? "Ohms"}" : "Fuera de límite";
+            autoFinding = await AutoCheckAndCreateFindingAsync(
+                siteId, "Validación de Elementos ESD", idElemento, elemType,
+                "Tabla 3: Elementos de Control ESD en Áreas EPA",
+                measuredDisplay, $"<= {refLimit:E2} {payload["unidad"] ?? "Ohms"}", loc, null,
+                payload["notas"]?.ToString() ?? "", aud, "MAJOR");
+        }
+
+        return Ok(new { success = true, resultado = calcResult, data = inserted, finding_created = autoFinding != null, finding_code = autoFinding?["tracking_code"]?.ToString() });
     }
 
     [HttpPost("validation/upload-evidence")]
@@ -4849,6 +4952,354 @@ public class ApiController : ControllerBase
             download_url = downloadUrl,
             html
         });
+    }
+
+    // =========================================================================
+    // FINDINGS & CAPA TRACKER (GESTIÓN DE HALLAZGOS Y ACCIONES CORRECTIVAS)
+    // =========================================================================
+
+    private async Task<JsonObject?> AutoCheckAndCreateFindingAsync(
+        string siteId,
+        string sourceModule,
+        string elementId,
+        string category,
+        string normativeTable,
+        string measuredValueStr,
+        string requiredLimitText,
+        string location,
+        string? area,
+        string comments,
+        string auditorName,
+        string severity = "MAJOR")
+    {
+        try
+        {
+            string safeArea = !string.IsNullOrWhiteSpace(area) ? area : (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
+            string code = _findingsStorage.GenerateTrackingCode(siteId);
+
+            var finding = new JsonObject
+            {
+                ["id"] = Guid.NewGuid().ToString(),
+                ["tracking_code"] = code,
+                ["site_id"] = siteId,
+                ["source_module"] = sourceModule,
+                ["title"] = $"No conformidad ANSI/ESD S20.20 en {elementId} ({category})",
+                ["category"] = category,
+                ["normative_table"] = normativeTable,
+                ["element_id"] = elementId,
+                ["area"] = safeArea,
+                ["location"] = location,
+                ["measured_value"] = measuredValueStr,
+                ["required_limit"] = requiredLimitText,
+                ["severity"] = severity,
+                ["status"] = "OPEN",
+                ["auditor_id"] = HttpContext.Session.GetString("user_id") ?? "",
+                ["auditor_name"] = auditorName,
+                ["assignee_name"] = "Sin Asignar",
+                ["opened_at"] = DateTime.UtcNow.ToString("o"),
+                ["due_date"] = DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd"),
+                ["description"] = $"Durante la inspección en {sourceModule}, el elemento '{elementId}' registró una medición de '{measuredValueStr}', excediendo el límite normativo '{requiredLimitText}' ({normativeTable}). Observaciones: {comments}",
+                ["timeline"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["timestamp"] = DateTime.UtcNow.ToString("o"),
+                        ["user"] = auditorName,
+                        ["action"] = "Apertura Automática",
+                        ["notes"] = $"Hallazgo generado automáticamente por prueba no conforme ({measuredValueStr} vs {requiredLimitText}) en {sourceModule}."
+                    }
+                }
+            };
+
+            var saved = _findingsStorage.SaveFinding(finding);
+            return saved;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AutoFinding Error]: {ex}");
+            return null;
+        }
+    }
+
+    [HttpGet("normative-limits")]
+    public IActionResult GetNormativeLimits([FromQuery] string? siteId = null)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var limits = _findingsStorage.GetNormativeLimits(targetSite);
+        return Ok(limits);
+    }
+
+    [HttpPost("normative-limits")]
+    public async Task<IActionResult> SaveNormativeLimits([FromBody] JsonObject payload)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized(new { success = false, message = "Sesión no válida." });
+
+        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+        if (payload["limits"] is JsonArray limitsArr)
+        {
+            _findingsStorage.SaveNormativeLimits(targetSite, limitsArr);
+            await _supabase.LogAuditEventAsync(currentUserId, targetSite, "UPDATE", "NormativeLimits",
+                "Actualización de límites normativos ANSI/ESD S20.20", new { siteId = targetSite, count = limitsArr.Count });
+            return Ok(new { success = true, message = "Límites normativos guardados correctamente." });
+        }
+        return BadRequest(new { success = false, message = "Formato de límites no válido." });
+    }
+
+    [HttpPost("normative-limits/reset")]
+    public async Task<IActionResult> ResetNormativeLimits([FromBody] JsonObject payload)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized(new { success = false, message = "Sesión no válida." });
+
+        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+        var defaults = _findingsStorage.ResetNormativeLimits(targetSite);
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "RESET", "NormativeLimits",
+            "Restauración de límites normativos estándar ANSI/ESD S20.20-2021", new { siteId = targetSite });
+        return Ok(new { success = true, data = defaults, message = "Límites restaurados a los estándares de la ANSI/ESD S20.20-2021." });
+    }
+
+    [HttpGet("findings")]
+    public IActionResult GetFindings([FromQuery] string? siteId = null, [FromQuery] string? status = null, [FromQuery] string? severity = null, [FromQuery] string? area = null, [FromQuery] string? search = null)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var all = _findingsStorage.GetAllFindings(targetSite);
+        
+        var filtered = all.Where(item => {
+            if (item is not JsonObject obj) return false;
+            if (!string.IsNullOrEmpty(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(obj["status"]?.ToString(), status, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            if (!string.IsNullOrEmpty(severity) && !severity.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(obj["severity"]?.ToString(), severity, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            if (!string.IsNullOrEmpty(area) && !area.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(obj["area"]?.ToString(), area, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            if (!string.IsNullOrEmpty(search))
+            {
+                string sLower = search.Trim().ToLower();
+                string tCode = obj["tracking_code"]?.ToString().ToLower() ?? "";
+                string elemId = obj["element_id"]?.ToString().ToLower() ?? "";
+                string title = obj["title"]?.ToString().ToLower() ?? "";
+                string resp = obj["assignee_name"]?.ToString().ToLower() ?? "";
+                string cat = obj["category"]?.ToString().ToLower() ?? "";
+                string loc = obj["location"]?.ToString().ToLower() ?? "";
+                if (!tCode.Contains(sLower) && !elemId.Contains(sLower) && !title.Contains(sLower) && !resp.Contains(sLower) && !cat.Contains(sLower) && !loc.Contains(sLower))
+                    return false;
+            }
+            return true;
+        }).ToList();
+
+        return Ok(filtered);
+    }
+
+    [HttpGet("findings/{id}")]
+    public IActionResult GetFindingById(string id)
+    {
+        var finding = _findingsStorage.GetFindingById(id);
+        if (finding == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
+        return Ok(finding);
+    }
+
+    [HttpPost("findings")]
+    public async Task<IActionResult> CreateFinding([FromBody] JsonObject payload)
+    {
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+        string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
+
+        string title = payload["title"]?.ToString() ?? "Hallazgo de Auditoría";
+        string elementId = payload["element_id"]?.ToString() ?? "";
+        string category = payload["category"]?.ToString() ?? "General";
+        string normTable = payload["normative_table"]?.ToString() ?? "Tabla 3: Elementos de Control ESD en Áreas EPA";
+        string location = payload["location"]?.ToString() ?? "N/A";
+        string area = payload["area"]?.ToString() ?? (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
+        string measuredVal = payload["measured_value"]?.ToString() ?? "Fuera de rango";
+        string reqLimit = payload["required_limit"]?.ToString() ?? "Conforme a norma";
+        string severity = payload["severity"]?.ToString() ?? "MAJOR";
+        string desc = payload["description"]?.ToString() ?? "";
+        string assignee = payload["assignee_name"]?.ToString() ?? "Sin Asignar";
+        string dueDate = payload["due_date"]?.ToString() ?? DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd");
+        string containment = payload["containment_action"]?.ToString() ?? "";
+        string openEvidence = payload["evidence_open_url"]?.ToString() ?? "";
+
+        string code = _findingsStorage.GenerateTrackingCode(targetSite);
+        var finding = new JsonObject
+        {
+            ["id"] = Guid.NewGuid().ToString(),
+            ["tracking_code"] = code,
+            ["site_id"] = targetSite,
+            ["source_module"] = payload["source_module"]?.ToString() ?? "Levantamiento Manual",
+            ["title"] = title,
+            ["category"] = category,
+            ["normative_table"] = normTable,
+            ["element_id"] = elementId,
+            ["area"] = area,
+            ["location"] = location,
+            ["measured_value"] = measuredVal,
+            ["required_limit"] = reqLimit,
+            ["severity"] = severity,
+            ["status"] = "OPEN",
+            ["auditor_id"] = currentUserId,
+            ["auditor_name"] = currentUserName,
+            ["assignee_name"] = assignee,
+            ["opened_at"] = DateTime.UtcNow.ToString("o"),
+            ["due_date"] = dueDate,
+            ["description"] = desc,
+            ["containment_action"] = containment,
+            ["evidence_open_url"] = openEvidence,
+            ["timeline"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["timestamp"] = DateTime.UtcNow.ToString("o"),
+                    ["user"] = currentUserName,
+                    ["action"] = "Apertura de Hallazgo",
+                    ["notes"] = $"Hallazgo {code} levantado manualmente por {currentUserName}."
+                }
+            }
+        };
+
+        var saved = _findingsStorage.SaveFinding(finding);
+        await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "Findings",
+            $"Nuevo hallazgo '{code}' para equipo '{elementId}'", new { trackingCode = code, severity, elementId });
+
+        return Ok(new { success = true, data = saved, message = $"Hallazgo '{code}' registrado exitosamente." });
+    }
+
+    [HttpPut("findings/{id}")]
+    public async Task<IActionResult> UpdateFinding(string id, [FromBody] JsonObject payload)
+    {
+        var existing = _findingsStorage.GetFindingById(id);
+        if (existing == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
+
+        string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Usuario";
+        string targetSite = existing["site_id"]?.ToString() ?? CurrentUserSiteId;
+
+        if (payload["title"] != null) existing["title"] = payload["title"]?.ToString();
+        if (payload["severity"] != null) existing["severity"] = payload["severity"]?.ToString();
+        if (payload["area"] != null) existing["area"] = payload["area"]?.ToString();
+        if (payload["location"] != null) existing["location"] = payload["location"]?.ToString();
+        if (payload["assignee_name"] != null) existing["assignee_name"] = payload["assignee_name"]?.ToString();
+        if (payload["due_date"] != null) existing["due_date"] = payload["due_date"]?.ToString();
+        if (payload["containment_action"] != null) existing["containment_action"] = payload["containment_action"]?.ToString();
+        if (payload["root_cause"] != null) existing["root_cause"] = payload["root_cause"]?.ToString();
+        if (payload["corrective_action"] != null) existing["corrective_action"] = payload["corrective_action"]?.ToString();
+        if (payload["lessons_learned"] != null) existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
+        if (payload["evidence_open_url"] != null) existing["evidence_open_url"] = payload["evidence_open_url"]?.ToString();
+        if (payload["evidence_close_url"] != null) existing["evidence_close_url"] = payload["evidence_close_url"]?.ToString();
+        if (payload["description"] != null) existing["description"] = payload["description"]?.ToString();
+
+        var timeline = existing["timeline"] as JsonArray ?? new JsonArray();
+        timeline.Add(new JsonObject
+        {
+            ["timestamp"] = DateTime.UtcNow.ToString("o"),
+            ["user"] = currentUserName,
+            ["action"] = "Actualización de Acciones",
+            ["notes"] = payload["timeline_note"]?.ToString() ?? "Se actualizaron detalles y plan de acción del hallazgo."
+        });
+        existing["timeline"] = timeline;
+
+        var saved = _findingsStorage.SaveFinding(existing);
+        return Ok(new { success = true, data = saved, message = "Hallazgo actualizado correctamente." });
+    }
+
+    [HttpPost("findings/{id}/status")]
+    public async Task<IActionResult> UpdateFindingStatus(string id, [FromBody] JsonObject payload)
+    {
+        var existing = _findingsStorage.GetFindingById(id);
+        if (existing == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
+
+        string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Usuario";
+        string newStatus = payload["status"]?.ToString()?.ToUpper() ?? "OPEN";
+        string notes = payload["notes"]?.ToString() ?? $"Cambio de estatus a {newStatus}";
+        string evidenceClose = payload["evidence_close_url"]?.ToString() ?? "";
+
+        existing["status"] = newStatus;
+        if (!string.IsNullOrEmpty(evidenceClose))
+        {
+            existing["evidence_close_url"] = evidenceClose;
+        }
+
+        if (newStatus == "CLOSED")
+        {
+            existing["closed_at"] = DateTime.UtcNow.ToString("o");
+            existing["closed_by_name"] = currentUserName;
+            if (payload["lessons_learned"] != null)
+            {
+                existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
+            }
+        }
+        else
+        {
+            existing["closed_at"] = null;
+            existing["closed_by_name"] = null;
+        }
+
+        var timeline = existing["timeline"] as JsonArray ?? new JsonArray();
+        timeline.Add(new JsonObject
+        {
+            ["timestamp"] = DateTime.UtcNow.ToString("o"),
+            ["user"] = currentUserName,
+            ["action"] = $"Transición de Estatus: {newStatus}",
+            ["notes"] = notes
+        });
+        existing["timeline"] = timeline;
+
+        var saved = _findingsStorage.SaveFinding(existing);
+        return Ok(new { success = true, data = saved, message = $"Estatus actualizado a {newStatus}." });
+    }
+
+    [HttpDelete("findings/{id}")]
+    public IActionResult DeleteFinding(string id)
+    {
+        if (!IsSiteAdmin) return Forbid();
+        bool ok = _findingsStorage.DeleteFinding(id);
+        return Ok(new { success = ok, message = ok ? "Hallazgo eliminado correctamente." : "No se encontró el hallazgo." });
+    }
+
+    [HttpPost("findings/upload-evidence")]
+    public async Task<IActionResult> UploadFindingEvidence([FromForm] IFormFile? file, [FromForm] string? type = "open")
+    {
+        if (file == null || file.Length == 0) return BadRequest(new { success = false, message = "No se recibió archivo de evidencia." });
+
+        try
+        {
+            int year = DateTime.UtcNow.Year;
+            string targetDir = Path.Combine(_findingsStorage.UploadsDirectory, year.ToString());
+            if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+
+            string ext = Path.GetExtension(file.FileName).ToLower();
+            string[] allowed = { ".jpg", ".jpeg", ".png", ".webp", ".pdf" };
+            if (!allowed.Contains(ext)) return BadRequest(new { success = false, message = "Formato no permitido. Solo JPG, PNG, WebP o PDF." });
+
+            string fileName = $"ev_{type}_{Guid.NewGuid()}{ext}";
+            string fullPath = Path.Combine(targetDir, fileName);
+
+            using (var stream = new FileStream(fullPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            string relativeUrl = $"/uploads/findings/{year}/{fileName}";
+            return Ok(new { success = true, url = relativeUrl, message = "Evidencia cargada exitosamente." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("findings/dashboard")]
+    public IActionResult GetFindingsDashboard([FromQuery] string? siteId = null)
+    {
+        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+        var metrics = _findingsStorage.GetDashboardMetrics(targetSite);
+        return Ok(metrics);
     }
 }
 

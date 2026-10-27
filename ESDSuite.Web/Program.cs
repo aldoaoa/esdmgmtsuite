@@ -40,6 +40,7 @@ builder.Services.AddSingleton(supabaseConfig);
 builder.Services.AddHttpClient<SupabaseService>();
 builder.Services.AddSingleton<I18nService>();
 builder.Services.AddSingleton(sp => new FloorMapStorageService(builder.Environment.ContentRootPath, builder.Environment.WebRootPath, sp.GetRequiredService<SupabaseService>()));
+builder.Services.AddSingleton(sp => new FindingsStorageService(builder.Environment.ContentRootPath, builder.Environment.WebRootPath));
 
 var app = builder.Build();
 

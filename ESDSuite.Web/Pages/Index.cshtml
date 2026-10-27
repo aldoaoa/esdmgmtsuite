@@ -91,7 +91,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.8</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.0</span>
                     </div>
                 </div>
             </div>
@@ -172,6 +172,11 @@
         <div id="nav-schedule" class="nav-item" onclick="switchModule('schedule')">
             <span class="icon"><img src="/images/icons/icon-schedule.svg" class="sidebar-icon-img" alt="" /></span> <span data-i18n="nav.schedule">Cronograma & Reportes</span>
         </div>
+        <div id="nav-findings" class="nav-item" onclick="switchModule('findings')">
+            <span class="icon"><img src="/images/icons/icon-checklist.svg" class="sidebar-icon-img" alt="" onerror="this.src='/images/icons/icon-event-meter.svg'" /></span>
+            <span data-i18n="nav.findings">Gestión de Hallazgos</span>
+            <span id="badge-open-findings" style="background:#EF4444; color:#fff; font-size:10px; font-weight:800; border-radius:10px; padding:2px 7px; margin-left:auto; display:none;">0</span>
+        </div>
 
         <div class="sidebar-category" data-i18n="sidebar.cat_assets">ACTIVOS & CAPACITACIÓN</div>
         <div id="nav-inventory" class="nav-item" onclick="switchModule('inventory')">
@@ -198,7 +203,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.8</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.0</span>
             </div>
         </div>
     </aside>
@@ -1366,6 +1371,221 @@
                 </div>
             </div>
 
+            <!-- MODULE: FINDINGS MANAGEMENT & CORRECTIVE ACTIONS (CAPA - ANSI/ESD S20.20) -->
+            <div id="mod-findings" class="module-view" style="display:none;">
+                <div class="glass-panel">
+                    <!-- HEADER -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                        <div>
+                            <h3 style="margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:22px;">📋</span>
+                                <span data-i18n="findings.heading">Gestión de Hallazgos &amp; Acciones Correctivas (CAPA)</span>
+                            </h3>
+                            <p style="margin:0; font-size:12.5px; color:var(--text-muted);" data-i18n="findings.subtitle">
+                                Trazabilidad de no conformidades ANSI/ESD S20.20-2021, asignación de responsables, evidencias de apertura/cierre y mejora continua
+                            </p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <button type="button" class="btn-primary" style="background:#2563EB; border-color:#1D4ED8; font-weight:700; font-size:12px;" onclick="openNewFindingModal()">
+                                ➕ <span data-i18n="findings.btn_new_finding">Nuevo Hallazgo Manual</span>
+                            </button>
+                            <button type="button" class="tree-action-btn" style="background:#F1F5F9; color:#475569;" onclick="loadFindingsModule()" title="Recargar hallazgos">
+                                🔄 <span data-i18n="findings.btn_refresh">Actualizar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SUBTABS NAVIGATION -->
+                    <div class="tabs-nav" style="margin-bottom:16px;">
+                        <button class="tab-btn active" id="fnd-subtab-btn-tracker" onclick="switchFindingsSubtab('tracker')">
+                            📋 <span data-i18n="findings.tab_tracker">Tracker de Hallazgos</span>
+                        </button>
+                        <button class="tab-btn" id="fnd-subtab-btn-dashboard" onclick="switchFindingsSubtab('dashboard')">
+                            📊 <span data-i18n="findings.tab_dashboard">Dashboard de Métricas &amp; CAPA</span>
+                        </button>
+                        <button class="tab-btn" id="fnd-subtab-btn-lessons" onclick="switchFindingsSubtab('lessons')">
+                            💡 <span data-i18n="findings.tab_lessons">Lecciones Aprendidas (Mejora Continua)</span>
+                        </button>
+                    </div>
+
+                    <!-- SUBTAB 1: FINDINGS TRACKER LIST -->
+                    <div id="fnd-subtab-tracker">
+                        <!-- KPI SUMMARY MINI-CARDS -->
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:18px;">
+                            <div class="glass-card" style="padding:12px 16px; background:#FFFFFF; border-left:4px solid #3B82F6;">
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;" data-i18n="findings.kpi_total">Total Hallazgos</div>
+                                <div id="fnd-kpi-total" style="font-size:22px; font-weight:800; color:var(--text-primary); margin-top:4px;">0</div>
+                            </div>
+                            <div class="glass-card" style="padding:12px 16px; background:#FFFFFF; border-left:4px solid #EF4444;">
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;" data-i18n="findings.kpi_open">Abiertos / Urgentes</div>
+                                <div id="fnd-kpi-open" style="font-size:22px; font-weight:800; color:#EF4444; margin-top:4px;">0</div>
+                            </div>
+                            <div class="glass-card" style="padding:12px 16px; background:#FFFFFF; border-left:4px solid #F59E0B;">
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;" data-i18n="findings.kpi_in_progress">En Contención / Proceso</div>
+                                <div id="fnd-kpi-progress" style="font-size:22px; font-weight:800; color:#D97706; margin-top:4px;">0</div>
+                            </div>
+                            <div class="glass-card" style="padding:12px 16px; background:#FFFFFF; border-left:4px solid #8B5CF6;">
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;" data-i18n="findings.kpi_pending_val">Pendientes Verificación</div>
+                                <div id="fnd-kpi-pending" style="font-size:22px; font-weight:800; color:#7C3AED; margin-top:4px;">0</div>
+                            </div>
+                            <div class="glass-card" style="padding:12px 16px; background:#FFFFFF; border-left:4px solid #10B981;">
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;" data-i18n="findings.kpi_closed">Cerrados Eficazmente</div>
+                                <div id="fnd-kpi-closed" style="font-size:22px; font-weight:800; color:#059669; margin-top:4px;">0</div>
+                            </div>
+                        </div>
+
+                        <!-- FILTERS -->
+                        <div class="glass-card" style="background:#FFFFFF; padding:12px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                            <div style="flex:1; min-width:200px;">
+                                <input type="text" id="fnd-filter-search" class="form-control" placeholder="🔍 Buscar por tracker, elemento, responsable, área..." oninput="filterFindingsList()" style="font-size:12.5px; height:34px;" />
+                            </div>
+                            <div style="width:170px;">
+                                <select id="fnd-filter-status" class="form-control" onchange="filterFindingsList()" style="font-size:12px; height:34px;">
+                                    <option value="" data-i18n="findings.filter_all_statuses">Todos los Estados</option>
+                                    <option value="OPEN">🔴 Abierto</option>
+                                    <option value="IN_PROGRESS">🟡 En Proceso</option>
+                                    <option value="PENDING_VERIFICATION">🟣 Pendiente Verificación</option>
+                                    <option value="CLOSED">🟢 Cerrado</option>
+                                </select>
+                            </div>
+                            <div style="width:150px;">
+                                <select id="fnd-filter-severity" class="form-control" onchange="filterFindingsList()" style="font-size:12px; height:34px;">
+                                    <option value="" data-i18n="findings.filter_all_severities">Toda Severidad</option>
+                                    <option value="CRITICAL">🔴 Crítica</option>
+                                    <option value="MAJOR">🟠 Mayor</option>
+                                    <option value="MINOR">🔵 Menor</option>
+                                </select>
+                            </div>
+                            <div style="width:180px;">
+                                <select id="fnd-filter-table" class="form-control" onchange="filterFindingsList()" style="font-size:12px; height:34px;">
+                                    <option value="" data-i18n="findings.filter_all_tables">Todas las Tablas</option>
+                                    <option value="Tabla 1">Tabla 1 - Conexión Personal</option>
+                                    <option value="Tabla 2">Tabla 2 - Superficies / Mobiliario</option>
+                                    <option value="Tabla 3">Tabla 3 - Pisos / Calzado</option>
+                                    <option value="Tabla 4">Tabla 4 - Empaque &amp; Aislantes</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- FINDINGS TABLE -->
+                        <div class="data-table-container" style="background:#FFFFFF; border-radius:10px; overflow-x:auto;">
+                            <table class="data-table" style="width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:130px;" data-i18n="findings.th_tracker">Tracker ID</th>
+                                        <th style="width:140px;" data-i18n="findings.th_date_area">Fecha / Área</th>
+                                        <th data-i18n="findings.th_element_table">Elemento / Ref. Norma</th>
+                                        <th data-i18n="findings.th_deviation">Desviación (Medido vs Límite)</th>
+                                        <th style="width:160px;" data-i18n="findings.th_assignee">Responsable / Compromiso</th>
+                                        <th style="width:120px; text-align:center;" data-i18n="findings.th_status">Estatus</th>
+                                        <th style="width:80px; text-align:center;" data-i18n="findings.th_evidence">Evidencias</th>
+                                        <th style="width:110px; text-align:center;" data-i18n="findings.th_actions">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="findings-table-tbody">
+                                    <tr>
+                                        <td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">
+                                            Cargando hallazgos normativos...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SUBTAB 2: DASHBOARD & METRICS -->
+                    <div id="fnd-subtab-dashboard" style="display:none;">
+                        <!-- HIGHLIGHT CARDS -->
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:20px;">
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_ontime_rate">% Cierre a Tiempo (On-Time)</div>
+                                <div id="fnd-dash-ontime" style="font-size:28px; font-weight:800; color:#10B981; margin-top:6px;">0%</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Cumplimiento de fecha compromiso</div>
+                            </div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_mttr">MTTR (Tiempo Promedio Cierre)</div>
+                                <div id="fnd-dash-mttr" style="font-size:28px; font-weight:800; color:#3B82F6; margin-top:6px;">0 d</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Días transcurridos apertura a cierre</div>
+                            </div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_open_critical">Críticos Pendientes</div>
+                                <div id="fnd-dash-critical" style="font-size:28px; font-weight:800; color:#EF4444; margin-top:6px;">0</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Requieren contención inmediata</div>
+                            </div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_resolution_rate">% Eficacia Global</div>
+                                <div id="fnd-dash-resolution" style="font-size:28px; font-weight:800; color:#8B5CF6; margin-top:6px;">0%</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Hallazgos cerrados vs total abiertos</div>
+                            </div>
+                        </div>
+
+                        <!-- CHARTS GRID -->
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:20px;">
+                            <!-- CHART 1: BY CATEGORY / TABLE -->
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px;">
+                                <h4 style="margin:0 0 12px 0; font-size:13.5px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>📊</span> <span data-i18n="findings.chart_by_table">Hallazgos por Tabla ANSI/ESD S20.20</span>
+                                </h4>
+                                <div style="height:260px; position:relative;">
+                                    <canvas id="chart-findings-by-table"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- CHART 2: BY SEVERITY -->
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px;">
+                                <h4 style="margin:0 0 12px 0; font-size:13.5px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>🎯</span> <span data-i18n="findings.chart_by_severity">Distribución por Severidad</span>
+                                </h4>
+                                <div style="height:260px; position:relative;">
+                                    <canvas id="chart-findings-by-severity"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- CHART 3: BY RESPONSIBLE / ASSIGNEE -->
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px;">
+                                <h4 style="margin:0 0 12px 0; font-size:13.5px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>👤</span> <span data-i18n="findings.chart_by_responsible">Carga &amp; Cierre por Responsable</span>
+                                </h4>
+                                <div style="height:260px; position:relative;">
+                                    <canvas id="chart-findings-by-responsible"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- CHART 4: PARETO BY AREA / LINE -->
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px;">
+                                <h4 style="margin:0 0 12px 0; font-size:13.5px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>🏭</span> <span data-i18n="findings.chart_by_area">Pareto de Hallazgos por Área / Línea</span>
+                                </h4>
+                                <div style="height:260px; position:relative;">
+                                    <canvas id="chart-findings-by-area"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBTAB 3: LESSONS LEARNED REPOSITORY -->
+                    <div id="fnd-subtab-lessons" style="display:none;">
+                        <div class="glass-card" style="background:#FFFFFF; padding:14px 18px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                    <span>💡</span> <span data-i18n="findings.lessons_title">Banco de Lecciones Aprendidas &amp; Mejora Continua</span>
+                                </h4>
+                                <p style="margin:0; font-size:12px; color:var(--text-muted);" data-i18n="findings.lessons_sub">
+                                    Historial consolidado de causas raíz resueltas y acciones correctivas efectivas validadas en auditorías
+                                </p>
+                            </div>
+                            <div style="width:280px;">
+                                <input type="text" id="fnd-lessons-search" class="form-control" placeholder="🔍 Buscar lección aprendida o causa..." oninput="filterLessonsLearned()" style="font-size:12px; height:34px;" />
+                            </div>
+                        </div>
+
+                        <div id="fnd-lessons-container" style="display:flex; flex-direction:column; gap:12px;">
+                            <p style="text-align:center; color:var(--text-muted); padding:30px;">Cargando repositorio de lecciones aprendidas...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- MODULE 5: INVENTORY / ASSET DIRECTORY -->
             <div id="mod-inventory" class="module-view" style="display:none;">
                 <div class="glass-panel">
@@ -1897,6 +2117,7 @@
                         <button class="tab-btn active" id="set-tab-btn-tree" onclick="switchSettingsTab('tree')" data-i18n="settings.tab_tree">Estructura & Jerarquía Multi-Tenant</button>
                         <button class="tab-btn" id="set-tab-btn-users" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">Usuarios, Alta & Permisos de Rol</button>
                         <button class="tab-btn" id="set-tab-btn-inventory-mgmt" onclick="switchSettingsTab('inventory-mgmt')">📦 <span data-i18n="settings.tab_inventory_mgmt">Manejo de Inventario (Bajas)</span></button>
+                        <button class="tab-btn" id="set-tab-btn-normative-limits" onclick="switchSettingsTab('normative-limits')">📐 <span data-i18n="settings.tab_normative_limits">Límites Normativos ANSI/ESD S20.20</span></button>
                         <button class="tab-btn" id="set-tab-btn-lang" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
                         <button class="tab-btn" id="set-tab-btn-equipment" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
                         <button class="tab-btn" id="set-tab-btn-maps" onclick="switchSettingsTab('maps')">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
@@ -2532,6 +2753,33 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- TAB: NORMATIVE LIMITS ANSI/ESD S20.20-2021 -->
+                    <div id="set-tab-normative-limits" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                            <div>
+                                <h4 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px; margin:0 0 4px 0;">
+                                    <span>📐</span>
+                                    <span data-i18n="settings.norm_limits_title">Límites Normativos &amp; Tolerancias ANSI/ESD S20.20</span>
+                                </h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:0;" data-i18n="settings.norm_limits_sub">
+                                    Configuración de tolerancias para Tablas 1, 2, 3 y 4 de la norma ANSI/ESD S20.20-2021. Las mediciones fuera de estos límites generarán hallazgos automáticamente en el Tracker de Acciones Correctivas.
+                                </p>
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <button type="button" class="btn-primary" style="background:#059669; border-color:#047857;" onclick="saveNormativeLimitsSettings()">
+                                    💾 Guardar Límites de Planta
+                                </button>
+                                <button type="button" class="tree-action-btn" style="background:#F1F5F9; color:#475569;" onclick="resetNormativeLimitsSettings()" title="Restaurar a estándar oficial">
+                                    🔄 Restaurar Estándar 2021
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="normative-limits-container" style="display:flex; flex-direction:column; gap:20px;">
+                            <p style="color:var(--text-muted); padding:20px; text-align:center;">Cargando límites normativos...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -2621,6 +2869,7 @@
             try { await loadEquipmentForSite(); } catch(e) { console.warn('loadEquipmentForSite error:', e); }
             try { await loadSitePhotoPolicy(); } catch(e) { console.warn('loadSitePhotoPolicy error:', e); }
             try { await loadDashboardMetrics(); } catch(e) { console.warn('loadDashboardMetrics error:', e); }
+            try { refreshOpenFindingsBadge(); } catch(e) { console.warn('refreshOpenFindingsBadge error:', e); }
         } else {
             const landingLang = getStoredLang();
             const overlay = document.getElementById('login-overlay');
@@ -3010,6 +3259,7 @@
             loadScheduleData();
         }
         if (modName === 'inventory') loadInventory();
+        if (modName === 'findings') loadFindingsModule();
         if (modName === 'validation' || modName === 'lab') loadValidationModule();
         if (modName === 'routes') loadRoutes();
         if (modName === 'employees') loadEmployees();
@@ -7751,6 +8001,7 @@
         if (tabName === 'hierarchy') { loadHierarchyTree(); loadArchivedLocationGroups(); }
         if (tabName === 'equipment') loadEquipmentTable();
         if (tabName === 'inventory-mgmt') loadDecommissionedInventory();
+        if (tabName === 'normative-limits') loadNormativeLimitsSettings();
         if (tabName === 'maps') loadMapsEditor();
         if (tabName === 'photos') loadPhotoPolicySettingsTab();
         if (tabName === 'branding') loadBrandingSettingsTab();
@@ -7764,6 +8015,7 @@
         loadCompaniesAndSitesSelects();
         loadEquipmentTable();
         loadDecommissionedInventory();
+        loadNormativeLimitsSettings();
         checkBrandingTabVisibility();
     }
 
@@ -9952,6 +10204,849 @@
             alert('❌ Error de conexión al guardar el lote de mediciones.');
         }
     }
+
+    // ========================================================
+    // FINDINGS TRACKER, CAPA & ANSI/ESD S20.20-2021 METRICS
+    // ========================================================
+    let allFindings = [];
+    let currentFinding = null;
+    let allNormativeLimits = [];
+    let allLessonsLearned = [];
+    let chartFindingsByTable = null;
+    let chartFindingsBySeverity = null;
+    let chartFindingsByResponsible = null;
+    let chartFindingsByArea = null;
+
+    function getActiveSiteId() {
+        const sel = document.getElementById('active-site-select');
+        if (sel && sel.value) return sel.value;
+        return (sessionData && sessionData.site_id) || '';
+    }
+
+    function previewPhotoModal(src) {
+        if (!src) return;
+        const modal = document.getElementById('modal-photo-preview');
+        const img = document.getElementById('modal-photo-preview-img');
+        if (modal && img) {
+            img.src = src;
+            modal.style.display = 'flex';
+        }
+    }
+
+    function switchFindingsSubtab(subtab) {
+        document.querySelectorAll('#mod-findings .tabs-nav .tab-btn').forEach(btn => btn.classList.remove('active'));
+        const btn = document.getElementById('fnd-subtab-btn-' + subtab);
+        if (btn) btn.classList.add('active');
+
+        const secTracker = document.getElementById('fnd-subtab-tracker');
+        const secDash = document.getElementById('fnd-subtab-dashboard');
+        const secLessons = document.getElementById('fnd-subtab-lessons');
+
+        if (secTracker) secTracker.style.display = (subtab === 'tracker') ? 'block' : 'none';
+        if (secDash) secDash.style.display = (subtab === 'dashboard') ? 'block' : 'none';
+        if (secLessons) secLessons.style.display = (subtab === 'lessons') ? 'block' : 'none';
+
+        if (subtab === 'dashboard') loadFindingsDashboard();
+        if (subtab === 'lessons') loadLessonsLearned();
+    }
+
+    async function loadFindingsModule() {
+        try {
+            const siteId = getActiveSiteId();
+            let url = '/api/findings';
+            if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
+
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.success && data.findings) {
+                allFindings = data.findings;
+                updateFindingsKpis(allFindings);
+                filterFindingsList();
+                refreshOpenFindingsBadge();
+            }
+        } catch(e) {
+            console.error('Error loading findings module:', e);
+        }
+    }
+
+    function updateFindingsKpis(findings) {
+        const total = findings.length;
+        const open = findings.filter(f => f.status === 'OPEN').length;
+        const progress = findings.filter(f => f.status === 'IN_PROGRESS').length;
+        const pending = findings.filter(f => f.status === 'PENDING_VERIFICATION').length;
+        const closed = findings.filter(f => f.status === 'CLOSED').length;
+
+        const elTotal = document.getElementById('fnd-kpi-total');
+        const elOpen = document.getElementById('fnd-kpi-open');
+        const elProg = document.getElementById('fnd-kpi-progress');
+        const elPend = document.getElementById('fnd-kpi-pending');
+        const elClosed = document.getElementById('fnd-kpi-closed');
+
+        if (elTotal) elTotal.textContent = total;
+        if (elOpen) elOpen.textContent = open;
+        if (elProg) elProg.textContent = progress;
+        if (elPend) elPend.textContent = pending;
+        if (elClosed) elClosed.textContent = closed;
+    }
+
+    async function refreshOpenFindingsBadge() {
+        try {
+            const siteId = getActiveSiteId();
+            let url = '/api/findings?status=OPEN';
+            if (siteId) url += '&site_id=' + encodeURIComponent(siteId);
+            const res = await fetch(url);
+            const data = await res.json();
+            const badge = document.getElementById('badge-open-findings');
+            if (badge) {
+                const count = (data.success && data.findings) ? data.findings.length : 0;
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        } catch(e) {
+            // quiet error
+        }
+    }
+
+    function renderFindingsTable(findings) {
+        const tbody = document.getElementById('findings-table-tbody');
+        if (!tbody) return;
+        if (!findings || findings.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted); font-size:13px;">
+                No se han registrado hallazgos ni desviaciones normativas en este site.
+            </td></tr>`;
+            return;
+        }
+
+        const sevColors = {
+            'CRITICAL': { bg: '#FEE2E2', color: '#DC2626', label: 'Crítico' },
+            'MAJOR': { bg: '#FEF3C7', color: '#D97706', label: 'Mayor' },
+            'MINOR': { bg: '#E0E7FF', color: '#4F46E5', label: 'Menor' }
+        };
+
+        const statusBadges = {
+            'OPEN': `<span style="background:#FEE2E2; color:#DC2626; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">🔴 Abierto</span>`,
+            'IN_PROGRESS': `<span style="background:#FEF3C7; color:#D97706; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">🟡 En Proceso</span>`,
+            'PENDING_VERIFICATION': `<span style="background:#EDE9FE; color:#7C3AED; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">🟣 Verificación</span>`,
+            'CLOSED': `<span style="background:#D1FAE5; color:#059669; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">🟢 Cerrado</span>`
+        };
+
+        let html = '';
+        findings.forEach(f => {
+            const sev = sevColors[f.severity] || sevColors['MAJOR'];
+            const stat = statusBadges[f.status] || f.status;
+            const dateStr = (f.created_at || '').substring(0, 10);
+            const dueStr = (f.due_date || '').substring(0, 10);
+            const isOverdue = (f.status !== 'CLOSED' && dueStr && new Date(dueStr) < new Date(new Date().setHours(0,0,0,0)));
+
+            const openPhotoIcon = f.evidence_open_url 
+                ? `<a href="javascript:void(0)" onclick="previewPhotoModal('${f.evidence_open_url}')" title="Ver foto apertura" style="font-size:15px; margin-right:4px;">📸</a>`
+                : `<span style="color:#CBD5E1; font-size:15px; margin-right:4px;" title="Sin foto apertura">📷</span>`;
+            
+            const closePhotoIcon = f.evidence_close_url 
+                ? `<a href="javascript:void(0)" onclick="previewPhotoModal('${f.evidence_close_url}')" title="Ver foto cierre" style="font-size:15px; color:#10B981;">✅</a>`
+                : `<span style="color:#CBD5E1; font-size:15px;" title="Sin evidencia cierre">⚪</span>`;
+
+            html += `
+            <tr style="border-bottom:1px solid #F1F5F9;">
+                <td style="padding:10px 12px;">
+                    <div style="font-family:var(--font-mono); font-weight:800; font-size:12.5px; color:var(--accent-blue);">${escapeHtml(f.tracker_code || f.id)}</div>
+                    <span style="background:${sev.bg}; color:${sev.color}; font-size:9.5px; font-weight:800; padding:1px 6px; border-radius:8px; display:inline-block; margin-top:2px;">
+                        ${sev.label}
+                    </span>
+                </td>
+                <td style="padding:10px 12px;">
+                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.location || '-')}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${dateStr}</div>
+                </td>
+                <td style="padding:10px 12px;">
+                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.element_id || f.title)}</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">${escapeHtml(f.reference_table || 'ANSI/ESD S20.20')}</div>
+                </td>
+                <td style="padding:10px 12px; font-family:var(--font-mono); font-size:11.5px;">
+                    <div style="color:#EF4444; font-weight:700;">Med: ${escapeHtml(f.measured_value || '-')}</div>
+                    <div style="color:var(--text-muted); font-size:10.5px;">Lím: ${escapeHtml(f.limit_applied || '-')}</div>
+                </td>
+                <td style="padding:10px 12px;">
+                    <div style="font-weight:700; font-size:12px; color:var(--text-primary);">${escapeHtml(f.assigned_to || 'Sin asignar')}</div>
+                    <div style="font-size:11px; ${isOverdue ? 'color:#DC2626; font-weight:800;' : 'color:var(--text-muted);'}">
+                        📅 ${dueStr || 'Sin fecha'}${isOverdue ? ' ⚠️ Vencido' : ''}
+                    </div>
+                </td>
+                <td style="padding:10px 12px; text-align:center;">
+                    ${stat}
+                </td>
+                <td style="padding:10px 12px; text-align:center;">
+                    ${openPhotoIcon} ${closePhotoIcon}
+                </td>
+                <td style="padding:10px 12px; text-align:center;">
+                    <button type="button" class="tab-btn" style="padding:4px 10px; font-size:11.5px; font-weight:700; background:#F8FAFC;" onclick="openFindingModal('${f.id}')">
+                        ✏️ CAPA
+                    </button>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    function filterFindingsList() {
+        const q = (document.getElementById('fnd-filter-search')?.value || '').toLowerCase().trim();
+        const st = document.getElementById('fnd-filter-status')?.value || '';
+        const sev = document.getElementById('fnd-filter-severity')?.value || '';
+        const tbl = document.getElementById('fnd-filter-table')?.value || '';
+
+        const filtered = allFindings.filter(f => {
+            if (st && f.status !== st) return false;
+            if (sev && f.severity !== sev) return false;
+            if (tbl && !(f.reference_table || '').includes(tbl)) return false;
+            if (q) {
+                const haystack = `${f.tracker_code || ''} ${f.title || ''} ${f.element_id || ''} ${f.location || ''} ${f.assigned_to || ''} ${f.reference_table || ''}`.toLowerCase();
+                if (!haystack.includes(q)) return false;
+            }
+            return true;
+        });
+
+        renderFindingsTable(filtered);
+    }
+
+    async function openFindingModal(id) {
+        try {
+            const res = await fetch('/api/findings/' + encodeURIComponent(id));
+            const data = await res.json();
+            if (!data.success || !data.finding) {
+                alert('❌ No se encontró el hallazgo solicitado.');
+                return;
+            }
+            const f = data.finding;
+            currentFinding = f;
+
+            document.getElementById('fnd-det-id').value = f.id;
+            document.getElementById('fnd-det-tracker-code').textContent = f.tracker_code || f.id;
+            document.getElementById('fnd-det-header-title').textContent = f.title || 'Desviación normativa';
+
+            // Severity badge
+            const sevEl = document.getElementById('fnd-det-severity-badge');
+            if (sevEl) {
+                sevEl.textContent = f.severity;
+                sevEl.style.background = f.severity === 'CRITICAL' ? '#FEE2E2' : (f.severity === 'MAJOR' ? '#FEF3C7' : '#E0E7FF');
+                sevEl.style.color = f.severity === 'CRITICAL' ? '#DC2626' : (f.severity === 'MAJOR' ? '#D97706' : '#4F46E5');
+            }
+
+            // Status badge
+            const statEl = document.getElementById('fnd-det-status-badge');
+            if (statEl) {
+                statEl.textContent = f.status;
+                statEl.style.background = f.status === 'OPEN' ? '#FEE2E2' : (f.status === 'IN_PROGRESS' ? '#FEF3C7' : (f.status === 'PENDING_VERIFICATION' ? '#EDE9FE' : '#D1FAE5'));
+                statEl.style.color = f.status === 'OPEN' ? '#DC2626' : (f.status === 'IN_PROGRESS' ? '#D97706' : (f.status === 'PENDING_VERIFICATION' ? '#7C3AED' : '#059669'));
+            }
+
+            document.getElementById('fnd-det-element-id').textContent = f.element_id || f.category || '-';
+            document.getElementById('fnd-det-location').textContent = f.location || '-';
+            document.getElementById('fnd-det-table').textContent = f.reference_table || 'ANSI/ESD S20.20';
+            document.getElementById('fnd-det-deviation').textContent = `Medido: ${f.measured_value || '-'} | Límite: ${f.limit_applied || '-'}`;
+            document.getElementById('fnd-det-opened-info').textContent = `${(f.created_at || '').substring(0, 10)} (${f.opened_by || 'Auditor'})`;
+            document.getElementById('fnd-det-source').textContent = f.source || 'Auditoría en Piso';
+
+            // Form fields
+            document.getElementById('fnd-det-assignee').value = f.assigned_to || '';
+            document.getElementById('fnd-det-due-date').value = (f.due_date || '').substring(0, 10);
+            document.getElementById('fnd-det-containment').value = f.immediate_containment || '';
+            document.getElementById('fnd-det-root-cause').value = f.root_cause || '';
+            document.getElementById('fnd-det-corrective').value = f.corrective_action || '';
+            document.getElementById('fnd-det-lessons').value = f.lessons_learned || '';
+
+            // Render Evidences
+            const openContainer = document.getElementById('fnd-det-open-evidence-container');
+            if (f.evidence_open_url) {
+                openContainer.innerHTML = `<img src="${f.evidence_open_url}" style="max-height:100%; max-width:100%; object-fit:contain; cursor:pointer;" onclick="previewPhotoModal('${f.evidence_open_url}')" />`;
+            } else {
+                openContainer.innerHTML = `<span style="font-size:11.5px; color:var(--text-muted);">Sin evidencia fotográfica</span>`;
+            }
+
+            const closeContainer = document.getElementById('fnd-det-close-evidence-container');
+            if (f.evidence_close_url) {
+                closeContainer.innerHTML = `<img src="${f.evidence_close_url}" style="max-height:100%; max-width:100%; object-fit:contain; cursor:pointer;" onclick="previewPhotoModal('${f.evidence_close_url}')" />`;
+            } else {
+                closeContainer.innerHTML = `<span style="font-size:11.5px; color:var(--text-muted);">Pendiente de evidencia de cierre</span>`;
+            }
+
+            // Render timeline
+            const tlContainer = document.getElementById('fnd-det-timeline');
+            if (tlContainer) {
+                if (f.timeline && f.timeline.length > 0) {
+                    let tlHtml = '';
+                    f.timeline.forEach(item => {
+                        const dt = (item.timestamp || '').replace('T', ' ').substring(0, 16);
+                        tlHtml += `<div style="border-left:2px solid #CBD5E1; padding-left:8px; margin-left:4px; margin-bottom:4px;">
+                            <span style="font-weight:700; color:var(--text-primary);">${item.action}</span>
+                            <span style="color:var(--text-muted); font-size:10.5px;">por ${item.user || 'Sistema'} (${dt})</span>
+                            ${item.comment ? `<div style="color:var(--text-secondary); font-style:italic;">"${escapeHtml(item.comment)}"</div>` : ''}
+                        </div>`;
+                    });
+                    tlContainer.innerHTML = tlHtml;
+                } else {
+                    tlContainer.innerHTML = `<span style="color:var(--text-muted); font-size:11px;">Sin historial de cambios registrado.</span>`;
+                }
+            }
+
+            document.getElementById('modal-finding-detail').style.display = 'flex';
+        } catch(e) {
+            console.error('Error opening finding modal:', e);
+            alert('❌ Error al cargar los detalles del hallazgo.');
+        }
+    }
+
+    function closeFindingModal() {
+        document.getElementById('modal-finding-detail').style.display = 'none';
+        currentFinding = null;
+    }
+
+    async function saveFindingActionPlan() {
+        if (!currentFinding) return;
+        const id = currentFinding.id;
+        const body = {
+            assigned_to: document.getElementById('fnd-det-assignee').value.trim(),
+            due_date: document.getElementById('fnd-det-due-date').value,
+            immediate_containment: document.getElementById('fnd-det-containment').value.trim(),
+            root_cause: document.getElementById('fnd-det-root-cause').value.trim(),
+            corrective_action: document.getElementById('fnd-det-corrective').value.trim(),
+            lessons_learned: document.getElementById('fnd-det-lessons').value.trim(),
+            updated_by: sessionData ? sessionData.user_name : 'Usuario'
+        };
+
+        try {
+            const res = await fetch('/api/findings/' + encodeURIComponent(id), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ Plan de acción CAPA guardado correctamente.');
+                await openFindingModal(id);
+                loadFindingsModule();
+            } else {
+                alert('❌ ' + (data.message || 'Error al guardar el plan de acción.'));
+            }
+        } catch(e) {
+            console.error('Error saving action plan:', e);
+            alert('❌ Error de conexión al guardar el plan de acción.');
+        }
+    }
+
+    async function changeFindingStatus(newStatus) {
+        if (!currentFinding) return;
+        const id = currentFinding.id;
+
+        if (newStatus === 'CLOSED') {
+            const corrective = document.getElementById('fnd-det-corrective').value.trim();
+            if (!corrective && !currentFinding.corrective_action) {
+                alert('⚠️ Para cerrar un hallazgo debe documentar la Acción Correctiva Definitiva implementada.');
+                return;
+            }
+            if (!currentFinding.evidence_close_url) {
+                if (!confirm('⚠️ No se ha subido fotografía de evidencia de cierre. ¿Desea proceder con el cierre de todos modos?')) {
+                    return;
+                }
+            }
+        }
+
+        const comment = prompt(`Ingrese un comentario o justificación para el cambio a ${newStatus}:`, `Actualización de estado a ${newStatus}`);
+        if (comment === null) return;
+
+        try {
+            const res = await fetch(`/api/findings/${encodeURIComponent(id)}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    new_status: newStatus,
+                    comment: comment,
+                    user: sessionData ? sessionData.user_name : 'Auditor'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ Estado del hallazgo actualizado.');
+                await openFindingModal(id);
+                loadFindingsModule();
+            } else {
+                alert('❌ ' + (data.message || 'Error al actualizar el estado.'));
+            }
+        } catch(e) {
+            console.error('Error changing finding status:', e);
+            alert('❌ Error de conexión al actualizar el estado.');
+        }
+    }
+
+    async function handleEvidenceUpload(type, fileInput) {
+        if (!currentFinding || !fileInput.files || fileInput.files.length === 0) return;
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('photo', file);
+        formData.append('finding_id', currentFinding.id);
+        formData.append('evidence_type', type);
+
+        try {
+            const res = await fetch('/api/findings/upload-evidence', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('📸 Evidencia fotográfica subida correctamente.');
+                await openFindingModal(currentFinding.id);
+                loadFindingsModule();
+            } else {
+                alert('❌ ' + (data.message || 'Error al subir la evidencia.'));
+            }
+        } catch(e) {
+            console.error('Error uploading evidence:', e);
+            alert('❌ Error al subir la imagen.');
+        }
+    }
+
+    function openNewFindingModal() {
+        document.getElementById('form-new-finding').reset();
+        const due = new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10);
+        document.getElementById('fnd-new-due-date').value = due;
+        document.getElementById('modal-new-finding').style.display = 'flex';
+    }
+
+    function closeNewFindingModal() {
+        document.getElementById('modal-new-finding').style.display = 'none';
+    }
+
+    async function submitNewFinding() {
+        const fileInput = document.getElementById('fnd-new-photo-file');
+        let evidenceUrl = null;
+
+        if (fileInput.files && fileInput.files.length > 0) {
+            try {
+                const formData = new FormData();
+                formData.append('photo', fileInput.files[0]);
+                formData.append('finding_id', 'draft');
+                formData.append('evidence_type', 'open');
+                const upRes = await fetch('/api/findings/upload-evidence', { method: 'POST', body: formData });
+                const upData = await upRes.json();
+                if (upData.success) evidenceUrl = upData.url;
+            } catch(e) {
+                console.warn('Could not pre-upload photo:', e);
+            }
+        }
+
+        const payload = {
+            title: document.getElementById('fnd-new-title').value.trim(),
+            reference_table: document.getElementById('fnd-new-table').value,
+            severity: document.getElementById('fnd-new-severity').value,
+            element_id: document.getElementById('fnd-new-elem-id').value.trim(),
+            location: document.getElementById('fnd-new-location').value.trim(),
+            measured_value: document.getElementById('fnd-new-measured').value.trim(),
+            limit_applied: document.getElementById('fnd-new-limit').value.trim(),
+            assigned_to: document.getElementById('fnd-new-assignee').value.trim(),
+            due_date: document.getElementById('fnd-new-due-date').value,
+            immediate_containment: document.getElementById('fnd-new-containment').value.trim(),
+            evidence_open_url: evidenceUrl,
+            opened_by: sessionData ? sessionData.user_name : 'Auditor',
+            site_id: getActiveSiteId(),
+            source: 'Levantamiento Manual'
+        };
+
+        try {
+            const res = await fetch('/api/findings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ Hallazgo creado con éxito: ' + (data.finding ? data.finding.tracker_code : ''));
+                closeNewFindingModal();
+                loadFindingsModule();
+            } else {
+                alert('❌ ' + (data.message || 'Error al crear el hallazgo.'));
+            }
+        } catch(e) {
+            console.error('Error creating manual finding:', e);
+            alert('❌ Error de conexión al crear el hallazgo.');
+        }
+    }
+
+    async function loadFindingsDashboard() {
+        try {
+            const siteId = getActiveSiteId();
+            let url = '/api/findings/dashboard';
+            if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
+            const res = await fetch(url);
+            const data = await res.json();
+            if (!data.success || !data.metrics) return;
+
+            const m = data.metrics;
+            const elOntime = document.getElementById('fnd-dash-ontime');
+            const elMttr = document.getElementById('fnd-dash-mttr');
+            const elCrit = document.getElementById('fnd-dash-critical');
+            const elRes = document.getElementById('fnd-dash-resolution');
+
+            if (elOntime) elOntime.textContent = m.on_time_closure_rate + '%';
+            if (elMttr) elMttr.textContent = m.mean_time_to_resolve_days + ' d';
+            if (elCrit) elCrit.textContent = m.open_critical_count;
+            
+            const resRate = m.total > 0 ? Math.round((m.closed / m.total) * 100) : 0;
+            if (elRes) elRes.textContent = resRate + '%';
+
+            renderFindingsCharts(m);
+        } catch(e) {
+            console.error('Error loading findings dashboard:', e);
+        }
+    }
+
+    function renderFindingsCharts(m) {
+        if (typeof Chart === 'undefined') return;
+
+        // 1. By Table
+        const ctxTable = document.getElementById('chart-findings-by-table');
+        if (ctxTable) {
+            if (chartFindingsByTable) chartFindingsByTable.destroy();
+            const labels = Object.keys(m.by_table || {});
+            const values = Object.values(m.by_table || {});
+            chartFindingsByTable = new Chart(ctxTable, {
+                type: 'doughnut',
+                data: {
+                    labels: labels.length ? labels : ['Sin datos'],
+                    datasets: [{
+                        data: values.length ? values : [0],
+                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        // 2. By Severity
+        const ctxSev = document.getElementById('chart-findings-by-severity');
+        if (ctxSev) {
+            if (chartFindingsBySeverity) chartFindingsBySeverity.destroy();
+            const sevMap = m.by_severity || {};
+            chartFindingsBySeverity = new Chart(ctxSev, {
+                type: 'pie',
+                data: {
+                    labels: ['Crítica', 'Mayor', 'Menor'],
+                    datasets: [{
+                        data: [sevMap['CRITICAL'] || 0, sevMap['MAJOR'] || 0, sevMap['MINOR'] || 0],
+                        backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        // 3. By Responsible
+        const ctxResp = document.getElementById('chart-findings-by-responsible');
+        if (ctxResp) {
+            if (chartFindingsByResponsible) chartFindingsByResponsible.destroy();
+            const respMap = m.by_responsible || {};
+            const labels = Object.keys(respMap).slice(0, 7);
+            const totals = labels.map(k => respMap[k].total || 0);
+            const closed = labels.map(k => respMap[k].closed || 0);
+
+            chartFindingsByResponsible = new Chart(ctxResp, {
+                type: 'bar',
+                data: {
+                    labels: labels.length ? labels : ['Sin asignaciones'],
+                    datasets: [
+                        { label: 'Total Asignados', data: totals, backgroundColor: '#94A3B8' },
+                        { label: 'Cerrados Eficaces', data: closed, backgroundColor: '#10B981' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+
+        // 4. By Area (Pareto)
+        const ctxArea = document.getElementById('chart-findings-by-area');
+        if (ctxArea) {
+            if (chartFindingsByArea) chartFindingsByArea.destroy();
+            const areaMap = m.by_area || {};
+            const sortedAreas = Object.keys(areaMap).sort((a,b) => areaMap[b] - areaMap[a]).slice(0, 6);
+            const areaValues = sortedAreas.map(k => areaMap[k]);
+
+            chartFindingsByArea = new Chart(ctxArea, {
+                type: 'bar',
+                data: {
+                    labels: sortedAreas.length ? sortedAreas : ['Sin datos'],
+                    datasets: [{
+                        label: 'No Conformidades',
+                        data: areaValues,
+                        backgroundColor: '#F97316'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+    }
+
+    async function loadLessonsLearned() {
+        const container = document.getElementById('fnd-lessons-container');
+        if (!container) return;
+
+        try {
+            const siteId = getActiveSiteId();
+            let url = '/api/findings/dashboard';
+            if (siteId) url += '?site_id=' + encodeURIComponent(siteId);
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.success && data.metrics && data.metrics.lessons_learned) {
+                allLessonsLearned = data.metrics.lessons_learned;
+                renderLessonsLearned(allLessonsLearned);
+            } else {
+                container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:30px;">Aún no se han documentado lecciones aprendidas en los hallazgos cerrados.</p>`;
+            }
+        } catch(e) {
+            console.error('Error loading lessons learned:', e);
+        }
+    }
+
+    function renderLessonsLearned(lessons) {
+        const container = document.getElementById('fnd-lessons-container');
+        if (!container) return;
+        if (!lessons || lessons.length === 0) {
+            container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:30px;">No se encontraron lecciones aprendidas que coincidan con la búsqueda.</p>`;
+            return;
+        }
+
+        let html = '';
+        lessons.forEach(item => {
+            html += `
+            <div class="glass-card" style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-family:var(--font-mono); font-weight:800; font-size:12px; color:var(--accent-blue);">${escapeHtml(item.tracker_code)}</span>
+                        <h5 style="margin:0; font-size:14px; font-weight:800; color:var(--text-primary);">${escapeHtml(item.title)}</h5>
+                    </div>
+                    <span style="font-size:11px; color:var(--text-muted);">Área: <strong>${escapeHtml(item.location || 'General')}</strong></span>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:8px; background:#F8FAFC; padding:12px; border-radius:8px;">
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:#EF4444; text-transform:uppercase;">🔍 Causa Raíz Identificada</div>
+                        <div style="font-size:12px; color:var(--text-primary); margin-top:3px;">${escapeHtml(item.root_cause || 'No documentada')}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:#059669; text-transform:uppercase;">🛠️ Acción Correctiva Implementada</div>
+                        <div style="font-size:12px; color:var(--text-primary); margin-top:3px;">${escapeHtml(item.corrective_action || 'No documentada')}</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px; padding:10px 14px; background:#F5F3FF; border-left:3px solid #8B5CF6; border-radius:4px;">
+                    <div style="font-size:11px; font-weight:800; color:#7C3AED; text-transform:uppercase;">💡 Lección Aprendida &amp; Mejora Continua</div>
+                    <div style="font-size:12.5px; color:var(--text-primary); margin-top:2px; font-weight:600;">${escapeHtml(item.lesson)}</div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; color:var(--text-muted);">
+                    <span>Responsable de implementación: <strong>${escapeHtml(item.assigned_to || '-')}</strong></span>
+                    <button type="button" class="tab-btn" style="padding:3px 8px; font-size:11px;" onclick="openFindingModal('${item.id}')">Ver Hallazgo Completo</button>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function filterLessonsLearned() {
+        const q = (document.getElementById('fnd-lessons-search')?.value || '').toLowerCase().trim();
+        if (!q) {
+            renderLessonsLearned(allLessonsLearned);
+            return;
+        }
+        const filtered = allLessonsLearned.filter(item => {
+            const h = `${item.tracker_code} ${item.title} ${item.root_cause} ${item.corrective_action} ${item.lesson} ${item.location}`.toLowerCase();
+            return h.includes(q);
+        });
+        renderLessonsLearned(filtered);
+    }
+
+    async function loadNormativeLimitsSettings() {
+        const container = document.getElementById('normative-limits-container');
+        if (!container) return;
+
+        try {
+            const res = await fetch('/api/normative-limits');
+            const data = await res.json();
+            if (!data.success || !data.limits) {
+                container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">Error al cargar límites normativos.</p>`;
+                return;
+            }
+
+            allNormativeLimits = data.limits;
+            const tables = [
+                { id: 'Tabla 1', title: 'Tabla 1: Conexión a Tierra del Personal (Wrist Straps & Smocks)', icon: '⚡' },
+                { id: 'Tabla 2', title: 'Tabla 2: Superficies de Trabajo, Mobiliario y Equipos', icon: '🪑' },
+                { id: 'Tabla 3', title: 'Tabla 3: Sistemas de Piso y Calzado ESD (Piso / Calzado en Movimiento)', icon: '👞' },
+                { id: 'Tabla 4', title: 'Tabla 4: Empaque ESD & Materiales Aislantes / Ionización', icon: '📦' }
+            ];
+
+            let html = '';
+            tables.forEach(tbl => {
+                const items = allNormativeLimits.filter(l => l.table_name === tbl.id);
+                html += `
+                <div class="glass-card" style="background:#FFFFFF; border:1px solid var(--border-color); border-radius:10px; padding:16px;">
+                    <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                        <span>${tbl.icon}</span>
+                        <span>${tbl.title}</span>
+                    </h4>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+                            <thead>
+                                <tr style="background:#F8FAFC;">
+                                    <th style="width:200px;">Parámetro / Elemento</th>
+                                    <th style="width:120px;">Límite Normativo Oficial</th>
+                                    <th style="width:110px;">Operador</th>
+                                    <th style="width:140px;">Valor Máx (Notación / Real)</th>
+                                    <th style="width:90px;">Unidad</th>
+                                    <th style="width:130px;">Severidad Auto</th>
+                                    <th style="width:100px; text-align:center;">Auto-Disparo</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                items.forEach(item => {
+                    html += `
+                    <tr id="limit-row-${item.id}" style="border-bottom:1px solid #F1F5F9;">
+                        <td style="padding:8px 10px;">
+                            <div style="font-weight:700; color:var(--text-primary);">${escapeHtml(item.name)}</div>
+                            <div style="font-size:10.5px; color:var(--text-muted); font-family:var(--font-mono);">${escapeHtml(item.id)}</div>
+                        </td>
+                        <td style="padding:8px 10px; font-weight:600; color:var(--text-secondary);">
+                            ${escapeHtml(item.standard_reference || '-')}
+                        </td>
+                        <td style="padding:8px 10px;">
+                            <select class="form-control limit-input-operator" data-limit-id="${item.id}" style="font-size:11.5px; height:30px; padding:2px 6px;">
+                                <option value="LESS_THAN" ${item.operator === 'LESS_THAN' ? 'selected' : ''}>&lt; Menor que</option>
+                                <option value="LESS_THAN_OR_EQUAL" ${item.operator === 'LESS_THAN_OR_EQUAL' ? 'selected' : ''}>&le; Menor o igual</option>
+                                <option value="GREATER_THAN" ${item.operator === 'GREATER_THAN' ? 'selected' : ''}>&gt; Mayor que</option>
+                                <option value="RANGE" ${item.operator === 'RANGE' ? 'selected' : ''}>[ ] Rango</option>
+                            </select>
+                        </td>
+                        <td style="padding:8px 10px;">
+                            <input type="number" step="any" class="form-control limit-input-max" data-limit-id="${item.id}" value="${item.max_value !== null ? item.max_value : ''}" style="font-size:11.5px; height:30px; font-family:var(--font-mono); font-weight:700;" />
+                        </td>
+                        <td style="padding:8px 10px; font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">
+                            ${escapeHtml(item.unit || '')}
+                        </td>
+                        <td style="padding:8px 10px;">
+                            <select class="form-control limit-input-severity" data-limit-id="${item.id}" style="font-size:11.5px; height:30px; padding:2px 6px;">
+                                <option value="CRITICAL" ${item.default_severity === 'CRITICAL' ? 'selected' : ''}>🔴 Crítica</option>
+                                <option value="MAJOR" ${item.default_severity === 'MAJOR' ? 'selected' : ''}>🟠 Mayor</option>
+                                <option value="MINOR" ${item.default_severity === 'MINOR' ? 'selected' : ''}>🔵 Menor</option>
+                            </select>
+                        </td>
+                        <td style="padding:8px 10px; text-align:center;">
+                            <input type="checkbox" class="limit-input-trigger" data-limit-id="${item.id}" ${item.auto_trigger_finding ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px;" title="Generar hallazgo automático al exceder tolerancia" />
+                        </td>
+                    </tr>`;
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        } catch(e) {
+            console.error('Error loading normative limits:', e);
+            container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">Error de conexión al cargar límites normativos.</p>`;
+        }
+    }
+
+    async function saveNormativeLimitsSettings() {
+        const updatedLimits = JSON.parse(JSON.stringify(allNormativeLimits));
+        
+        document.querySelectorAll('.limit-input-max').forEach(input => {
+            const id = input.getAttribute('data-limit-id');
+            const item = updatedLimits.find(x => x.id === id);
+            if (item) {
+                item.max_value = input.value !== '' ? parseFloat(input.value) : null;
+            }
+        });
+
+        document.querySelectorAll('.limit-input-operator').forEach(select => {
+            const id = select.getAttribute('data-limit-id');
+            const item = updatedLimits.find(x => x.id === id);
+            if (item) item.operator = select.value;
+        });
+
+        document.querySelectorAll('.limit-input-severity').forEach(select => {
+            const id = select.getAttribute('data-limit-id');
+            const item = updatedLimits.find(x => x.id === id);
+            if (item) item.default_severity = select.value;
+        });
+
+        document.querySelectorAll('.limit-input-trigger').forEach(chk => {
+            const id = chk.getAttribute('data-limit-id');
+            const item = updatedLimits.find(x => x.id === id);
+            if (item) item.auto_trigger_finding = chk.checked;
+        });
+
+        try {
+            const res = await fetch('/api/normative-limits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedLimits)
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ Límites y tolerancias normativas ANSI/ESD S20.20 guardados correctamente.');
+                allNormativeLimits = updatedLimits;
+            } else {
+                alert('❌ ' + (data.message || 'Error al guardar los límites.'));
+            }
+        } catch(e) {
+            console.error('Error saving normative limits:', e);
+            alert('❌ Error de conexión al guardar los límites normativos.');
+        }
+    }
+
+    async function resetNormativeLimitsSettings() {
+        if (!confirm('¿Confirma que desea restaurar todos los límites a los valores oficiales de la norma ANSI/ESD S20.20-2021? Se perderán las modificaciones personalizadas de planta.')) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/normative-limits/reset', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('🔄 Límites normativos restaurados al estándar ANSI/ESD S20.20-2021.');
+                loadNormativeLimitsSettings();
+            } else {
+                alert('❌ Error al restaurar límites.');
+            }
+        } catch(e) {
+            console.error('Error resetting normative limits:', e);
+            alert('❌ Error de conexión al restaurar límites.');
+        }
+    }
 </script>
 
 <!-- MODAL PHOTO PREVIEW -->
@@ -10483,6 +11578,242 @@
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:14px; border-top:1px solid var(--border-color);">
                 <button type="button" class="tab-btn" onclick="closeGarmentQuickValModal()" style="padding:8px 18px;">✕ Cancelar</button>
                 <button type="submit" class="btn-primary" style="padding:8px 22px; font-weight:800; background:var(--accent-emerald);">💾 Registrar Verificación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: FINDING DETAIL, CAPA & RESOLUTION TRACKER -->
+<div id="modal-finding-detail" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9996; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeFindingModal()">
+    <div class="glass-card" style="background:#FFFFFF; border-radius:14px; width:100%; max-width:850px; padding:0; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid var(--border-color); max-height:92vh; display:flex; flex-direction:column; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">🔍</span>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h3 id="fnd-det-tracker-code" style="margin:0; font-size:16px; font-weight:800; font-family:var(--font-mono); color:var(--text-primary);">FND-2026-0001</h3>
+                        <span id="fnd-det-severity-badge" style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; text-transform:uppercase;">CRÍTICO</span>
+                        <span id="fnd-det-status-badge" style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; text-transform:uppercase;">ABIERTO</span>
+                    </div>
+                    <div id="fnd-det-header-title" style="font-size:12px; color:var(--text-muted); margin-top:2px;">Desviación normativa detectada</div>
+                </div>
+            </div>
+            <button type="button" onclick="closeFindingModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
+            <input type="hidden" id="fnd-det-id" value="" />
+
+            <!-- SUMMARY CARD -->
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:14px 16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+                <div>
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Elemento / ID:</span>
+                    <div id="fnd-det-element-id" style="font-weight:700; font-size:13px; color:var(--text-primary); margin-top:2px;">-</div>
+                </div>
+                <div>
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Ubicación / Área:</span>
+                    <div id="fnd-det-location" style="font-weight:700; font-size:13px; color:var(--text-primary); margin-top:2px;">-</div>
+                </div>
+                <div>
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Norma ANSI/ESD S20.20:</span>
+                    <div id="fnd-det-table" style="font-weight:700; font-size:13px; color:var(--accent-blue); margin-top:2px;">Tabla 1</div>
+                </div>
+                <div>
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Desviación Registrada:</span>
+                    <div id="fnd-det-deviation" style="font-weight:800; font-size:13px; font-family:var(--font-mono); color:#EF4444; margin-top:2px;">-</div>
+                </div>
+                <div>
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Fecha Apertura / Auditor:</span>
+                    <div id="fnd-det-opened-info" style="font-weight:600; font-size:12px; color:var(--text-muted); margin-top:2px;">-</div>
+                </div>
+                <div>
+                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Origen / Auditoría:</span>
+                    <div id="fnd-det-source" style="font-weight:600; font-size:12px; color:var(--text-muted); margin-top:2px;">-</div>
+                </div>
+            </div>
+
+            <!-- EVIDENCES SECTION (Apertura y Cierre) -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                <!-- OPENING EVIDENCE -->
+                <div style="border:1px solid #E2E8F0; border-radius:10px; padding:12px; background:#FFFFFF;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:700; font-size:12px; color:#EF4444;">📸 Evidencia de Apertura (No Conformidad)</span>
+                        <label for="fnd-upload-open-input" style="cursor:pointer; font-size:11px; color:var(--accent-blue); font-weight:700; text-decoration:underline;">
+                            Cambiar / Subir
+                        </label>
+                        <input type="file" id="fnd-upload-open-input" accept="image/*" style="display:none;" onchange="handleEvidenceUpload('open', this)" />
+                    </div>
+                    <div id="fnd-det-open-evidence-container" style="height:140px; background:#F1F5F9; border-radius:8px; display:flex; justify-content:center; align-items:center; overflow:hidden; border:1px dashed #CBD5E1;">
+                        <span style="font-size:11.5px; color:var(--text-muted);">Sin evidencia fotográfica</span>
+                    </div>
+                </div>
+
+                <!-- CLOSURE EVIDENCE -->
+                <div style="border:1px solid #E2E8F0; border-radius:10px; padding:12px; background:#FFFFFF;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:700; font-size:12px; color:#10B981;">📸 Evidencia de Cierre (Validación Eficaz)</span>
+                        <label for="fnd-upload-close-input" style="cursor:pointer; font-size:11px; color:#10B981; font-weight:700; text-decoration:underline;">
+                            Subir Foto Cierre
+                        </label>
+                        <input type="file" id="fnd-upload-close-input" accept="image/*" style="display:none;" onchange="handleEvidenceUpload('close', this)" />
+                    </div>
+                    <div id="fnd-det-close-evidence-container" style="height:140px; background:#F1F5F9; border-radius:8px; display:flex; justify-content:center; align-items:center; overflow:hidden; border:1px dashed #CBD5E1;">
+                        <span style="font-size:11.5px; color:var(--text-muted);">Pendiente de evidencia de cierre</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTION PLAN & CAPA FORM -->
+            <form id="fnd-det-form" onsubmit="event.preventDefault(); saveFindingActionPlan();" style="display:flex; flex-direction:column; gap:14px;">
+                <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:12px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Responsable Asignado*</label>
+                        <input type="text" id="fnd-det-assignee" class="form-control" placeholder="Nombre del responsable (Ej: Ing. Calidad / Mantenimiento)" required />
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Fecha Compromiso de Cierre*</label>
+                        <input type="date" id="fnd-det-due-date" class="form-control" required />
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">1. Acción Inmediata de Contención (Immediate Containment)</label>
+                    <input type="text" id="fnd-det-containment" class="form-control" placeholder="Ej: Equipo etiquetado como No Conforme y retirado de la línea de ensamble..." />
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">2. Análisis de Causa Raíz (Root Cause Analysis - 5 Porqués / Ishikawa)</label>
+                    <textarea id="fnd-det-root-cause" class="form-control" rows="2" placeholder="Describa el origen fundamental del fallo detectado..."></textarea>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">3. Acción Correctiva Definitiva (Definitive Corrective Action)</label>
+                    <textarea id="fnd-det-corrective" class="form-control" rows="2" placeholder="Acción implementada para evitar la recurrencia sistemática..."></textarea>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px; color:#8B5CF6;">4. Lección Aprendida (Lessons Learned &amp; Mejora Continua)</label>
+                    <textarea id="fnd-det-lessons" class="form-control" rows="2" placeholder="Conocimiento adquirido para compartir con otras líneas o plantas..."></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:12px; border-top:1px solid #E2E8F0;">
+                    <button type="submit" class="btn-primary" style="background:#2563EB; font-weight:700; font-size:12px; padding:8px 18px;">
+                        💾 Guardar Plan de Acción CAPA
+                    </button>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="tab-btn" id="fnd-btn-status-progress" onclick="changeFindingStatus('IN_PROGRESS')" style="color:#D97706; font-size:11.5px;">
+                            🟡 Pasar a En Proceso
+                        </button>
+                        <button type="button" class="tab-btn" id="fnd-btn-status-verify" onclick="changeFindingStatus('PENDING_VERIFICATION')" style="color:#7C3AED; font-size:11.5px;">
+                            🟣 Solicitar Verificación
+                        </button>
+                        <button type="button" class="btn-primary" id="fnd-btn-status-close" onclick="changeFindingStatus('CLOSED')" style="background:#059669; border-color:#047857; font-size:11.5px; font-weight:800;">
+                            🟢 Validar y Cerrar Hallazgo
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- TIMELINE / AUDIT TRAIL -->
+            <div style="border-top:1px solid #E2E8F0; padding-top:12px;">
+                <h5 style="margin:0 0 8px 0; font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">
+                    📜 Historial de Auditoría &amp; Trazabilidad (Timeline)
+                </h5>
+                <div id="fnd-det-timeline" style="display:flex; flex-direction:column; gap:6px; max-height:130px; overflow-y:auto; font-size:11.5px; padding-left:4px;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE MANUAL FINDING -->
+<div id="modal-new-finding" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:9995; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) closeNewFindingModal()">
+    <div class="glass-card" style="background:#FFFFFF; border-radius:14px; width:100%; max-width:640px; padding:0; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid var(--border-color); max-height:90vh; display:flex; flex-direction:column; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#F8FAFC;">
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                ➕ <span data-i18n="findings.modal_new_title">Levantamiento de Nuevo Hallazgo Normativo</span>
+            </h3>
+            <button type="button" onclick="closeNewFindingModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- Form Body -->
+        <form id="form-new-finding" onsubmit="event.preventDefault(); submitNewFinding();" style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Título del Hallazgo / No Conformidad*</label>
+                <input id="fnd-new-title" class="form-control" placeholder="Ej: Superficie de mesa disipativa fuera de rango máximo" required />
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Referencia ANSI/ESD S20.20*</label>
+                    <select id="fnd-new-table" class="form-control" required>
+                        <option value="Tabla 1">Tabla 1 - Conexión a Tierra del Personal</option>
+                        <option value="Tabla 2" selected>Tabla 2 - Superficies de Trabajo / Mobiliario</option>
+                        <option value="Tabla 3">Tabla 3 - Pisos y Calzado ESD</option>
+                        <option value="Tabla 4">Tabla 4 - Empaque y Materiales Aislantes</option>
+                        <option value="General">General / Señalización / Procedimientos</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Severidad*</label>
+                    <select id="fnd-new-severity" class="form-control" required>
+                        <option value="CRITICAL">🔴 Crítica (Paro de proceso / Riesgo ESD alto)</option>
+                        <option value="MAJOR" selected>🟠 Mayor (Fuera de norma S20.20)</option>
+                        <option value="MINOR">🔵 Menor (Observación de control)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">ID del Elemento Auditado</label>
+                    <input id="fnd-new-elem-id" class="form-control" placeholder="Ej: WS-SMT1-04" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Ubicación / Línea / Área*</label>
+                    <input id="fnd-new-location" class="form-control" list="val-lines-datalist" placeholder="Ej: Línea SMT 1" required />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Valor Medido</label>
+                    <input id="fnd-new-measured" class="form-control" placeholder="Ej: 3.5e9 &Omega;" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Límite Normativo</label>
+                    <input id="fnd-new-limit" class="form-control" placeholder="Ej: &lt; 1.0e9 &Omega;" />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Responsable Asignado*</label>
+                    <input id="fnd-new-assignee" class="form-control" placeholder="Ej: Pedro Martínez (Mantenimiento)" required />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Fecha Compromiso*</label>
+                    <input type="date" id="fnd-new-due-date" class="form-control" required />
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Acción Inmediata de Contención</label>
+                <input id="fnd-new-containment" class="form-control" placeholder="Ej: Paro de mesa y colocación de tapete disipativo provisional..." />
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Evidencia Fotográfica Inicial (Apertura)</label>
+                <input type="file" id="fnd-new-photo-file" accept="image/*" class="form-control" style="font-size:12px;" />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:14px; border-top:1px solid var(--border-color);">
+                <button type="button" class="tab-btn" onclick="closeNewFindingModal()" style="padding:8px 18px;">✕ Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding:8px 22px; font-weight:800; background:#2563EB;">➕ Crear Hallazgo</button>
             </div>
         </form>
     </div>
