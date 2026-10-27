@@ -6,34 +6,19 @@ namespace ESDSuite.Services.Storage;
 
 public class FindingsStorageService
 {
-    private readonly string _findingsFilePath;
-    private readonly string _limitsFilePath;
-    private readonly string _uploadsDirectory;
-    private readonly SupabaseService? _supabase;
-    private readonly object _lock = new();
+    private readonly SupabaseService _supabase;
 
-    public FindingsStorageService(string? contentRootPath = null, string? webRootPath = null, SupabaseService? supabase = null)
+    public FindingsStorageService(SupabaseService supabase)
     {
-        _supabase = supabase;
-        string root = !string.IsNullOrEmpty(contentRootPath) ? contentRootPath : AppDomain.CurrentDomain.BaseDirectory;
-        string wwwroot = !string.IsNullOrEmpty(webRootPath) ? webRootPath : Path.Combine(root, "wwwroot");
-        string dataDir = Path.Combine(wwwroot, "data");
-        if (!Directory.Exists(dataDir))
-        {
-            Directory.CreateDirectory(dataDir);
-        }
-
-        _findingsFilePath = Path.Combine(dataDir, "findings.json");
-        _limitsFilePath = Path.Combine(dataDir, "normative_limits.json");
-
-        _uploadsDirectory = Path.Combine(wwwroot, "uploads", "findings");
-        if (!Directory.Exists(_uploadsDirectory))
-        {
-            Directory.CreateDirectory(_uploadsDirectory);
-        }
+        _supabase = supabase ?? throw new ArgumentNullException(nameof(supabase));
     }
 
-    public string UploadsDirectory => _uploadsDirectory;
+    public FindingsStorageService(string? contentRootPath, string? webRootPath, SupabaseService supabase)
+    {
+        _supabase = supabase ?? throw new ArgumentNullException(nameof(supabase));
+    }
+
+    public string UploadsDirectory => "";
 
     public JsonArray GetDefaultNormativeLimits()
     {
@@ -403,65 +388,38 @@ public class FindingsStorageService
 
     public JsonArray GetNormativeLimits(string siteId)
     {
-        lock (_lock)
+        try
         {
-            if (!File.Exists(_limitsFilePath))
+            var task = _supabase.GetNormativeLimitsFromSupabaseAsync(siteId);
+            if (task.Wait(TimeSpan.FromSeconds(5)))
             {
-                var defaults = GetDefaultNormativeLimits();
-                var siteLimitsMap = new JsonObject
-                {
-                    [siteId] = defaults.DeepClone(),
-                    ["default"] = defaults.DeepClone()
-                };
-                File.WriteAllText(_limitsFilePath, siteLimitsMap.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-                return defaults;
+                var sbLimits = task.Result;
+                if (sbLimits != null && sbLimits.Count > 0) return sbLimits;
             }
-
-            try
-            {
-                string json = File.ReadAllText(_limitsFilePath);
-                var root = JsonNode.Parse(json) as JsonObject;
-                if (root != null)
-                {
-                    if (root[siteId] is JsonArray siteArr && siteArr.Count > 0)
-                    {
-                        return siteArr.DeepClone().AsArray();
-                    }
-                    if (root["default"] is JsonArray defArr && defArr.Count > 0)
-                    {
-                        return defArr.DeepClone().AsArray();
-                    }
-                }
-            }
-            catch { }
-
-            var defFallback = GetDefaultNormativeLimits();
-            return defFallback;
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FindingsStorageService] GetNormativeLimits error: {ex.Message}");
+        }
+
+        var defaults = GetDefaultNormativeLimits();
+        _ = Task.Run(async () =>
+        {
+            try { await _supabase.SaveNormativeLimitsToSupabaseAsync(siteId, defaults); } catch { }
+        });
+        return defaults;
     }
 
     public void SaveNormativeLimits(string siteId, JsonArray limits)
     {
-        lock (_lock)
+        try
         {
-            JsonObject root = new();
-            if (File.Exists(_limitsFilePath))
-            {
-                try
-                {
-                    string json = File.ReadAllText(_limitsFilePath);
-                    root = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
-                }
-                catch { }
-            }
-
-            root[siteId] = limits.DeepClone();
-            if (!root.ContainsKey("default"))
-            {
-                root["default"] = GetDefaultNormativeLimits();
-            }
-
-            File.WriteAllText(_limitsFilePath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            var task = _supabase.SaveNormativeLimitsToSupabaseAsync(siteId, limits);
+            task.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FindingsStorageService] SaveNormativeLimits error: {ex.Message}");
         }
     }
 
@@ -474,302 +432,139 @@ public class FindingsStorageService
 
     public JsonArray GetAllFindings(string? siteId = null)
     {
-        // 1. Intentar consultar desde Supabase si el servicio está configurado
-        if (_supabase != null)
+        try
         {
-            try
+            var task = _supabase.GetFindingsFromSupabaseAsync(siteId);
+            if (task.Wait(TimeSpan.FromSeconds(5)))
             {
-                var sbTask = _supabase.GetFindingsFromSupabaseAsync(siteId);
-                if (sbTask.Wait(TimeSpan.FromSeconds(3)))
-                {
-                    var sbFindings = sbTask.Result;
-                    if (sbFindings != null && sbFindings.Count > 0)
-                    {
-                        SyncSupabaseFindingsToLocalCache(sbFindings);
-                        return sbFindings;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[FindingsStorageService] Supabase GetFindings fallback: {ex.Message}");
+                var list = task.Result;
+                if (list != null) return list;
             }
         }
-
-        // 2. Fallback a caché local JSON en disco
-        lock (_lock)
+        catch (Exception ex)
         {
-            if (!File.Exists(_findingsFilePath))
-            {
-                return new JsonArray();
-            }
-
-            try
-            {
-                string json = File.ReadAllText(_findingsFilePath);
-                var arr = JsonNode.Parse(json) as JsonArray ?? new JsonArray();
-                if (string.IsNullOrWhiteSpace(siteId) || siteId.Equals("all", StringComparison.OrdinalIgnoreCase))
-                {
-                    return arr;
-                }
-
-                var filtered = new JsonArray();
-                foreach (var item in arr)
-                {
-                    if (item is JsonObject obj)
-                    {
-                        string sId = obj["site_id"]?.ToString() ?? "";
-                        if (string.IsNullOrEmpty(sId) || string.Equals(sId, siteId, StringComparison.OrdinalIgnoreCase))
-                        {
-                            filtered.Add(obj.DeepClone());
-                        }
-                    }
-                }
-                return filtered;
-            }
-            catch
-            {
-                return new JsonArray();
-            }
+            Console.WriteLine($"[FindingsStorageService] GetAllFindings error: {ex.Message}");
         }
+        return new JsonArray();
     }
 
     public JsonObject? GetFindingById(string id)
     {
-        if (_supabase != null)
+        try
         {
-            try
+            var task = _supabase.GetFindingByIdFromSupabaseAsync(id);
+            if (task.Wait(TimeSpan.FromSeconds(5)))
             {
-                var sbTask = _supabase.GetFindingByIdFromSupabaseAsync(id);
-                if (sbTask.Wait(TimeSpan.FromSeconds(3)))
-                {
-                    var item = sbTask.Result;
-                    if (item != null) return item;
-                }
+                return task.Result;
             }
-            catch { }
         }
-
-        lock (_lock)
+        catch (Exception ex)
         {
-            if (!File.Exists(_findingsFilePath)) return null;
-
-            try
-            {
-                string json = File.ReadAllText(_findingsFilePath);
-                var arr = JsonNode.Parse(json) as JsonArray;
-                if (arr == null) return null;
-
-                foreach (var item in arr)
-                {
-                    if (item is JsonObject obj && string.Equals(obj["id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return obj.DeepClone() as JsonObject;
-                    }
-                }
-            }
-            catch { }
-
-            return null;
+            Console.WriteLine($"[FindingsStorageService] GetFindingById error: {ex.Message}");
         }
+        return null;
     }
 
     public string GenerateTrackingCode(string siteId)
     {
-        lock (_lock)
-        {
-            int currentYear = DateTime.UtcNow.Year;
-            string prefix = $"FND-{currentYear}-";
-            int maxNum = 0;
+        int currentYear = DateTime.UtcNow.Year;
+        string prefix = $"FND-{currentYear}-";
+        int maxNum = 0;
 
-            if (File.Exists(_findingsFilePath))
+        try
+        {
+            var all = GetAllFindings(siteId);
+            foreach (var item in all)
             {
-                try
+                if (item is JsonObject obj)
                 {
-                    string json = File.ReadAllText(_findingsFilePath);
-                    var arr = JsonNode.Parse(json) as JsonArray;
-                    if (arr != null)
+                    string code = obj["tracking_code"]?.ToString() ?? obj["tracker_code"]?.ToString() ?? "";
+                    if (code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     {
-                        foreach (var item in arr)
+                        string numPart = code.Substring(prefix.Length);
+                        if (int.TryParse(numPart, out int num) && num > maxNum)
                         {
-                            if (item is JsonObject obj)
-                            {
-                                string code = obj["tracking_code"]?.ToString() ?? "";
-                                if (code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    string numPart = code.Substring(prefix.Length);
-                                    if (int.TryParse(numPart, out int num) && num > maxNum)
-                                    {
-                                        maxNum = num;
-                                    }
-                                }
-                            }
+                            maxNum = num;
                         }
                     }
                 }
-                catch { }
             }
-
-            return $"{prefix}{(maxNum + 1):D4}";
         }
+        catch { }
+
+        return $"{prefix}{(maxNum + 1):D4}";
     }
 
     public JsonObject SaveFinding(JsonObject finding)
     {
-        JsonObject savedLocal;
-        lock (_lock)
+        string id = finding["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        finding["id"] = id;
+
+        if (finding["tracking_code"] == null || string.IsNullOrWhiteSpace(finding["tracking_code"]?.ToString()))
         {
-            JsonArray arr = new();
-            if (File.Exists(_findingsFilePath))
-            {
-                try
-                {
-                    string json = File.ReadAllText(_findingsFilePath);
-                    arr = JsonNode.Parse(json) as JsonArray ?? new JsonArray();
-                }
-                catch { }
-            }
+            string sId = finding["site_id"]?.ToString() ?? "";
+            finding["tracking_code"] = GenerateTrackingCode(sId);
+        }
+        finding["tracker_code"] = finding["tracking_code"];
 
-            string id = finding["id"]?.ToString() ?? Guid.NewGuid().ToString();
-            finding["id"] = id;
+        if (finding["opened_at"] == null || string.IsNullOrWhiteSpace(finding["opened_at"]?.ToString()))
+        {
+            finding["opened_at"] = DateTime.UtcNow.ToString("o");
+        }
+        finding["created_at"] = finding["opened_at"];
 
-            if (finding["tracking_code"] == null || string.IsNullOrWhiteSpace(finding["tracking_code"]?.ToString()))
-            {
-                string sId = finding["site_id"]?.ToString() ?? "";
-                finding["tracking_code"] = GenerateTrackingCode(sId);
-            }
-            finding["tracker_code"] = finding["tracking_code"];
-
-            if (finding["opened_at"] == null || string.IsNullOrWhiteSpace(finding["opened_at"]?.ToString()))
-            {
-                finding["opened_at"] = DateTime.UtcNow.ToString("o");
-            }
-            finding["created_at"] = finding["opened_at"];
-
-            if (finding["status"] == null || string.IsNullOrWhiteSpace(finding["status"]?.ToString()))
-            {
-                finding["status"] = "OPEN";
-            }
-
-            if (finding["timeline"] == null)
-            {
-                finding["timeline"] = new JsonArray
-                {
-                    new JsonObject
-                    {
-                        ["timestamp"] = DateTime.UtcNow.ToString("o"),
-                        ["user"] = finding["auditor_name"]?.ToString() ?? "Sistema",
-                        ["action"] = "Apertura de Hallazgo",
-                        ["notes"] = "Hallazgo levantado y registrado en el tracker de acciones correctivas."
-                    }
-                };
-            }
-
-            int existingIndex = -1;
-            for (int i = 0; i < arr.Count; i++)
-            {
-                if (arr[i] is JsonObject obj && string.Equals(obj["id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase))
-                {
-                    existingIndex = i;
-                    break;
-                }
-            }
-
-            if (existingIndex >= 0)
-            {
-                arr[existingIndex] = finding.DeepClone();
-            }
-            else
-            {
-                arr.Insert(0, finding.DeepClone());
-            }
-
-            try
-            {
-                File.WriteAllText(_findingsFilePath, arr.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch { }
-
-            savedLocal = finding.DeepClone() as JsonObject ?? finding;
+        if (finding["status"] == null || string.IsNullOrWhiteSpace(finding["status"]?.ToString()))
+        {
+            finding["status"] = "OPEN";
         }
 
-        // Sincronización asíncrona a la tabla esd_findings de Supabase
-        if (_supabase != null)
+        if (finding["timeline"] == null)
         {
-            _ = Task.Run(async () =>
+            finding["timeline"] = new JsonArray
             {
-                try
+                new JsonObject
                 {
-                    var payload = BuildSupabasePayload(savedLocal);
-                    var existing = await _supabase.GetFindingByIdFromSupabaseAsync(savedLocal["id"]?.ToString() ?? "");
-                    if (existing != null)
-                    {
-                        await _supabase.UpdateFindingInSupabaseAsync(savedLocal["id"]!.ToString(), payload);
-                    }
-                    else
-                    {
-                        await _supabase.SaveFindingToSupabaseAsync(payload);
-                    }
+                    ["timestamp"] = DateTime.UtcNow.ToString("o"),
+                    ["user"] = finding["auditor_name"]?.ToString() ?? "Sistema",
+                    ["action"] = "Apertura de Hallazgo",
+                    ["notes"] = "Hallazgo registrado en el sistema."
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[FindingsStorageService] Supabase save sync note: {ex.Message}");
-                }
-            });
+            };
         }
 
-        return savedLocal;
+        try
+        {
+            var payload = BuildSupabasePayload(finding);
+            var task = _supabase.SaveFindingToSupabaseAsync(payload);
+            if (task.Wait(TimeSpan.FromSeconds(5)))
+            {
+                var res = task.Result;
+                if (res != null) return res;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FindingsStorageService] SaveFinding error: {ex.Message}");
+        }
+
+        return finding;
     }
 
     public bool DeleteFinding(string id)
     {
-        bool ok = false;
-        lock (_lock)
+        try
         {
-            if (!File.Exists(_findingsFilePath)) return false;
-
-            try
+            var task = _supabase.DeleteFindingFromSupabaseAsync(id);
+            if (task.Wait(TimeSpan.FromSeconds(5)))
             {
-                string json = File.ReadAllText(_findingsFilePath);
-                var arr = JsonNode.Parse(json) as JsonArray;
-                if (arr == null) return false;
-
-                int foundIndex = -1;
-                for (int i = 0; i < arr.Count; i++)
-                {
-                    if (arr[i] is JsonObject obj && string.Equals(obj["id"]?.ToString(), id, StringComparison.OrdinalIgnoreCase))
-                    {
-                        foundIndex = i;
-                        break;
-                    }
-                }
-
-                if (foundIndex >= 0)
-                {
-                    arr.RemoveAt(foundIndex);
-                    File.WriteAllText(_findingsFilePath, arr.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-                    ok = true;
-                }
+                return task.Result;
             }
-            catch { }
         }
-
-        if (ok && _supabase != null)
+        catch (Exception ex)
         {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _supabase.DeleteFindingFromSupabaseAsync(id);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[FindingsStorageService] Supabase delete sync note: {ex.Message}");
-                }
-            });
+            Console.WriteLine($"[FindingsStorageService] DeleteFinding error: {ex.Message}");
         }
-
-        return ok;
+        return false;
     }
 
     private JsonObject BuildSupabasePayload(JsonObject f)
@@ -835,18 +630,6 @@ public class FindingsStorageService
 
         sb["updated_at"] = DateTime.UtcNow.ToString("o");
         return sb;
-    }
-
-    private void SyncSupabaseFindingsToLocalCache(JsonArray sbFindings)
-    {
-        lock (_lock)
-        {
-            try
-            {
-                File.WriteAllText(_findingsFilePath, sbFindings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch { }
-        }
     }
 
     public JsonObject GetDashboardMetrics(string siteId)

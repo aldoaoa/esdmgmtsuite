@@ -5325,24 +5325,45 @@ public class ApiController : ControllerBase
 
         try
         {
-            int year = DateTime.UtcNow.Year;
-            string targetDir = Path.Combine(_findingsStorage.UploadsDirectory, year.ToString());
-            if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
-
             string ext = Path.GetExtension(file.FileName).ToLower();
             string[] allowed = { ".jpg", ".jpeg", ".png", ".webp", ".pdf" };
             if (!allowed.Contains(ext)) return BadRequest(new { success = false, message = "Formato no permitido. Solo JPG, PNG, WebP o PDF." });
 
-            string fileName = $"ev_{type}_{Guid.NewGuid()}{ext}";
-            string fullPath = Path.Combine(targetDir, fileName);
-
-            using (var stream = new FileStream(fullPath, FileMode.Create))
+            string contentType = file.ContentType;
+            if (string.IsNullOrEmpty(contentType))
             {
-                await file.CopyToAsync(stream);
+                contentType = ext switch
+                {
+                    ".png" => "image/png",
+                    ".webp" => "image/webp",
+                    ".pdf" => "application/pdf",
+                    _ => "image/jpeg"
+                };
             }
 
-            string relativeUrl = $"/uploads/findings/{year}/{fileName}";
-            return Ok(new { success = true, url = relativeUrl, message = "Evidencia cargada exitosamente." });
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            byte[] fileBytes = ms.ToArray();
+
+            int year = DateTime.UtcNow.Year;
+            string fileName = $"ev_{type}_{Guid.NewGuid()}{ext}";
+
+            // 1. Subir directamente a Supabase Storage ('evidence' o 'audit-evidence')
+            string? publicUrl = await _supabase.UploadStorageFileAsync("evidence", $"findings/{year}/{fileName}", fileBytes, contentType);
+            if (string.IsNullOrEmpty(publicUrl))
+            {
+                publicUrl = await _supabase.UploadStorageFileAsync("audit-evidence", $"findings/{year}/{fileName}", fileBytes, contentType);
+            }
+
+            // 2. Si el bucket no está disponible en Supabase, almacenar como Data URI (Base64)
+            // de modo que la evidencia persista 100% en Supabase y NUNCA en disco local.
+            if (string.IsNullOrEmpty(publicUrl))
+            {
+                string base64 = Convert.ToBase64String(fileBytes);
+                publicUrl = $"data:{contentType};base64,{base64}";
+            }
+
+            return Ok(new { success = true, url = publicUrl, message = "Evidencia guardada exitosamente en Supabase." });
         }
         catch (Exception ex)
         {

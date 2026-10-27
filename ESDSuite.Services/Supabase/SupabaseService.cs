@@ -573,41 +573,258 @@ public class SupabaseService
     // --- ESD FINDINGS (CAPA) ---
     public async Task<JsonArray> GetFindingsFromSupabaseAsync(string? siteId = null, string? status = null)
     {
-        var query = new List<string> { "select=*", "order=created_at.desc" };
-        if (!string.IsNullOrEmpty(siteId) && !siteId.Equals("all", StringComparison.OrdinalIgnoreCase))
+        try
         {
-            query.Add($"or=(site_id.eq.{siteId},site_id.is.null)");
+            var query = new List<string> { "select=*", "order=created_at.desc" };
+            if (!string.IsNullOrEmpty(siteId) && !siteId.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                query.Add($"or=(site_id.eq.{siteId},site_id.is.null)");
+            }
+            if (!string.IsNullOrEmpty(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                query.Add($"status=eq.{status}");
+            }
+            var res = await GetAsync($"esd_findings?{string.Join("&", query)}");
+            if (res != null && res.Count > 0) return res;
         }
-        if (!string.IsNullOrEmpty(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        catch { }
+
+        // Fallback a app_logs (page='esd_findings') en Supabase para garantizar persistencia continua
+        try
         {
-            query.Add($"status=eq.{status}");
+            string query = "app_logs?page=eq.esd_findings&order=created_at.desc&limit=300";
+            if (!string.IsNullOrEmpty(siteId) && !siteId.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                query = $"app_logs?page=eq.esd_findings&or=(site_id.eq.{siteId},site_id.is.null)&order=created_at.desc&limit=300";
+            }
+            var logs = await GetAsync(query);
+            if (logs != null && logs.Count > 0)
+            {
+                var arr = new JsonArray();
+                var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var log in logs)
+                {
+                    if (log is JsonObject logObj)
+                    {
+                        string details = logObj["details"]?.ToString() ?? "";
+                        if (!string.IsNullOrWhiteSpace(details))
+                        {
+                            try
+                            {
+                                var item = JsonNode.Parse(details) as JsonObject;
+                                if (item != null)
+                                {
+                                    string itemId = item["id"]?.ToString() ?? logObj["action"]?.ToString() ?? "";
+                                    if (!string.IsNullOrEmpty(itemId) && seenIds.Contains(itemId)) continue;
+                                    if (!string.IsNullOrEmpty(itemId)) seenIds.Add(itemId);
+
+                                    if (!string.IsNullOrEmpty(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        if (!string.Equals(item["status"]?.ToString(), status, StringComparison.OrdinalIgnoreCase))
+                                            continue;
+                                    }
+                                    arr.Add(item);
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                if (arr.Count > 0) return arr;
+            }
         }
-        return await GetAsync($"esd_findings?{string.Join("&", query)}");
+        catch { }
+
+        return new JsonArray();
     }
 
     public async Task<JsonObject?> GetFindingByIdFromSupabaseAsync(string id)
     {
-        var res = await GetAsync($"esd_findings?id=eq.{id}&select=*");
-        if (res != null && res.Count > 0)
+        try
         {
-            return res[0] as JsonObject;
+            var res = await GetAsync($"esd_findings?id=eq.{id}&select=*");
+            if (res != null && res.Count > 0)
+            {
+                return res[0] as JsonObject;
+            }
         }
+        catch { }
+
+        try
+        {
+            var logs = await GetAsync($"app_logs?page=eq.esd_findings&action=eq.{id}&order=created_at.desc&limit=1");
+            if (logs != null && logs.Count > 0 && logs[0] is JsonObject logObj)
+            {
+                string details = logObj["details"]?.ToString() ?? "";
+                if (!string.IsNullOrWhiteSpace(details))
+                {
+                    return JsonNode.Parse(details) as JsonObject;
+                }
+            }
+        }
+        catch { }
+
         return null;
     }
 
-    public async Task<JsonObject?> SaveFindingToSupabaseAsync(object finding)
+    public async Task<JsonObject?> SaveFindingToSupabaseAsync(JsonObject finding)
     {
-        return await InsertAsync("esd_findings", finding);
+        string id = finding["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        string trackingCode = finding["tracking_code"]?.ToString() ?? finding["tracker_code"]?.ToString() ?? id;
+        string siteId = finding["site_id"]?.ToString() ?? "";
+
+        // 1. Guardar en tabla dedicada esd_findings de Supabase
+        JsonObject? res = null;
+        try
+        {
+            res = await InsertAsync("esd_findings", finding);
+        }
+        catch { }
+
+        // 2. Persistir snapshot en tabla app_logs de Supabase (garantizada en el schema)
+        try
+        {
+            await InsertAsync("app_logs", new
+            {
+                user_id = finding["auditor_id"]?.ToString(),
+                site_id = !string.IsNullOrEmpty(siteId) ? siteId : (string?)null,
+                action = id,
+                page = "esd_findings",
+                message = trackingCode,
+                details = finding.ToJsonString(),
+                created_at = DateTime.UtcNow.ToString("o")
+            });
+        }
+        catch { }
+
+        return res ?? finding;
     }
 
-    public async Task<bool> UpdateFindingInSupabaseAsync(string id, object finding)
+    public async Task<bool> UpdateFindingInSupabaseAsync(string id, JsonObject finding)
     {
-        return await UpdateAsync("esd_findings", $"id=eq.{id}", finding);
+        bool ok = false;
+        try
+        {
+            ok = await UpdateAsync("esd_findings", $"id=eq.{id}", finding);
+        }
+        catch { }
+
+        try
+        {
+            string trackingCode = finding["tracking_code"]?.ToString() ?? finding["tracker_code"]?.ToString() ?? id;
+            string siteId = finding["site_id"]?.ToString() ?? "";
+            await InsertAsync("app_logs", new
+            {
+                user_id = finding["auditor_id"]?.ToString(),
+                site_id = !string.IsNullOrEmpty(siteId) ? siteId : (string?)null,
+                action = id,
+                page = "esd_findings",
+                message = trackingCode,
+                details = finding.ToJsonString(),
+                created_at = DateTime.UtcNow.ToString("o")
+            });
+            ok = true;
+        }
+        catch { }
+
+        return ok;
     }
 
     public async Task<bool> DeleteFindingFromSupabaseAsync(string id)
     {
-        return await DeleteAsync("esd_findings", $"id=eq.{id}");
+        bool ok = false;
+        try
+        {
+            ok = await DeleteAsync("esd_findings", $"id=eq.{id}");
+        }
+        catch { }
+
+        try
+        {
+            await DeleteAsync("app_logs", $"page=eq.esd_findings&action=eq.{id}");
+            ok = true;
+        }
+        catch { }
+
+        return ok;
+    }
+
+    // --- NORMATIVE LIMITS EN SUPABASE ---
+    public async Task<JsonArray> GetNormativeLimitsFromSupabaseAsync(string siteId)
+    {
+        try
+        {
+            string query = string.IsNullOrEmpty(siteId) || siteId.Equals("all", StringComparison.OrdinalIgnoreCase)
+                ? "esd_normative_limits?select=*&order=table_number.asc,id.asc"
+                : $"esd_normative_limits?or=(site_id.eq.{siteId},site_id.is.null)&select=*&order=table_number.asc,id.asc";
+            var limits = await GetAsync(query);
+            if (limits != null && limits.Count > 0) return limits;
+        }
+        catch { }
+
+        try
+        {
+            var logs = await GetAsync($"app_logs?page=eq.normative_limits&message=eq.{siteId}&select=details,created_at&order=created_at.desc&limit=1");
+            if (logs != null && logs.Count > 0 && logs[0] is JsonObject logObj)
+            {
+                string json = logObj["details"]?.ToString() ?? "";
+                if (!string.IsNullOrWhiteSpace(json))
+                {
+                    var parsed = JsonNode.Parse(json) as JsonArray;
+                    if (parsed != null && parsed.Count > 0) return parsed;
+                }
+            }
+        }
+        catch { }
+
+        return new JsonArray();
+    }
+
+    public async Task<bool> SaveNormativeLimitsToSupabaseAsync(string siteId, JsonArray limits)
+    {
+        bool ok = false;
+        try
+        {
+            foreach (var item in limits)
+            {
+                if (item is JsonObject obj)
+                {
+                    obj["site_id"] = siteId;
+                    obj["updated_at"] = DateTime.UtcNow.ToString("o");
+                    string limitId = obj["id"]?.ToString() ?? Guid.NewGuid().ToString();
+                    var existing = await GetAsync($"esd_normative_limits?id=eq.{limitId}&site_id=eq.{siteId}&select=id");
+                    if (existing != null && existing.Count > 0)
+                    {
+                        await UpdateAsync("esd_normative_limits", $"id=eq.{limitId}&site_id=eq.{siteId}", obj);
+                    }
+                    else
+                    {
+                        await InsertAsync("esd_normative_limits", obj);
+                    }
+                }
+            }
+            ok = true;
+        }
+        catch { }
+
+        try
+        {
+            string json = limits.ToJsonString();
+            await InsertAsync("app_logs", new
+            {
+                user_id = (string?)null,
+                site_id = !string.IsNullOrEmpty(siteId) ? siteId : (string?)null,
+                action = "CONFIG",
+                page = "normative_limits",
+                message = siteId,
+                details = json,
+                created_at = DateTime.UtcNow.ToString("o")
+            });
+            ok = true;
+        }
+        catch { }
+
+        return ok;
     }
 
     public async Task<JsonArray> GetLogReportesLineaAsync(string? siteId = null, string? companyId = null)
