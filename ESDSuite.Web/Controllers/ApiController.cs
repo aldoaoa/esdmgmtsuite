@@ -1502,6 +1502,11 @@ public class ApiController : ControllerBase
                     assetArea = loc.Split("->")[0].Trim();
                 }
 
+                string rawStatus = aObj["status"]?.ToString() ?? "ACTIVE";
+                bool isDecommissioned = rawStatus.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) ||
+                                       rawStatus.Equals("BAJA", StringComparison.OrdinalIgnoreCase) ||
+                                       rawStatus.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+
                 assetMap[customId] = new JsonObject
                 {
                     ["id"] = aObj["id"]?.ToString(),
@@ -1515,7 +1520,9 @@ public class ApiController : ControllerBase
                     ["periodicity"] = periodicity,
                     ["notes"] = notes,
                     ["created_at"] = aObj["created_at"]?.ToString() ?? DateTime.UtcNow.ToString("o"),
-                    ["status"] = aObj["status"]?.ToString() ?? "ACTIVE",
+                    ["status"] = isDecommissioned ? "INACTIVE" : "PENDING",
+                    ["status_result"] = isDecommissioned ? "INACTIVE" : "PENDING",
+                    ["lifecycle_status"] = isDecommissioned ? "INACTIVE" : "ACTIVE",
                     ["last_verification"] = null,
                     ["next_verification"] = null,
                     ["auditor"] = "Auditor ESD",
@@ -1558,7 +1565,9 @@ public class ApiController : ControllerBase
                     ["category"] = "Mobiliario ESD",
                     ["sub_category"] = "Mobiliario ESD",
                     ["location"] = "N/A",
-                    ["status"] = "ACTIVE",
+                    ["status"] = "PENDING",
+                    ["status_result"] = "PENDING",
+                    ["lifecycle_status"] = "ACTIVE",
                     ["last_verification"] = null,
                     ["next_verification"] = null,
                     ["auditor"] = "Auditor ESD",
@@ -1588,7 +1597,11 @@ public class ApiController : ControllerBase
                     entry["next_verification"] = dtNext.HasValue ? dtNext.Value.ToString("yyyy-MM-dd") : "Permanente";
                 }
 
-                entry["status"] = mObj["status_result"]?.ToString() ?? "PASS";
+                if (entry["status"]?.ToString() != "INACTIVE")
+                {
+                    entry["status"] = mObj["status_result"]?.ToString() ?? "PASS";
+                    entry["status_result"] = entry["status"];
+                }
                 
                 if (mObj["resistance_value"] != null) entry["resistance_value"] = mObj["resistance_value"]?.GetValue<double>();
                 if (mObj["static_field_value"] != null) entry["static_field_value"] = mObj["static_field_value"]?.GetValue<double>();
@@ -1651,6 +1664,13 @@ public class ApiController : ControllerBase
                 resultList = resultList.Where(x => {
                     string st = x["status"]?.ToString() ?? "";
                     return !st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) && !st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) && !st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+                }).ToList();
+            }
+            else if (status.Equals("PENDING", StringComparison.OrdinalIgnoreCase) || status.Equals("PENDIENTE", StringComparison.OrdinalIgnoreCase))
+            {
+                resultList = resultList.Where(x => {
+                    string st = x["status"]?.ToString() ?? "";
+                    return st.Equals("PENDING", StringComparison.OrdinalIgnoreCase) || st.Equals("PENDIENTE", StringComparison.OrdinalIgnoreCase);
                 }).ToList();
             }
             else
