@@ -85,7 +85,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.4</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.5</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +192,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.4</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.5</span>
             </div>
         </div>
     </aside>
@@ -8320,23 +8320,32 @@
 
     // --- PROTECTED DELETE MODAL (REQUIRES TYPING "DELETE"), LOCATION RENAME & ARCHIVE REASSIGNMENT ---
     let pendingDeleteCallback = null;
+    let editLocContext = { entityType: '', targetId: '', oldName: '', parentArea: '' };
+    let activeReassignGroupId = '';
 
     function openDeleteConfirmModal(title, messageHtml, onConfirmAsync) {
         const modal = document.getElementById('modal-confirm-delete');
-        const titleEl = document.getElementById('modal-confirm-delete-title');
-        const msgEl = document.getElementById('modal-confirm-delete-msg');
-        const inputEl = document.getElementById('modal-confirm-delete-input');
-        const btnEl = document.getElementById('btn-modal-confirm-delete');
+        const titleEl = document.getElementById('confirm-delete-title');
+        const msgEl = document.getElementById('confirm-delete-desc');
+        const inputEl = document.getElementById('confirm-delete-input');
+        const btnEl = document.getElementById('btn-confirm-delete-exec');
 
         if (!modal || !inputEl || !btnEl) return;
 
-        titleEl.innerHTML = title || '⚠️ Confirmar Eliminación Protegida';
-        msgEl.innerHTML = messageHtml || '';
+        if (titleEl) titleEl.innerHTML = title || '⚠️ Confirmar Eliminación Protegida';
+        if (msgEl) msgEl.innerHTML = messageHtml || '';
         inputEl.value = '';
         btnEl.disabled = true;
         btnEl.style.opacity = '0.5';
         btnEl.style.cursor = 'not-allowed';
         btnEl.innerText = '🗑️ Confirmar Eliminación';
+
+        inputEl.onkeydown = function(ev) {
+            if (ev.key === 'Enter' && inputEl.value.trim() === 'DELETE') {
+                ev.preventDefault();
+                executeConfirmedDelete();
+            }
+        };
 
         pendingDeleteCallback = onConfirmAsync;
         modal.style.display = 'flex';
@@ -8344,7 +8353,7 @@
     }
 
     function onConfirmDeleteInputChange(val) {
-        const btnEl = document.getElementById('btn-modal-confirm-delete');
+        const btnEl = document.getElementById('btn-confirm-delete-exec');
         if (!btnEl) return;
         const isMatch = (val || '').trim() === 'DELETE';
         btnEl.disabled = !isMatch;
@@ -8359,8 +8368,8 @@
     }
 
     async function executeConfirmedDelete() {
-        const inputEl = document.getElementById('modal-confirm-delete-input');
-        const btnEl = document.getElementById('btn-modal-confirm-delete');
+        const inputEl = document.getElementById('confirm-delete-input');
+        const btnEl = document.getElementById('btn-confirm-delete-exec');
         if (!inputEl || inputEl.value.trim() !== 'DELETE' || !pendingDeleteCallback) return;
 
         const fn = pendingDeleteCallback;
@@ -8378,7 +8387,7 @@
     async function deleteCompanyNode(companyId, companyName) {
         openDeleteConfirmModal(
             `⚠️ Eliminar Empresa "${companyName}"`,
-            `Estás a punto de eliminar la Empresa <b>"${companyName}"</b> y todos sus Sites/Plantas, áreas y sub-operaciones.<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Todas las máquinas, mediciones, equipos de calibración e historial EPA de sus Sites se almacenarán agrupados en la Bóveda de Resguardo para que puedas reasignarlos a otro Site.</span>`,
+            `Estás a punto de eliminar la Empresa <b>"${companyName}"</b> y todos sus Sites/Plantas, áreas y sub-operaciones.`,
             async () => {
                 try {
                     const res = await fetch(`/api/companies/${encodeURIComponent(companyId)}?confirmText=DELETE`, { method: 'DELETE' });
@@ -8401,7 +8410,7 @@
         if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
         openDeleteConfirmModal(
             `⚠️ Eliminar Site / Planta "${siteName}"`,
-            `Estás a punto de eliminar el Site <b>"${siteName}"</b> y todos sus subtipos (áreas, líneas y operaciones).<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Todas sus máquinas, mediciones, equipos e historial EPA se guardarán agrupados por su estructura original en la Bóveda de Resguardo y quedarán disponibles para reasignar a otro Site.</span>`,
+            `Estás a punto de eliminar el Site <b>"${siteName}"</b> y todos sus subtipos (áreas, líneas y operaciones).`,
             async () => {
                 try {
                     const res = await fetch(`/api/sites/${encodeURIComponent(siteId)}?confirmText=DELETE`, { method: 'DELETE' });
@@ -8425,7 +8434,7 @@
         if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
         openDeleteConfirmModal(
             `⚠️ Eliminar Área / Línea "${areaName}"`,
-            `Estás a punto de eliminar el Área / Línea <b>"${areaName}"</b> y todas sus Sub-operaciones.<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Todas las máquinas, mediciones e historial asociados a esta Área y sus operaciones se almacenarán agrupados en la Bóveda de Resguardo para poder reasignarlos a otro Site o Área.</span>`,
+            `Estás a punto de eliminar el Área / Línea <b>"${areaName}"</b> y todas sus Sub-operaciones.`,
             async () => {
                 try {
                     const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(areaName)}&includeSubOperations=true&confirmText=DELETE`;
@@ -8450,7 +8459,7 @@
         const fullName = `${areaName} -> ${subOpName}`;
         openDeleteConfirmModal(
             `⚠️ Eliminar Operación "${subOpName}"`,
-            `Estás a punto de eliminar la Operación <b>"${subOpName}"</b> del Área <b>"${areaName}"</b>.<br><br><span style="color:#0369A1;">📦 <b>Resguardo Automático:</b> Las máquinas, mediciones e historial vinculados a "${fullName}" se guardarán agrupados en la Bóveda de Resguardo para que puedas reasignarlos a otro Site o ubicación.</span>`,
+            `Estás a punto de eliminar la Operación <b>"${subOpName}"</b> del Área <b>"${areaName}"</b>.`,
             async () => {
                 try {
                     const url = `/api/lines?siteId=${encodeURIComponent(siteId)}&name=${encodeURIComponent(fullName)}&includeSubOperations=false&confirmText=DELETE`;
@@ -8474,11 +8483,23 @@
         if (parentCompNodeId) expandedTreeNodes.add(parentCompNodeId);
         if (parentSiteNodeId) expandedTreeNodes.add(parentSiteNodeId);
 
-        document.getElementById('edit-loc-type').value = entityType;
-        document.getElementById('edit-loc-id').value = targetIdOrSiteId;
-        document.getElementById('edit-loc-old-name').value = oldName;
-        document.getElementById('edit-loc-parent-area').value = parentAreaName || '';
-        document.getElementById('edit-loc-new-name').value = oldName;
+        editLocContext = {
+            entityType: entityType,
+            targetId: targetIdOrSiteId,
+            oldName: oldName,
+            parentArea: parentAreaName || ''
+        };
+
+        const inp = document.getElementById('edit-loc-input-name');
+        if (inp) {
+            inp.value = oldName;
+            inp.onkeydown = function(ev) {
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    submitEditLocationModal();
+                }
+            };
+        }
 
         const titleMap = {
             company: '✏️ Editar Nombre de Empresa',
@@ -8486,17 +8507,20 @@
             area: '✏️ Editar Nombre de Área / Línea',
             suboperation: `✏️ Editar Operación (en ${parentAreaName})`
         };
-        document.getElementById('modal-edit-location-title').innerText = titleMap[entityType] || '✏️ Editar Nombre de Ubicación';
-        document.getElementById('modal-edit-location-subtitle').innerText =
-            entityType === 'area' || entityType === 'suboperation'
-                ? 'Se actualizarán automáticamente todas las máquinas, mediciones, planos ESD y bitácoras vinculadas a esta ubicación.'
-                : 'Se actualizará el nombre en toda la estructura multi-tenant.';
+        const titleEl = document.getElementById('edit-loc-modal-title');
+        const subEl = document.getElementById('edit-loc-modal-sub');
+        if (titleEl) titleEl.innerText = titleMap[entityType] || '✏️ Editar Nombre de Ubicación';
+        if (subEl) {
+            subEl.innerText =
+                entityType === 'area' || entityType === 'suboperation'
+                    ? 'Se actualizarán automáticamente todas las máquinas, mediciones, planos ESD y bitácoras vinculadas a esta ubicación.'
+                    : 'Se actualizará el nombre en toda la estructura multi-tenant.';
+        }
 
         const modal = document.getElementById('modal-edit-location-name');
         if (modal) {
             modal.style.display = 'flex';
             setTimeout(() => {
-                const inp = document.getElementById('edit-loc-new-name');
                 if (inp) { inp.focus(); inp.select(); }
             }, 50);
         }
@@ -8508,12 +8532,10 @@
     }
 
     async function submitEditLocationModal(e) {
-        e.preventDefault();
-        const entityType = document.getElementById('edit-loc-type').value;
-        const targetId = document.getElementById('edit-loc-id').value;
-        const oldName = document.getElementById('edit-loc-old-name').value;
-        const parentArea = document.getElementById('edit-loc-parent-area').value;
-        const newName = (document.getElementById('edit-loc-new-name').value || '').trim();
+        if (e && e.preventDefault) e.preventDefault();
+        const { entityType, targetId, oldName, parentArea } = editLocContext;
+        const inp = document.getElementById('edit-loc-input-name');
+        const newName = (inp ? inp.value : '').trim();
 
         if (!newName) return;
         if (newName === oldName) {
@@ -8521,7 +8543,7 @@
             return;
         }
 
-        const btn = document.getElementById('btn-save-edit-location');
+        const btn = document.getElementById('btn-save-edit-loc');
         if (btn) { btn.disabled = true; btn.innerText = '⏳ Guardando...'; }
 
         try {
@@ -8576,7 +8598,6 @@
     async function loadArchivedLocationGroups() {
         const panel = document.getElementById('archived-groups-panel');
         const listEl = document.getElementById('archived-groups-list');
-        const badgeEl = document.getElementById('archived-groups-count-badge');
         if (!panel || !listEl) return;
 
         if (!isUserCompanyAdminOrSuper()) {
@@ -8595,7 +8616,6 @@
             }
 
             panel.style.display = 'block';
-            if (badgeEl) badgeEl.innerText = `${cachedArchivedGroups.length} grupo(s)`;
 
             const typeLabels = {
                 site: '🏢 Site Completo',
@@ -8644,12 +8664,15 @@
         const group = cachedArchivedGroups.find(g => g.group_id === groupId);
         if (!group) return;
 
-        document.getElementById('reassign-group-id').value = group.group_id;
+        activeReassignGroupId = group.group_id;
         const counts = group.counts || {};
-        document.getElementById('reassign-group-summary').innerHTML = `
-            <div><b>📦 Paquete Agrupado:</b> ${group.group_name} <span style="color:#64748B;">(Origen: ${group.source_site_name || 'N/A'})</span></div>
-            <div style="margin-top:4px;">Incluye <b>${counts.assets || 0}</b> máquinas, <b>${counts.measurements || 0}</b> mediciones, <b>${counts.equipment || 0}</b> equipos y <b>${counts.epa_logs || 0}</b> registros de historial EPA.</div>
-        `;
+        const summaryEl = document.getElementById('reassign-group-summary');
+        if (summaryEl) {
+            summaryEl.innerHTML = `
+                <div><b>📦 Paquete Agrupado:</b> ${group.group_name} <span style="color:#64748B;">(Origen: ${group.source_site_name || 'N/A'})</span></div>
+                <div style="margin-top:4px;">Incluye <b>${counts.assets || 0}</b> máquinas, <b>${counts.measurements || 0}</b> mediciones, <b>${counts.equipment || 0}</b> equipos y <b>${counts.epa_logs || 0}</b> registros de historial EPA.</div>
+            `;
+        }
 
         if (!allSites || allSites.length === 0) {
             try {
@@ -8659,14 +8682,18 @@
         }
 
         const siteSel = document.getElementById('reassign-target-site');
-        siteSel.innerHTML = '<option value="">-- Seleccionar Site Destino --</option>';
-        (allSites || []).forEach(s => {
-            siteSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-        });
+        if (siteSel) {
+            siteSel.innerHTML = '<option value="">-- Seleccionar Site Destino --</option>';
+            (allSites || []).forEach(s => {
+                siteSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+        }
 
-        const radios = document.querySelectorAll('input[name="reassign-loc-mode"]');
-        radios.forEach(r => { r.checked = (r.value === 'keep'); });
-        onReassignLocModeChange();
+        const modeSel = document.getElementById('reassign-loc-mode');
+        if (modeSel) modeSel.value = 'keep';
+        const customInput = document.getElementById('reassign-custom-loc-input');
+        if (customInput) customInput.value = '';
+        onReassignLocModeChange('keep');
 
         const modal = document.getElementById('modal-reassign-group');
         if (modal) modal.style.display = 'flex';
@@ -8677,8 +8704,8 @@
         if (modal) modal.style.display = 'none';
     }
 
-    function onReassignLocModeChange() {
-        const mode = document.querySelector('input[name="reassign-loc-mode"]:checked')?.value || 'keep';
+    function onReassignLocModeChange(val) {
+        const mode = val || document.getElementById('reassign-loc-mode')?.value || 'keep';
         const customBox = document.getElementById('reassign-custom-loc-container');
         if (customBox) {
             customBox.style.display = mode === 'custom' ? 'block' : 'none';
@@ -8686,9 +8713,9 @@
     }
 
     async function onReassignTargetSiteChange(siteId) {
-        const locSel = document.getElementById('reassign-target-location');
+        const locSel = document.getElementById('reassign-existing-loc-select');
         if (!locSel) return;
-        locSel.innerHTML = '<option value="">-- Seleccionar Área / Operación del Site --</option>';
+        locSel.innerHTML = '<option value="">-- Seleccionar ubicación existente del Site --</option>';
         if (!siteId) return;
 
         try {
@@ -8704,10 +8731,10 @@
     }
 
     async function submitReassignGroup(e) {
-        e.preventDefault();
-        const groupId = document.getElementById('reassign-group-id').value;
-        const targetSiteId = document.getElementById('reassign-target-site').value;
-        const mode = document.querySelector('input[name="reassign-loc-mode"]:checked')?.value || 'keep';
+        if (e && e.preventDefault) e.preventDefault();
+        const groupId = activeReassignGroupId;
+        const targetSiteId = document.getElementById('reassign-target-site')?.value || '';
+        const mode = document.getElementById('reassign-loc-mode')?.value || 'keep';
 
         if (!groupId || !targetSiteId) {
             alert('Por favor selecciona un Site destino.');
@@ -8716,8 +8743,8 @@
 
         let targetLocationOverride = null;
         if (mode === 'custom') {
-            const typed = (document.getElementById('reassign-target-location-custom')?.value || '').trim();
-            const selected = (document.getElementById('reassign-target-location')?.value || '').trim();
+            const typed = (document.getElementById('reassign-custom-loc-input')?.value || '').trim();
+            const selected = (document.getElementById('reassign-existing-loc-select')?.value || '').trim();
             targetLocationOverride = typed || selected || null;
             if (!targetLocationOverride) {
                 alert('Por favor selecciona o escribe el Área / Operación destino.');
@@ -8749,7 +8776,7 @@
         } catch (ex) {
             showToast('❌ Error de conexión al reasignar el grupo.', 'error');
         } finally {
-            if (btn) { btn.disabled = false; btn.innerText = '✅ Reasignar Elementos e Historial'; }
+            if (btn) { btn.disabled = false; btn.innerText = '🔄 Reasignar Todo al Site Destino'; }
         }
     }
 
