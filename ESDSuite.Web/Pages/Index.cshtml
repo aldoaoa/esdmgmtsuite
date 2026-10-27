@@ -68,14 +68,20 @@
                     <p style="font-size:13px; color:#64748B; margin:0; text-align:center;" data-i18n="login.access_sub">Access your account on the esd360 platform</p>
                 </div>
                 
-                <form id="login-form">
+                <form id="login-form" method="POST" action="/api/login" autocomplete="on">
                     <div class="form-group" style="margin-bottom:16px;">
                         <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.email">Email Address</label>
-                        <input type="email" id="login-email" class="form-control" placeholder="user@company.com" required value="" style="height:44px; font-size:13.5px;" />
+                        <input type="email" id="login-email" name="username" autocomplete="username" class="form-control" placeholder="user@company.com" required value="" style="height:44px; font-size:13.5px;" />
                     </div>
-                    <div class="form-group" style="margin-bottom:20px;">
+                    <div class="form-group" style="margin-bottom:14px;">
                         <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:block;" data-i18n="login.password">Password</label>
-                        <input type="password" id="login-password" class="form-control" placeholder="••••••••" required value="" style="height:44px; font-size:13.5px;" />
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" class="form-control" placeholder="••••••••" required value="" style="height:44px; font-size:13.5px;" />
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:#475569; cursor:pointer; user-select:none;">
+                            <input type="checkbox" id="login-remember" checked style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;" />
+                            <span data-i18n="login.remember_me">Mantener sesión iniciada en este equipo</span>
+                        </label>
                     </div>
                     <div id="login-error" style="color:var(--accent-rose); font-size:12.5px; font-weight:600; margin-bottom:14px; display:none;"></div>
                     <button type="submit" class="btn-primary" style="width:100%; height:46px; font-size:14px; font-weight:700; border-radius:8px;" data-i18n="login.submit">🔒 Log In to esd360</button>
@@ -85,7 +91,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.7</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.8</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +198,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.7</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.8</span>
             </div>
         </div>
     </aside>
@@ -2809,6 +2815,7 @@
         e.preventDefault();
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
+        const rememberMe = document.getElementById('login-remember') ? document.getElementById('login-remember').checked : true;
         const errDiv = document.getElementById('login-error');
         const submitBtn = this.querySelector('button[type="submit"]');
         
@@ -2822,13 +2829,26 @@
             const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, remember_me: rememberMe })
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                // Official Credential Management API to trigger native browser "Save Password" prompt
+                if (window.PasswordCredential && navigator.credentials && navigator.credentials.store) {
+                    try {
+                        const cred = new PasswordCredential({
+                            id: email,
+                            password: password,
+                            name: email
+                        });
+                        await navigator.credentials.store(cred);
+                    } catch (cErr) {
+                        console.debug('[CredentialManager] Notice:', cErr);
+                    }
+                }
+
                 // Instantly update session state and display dashboard
                 await checkSession();
-                document.getElementById('login-password').value = '';
             } else {
                 if (errDiv) {
                     errDiv.innerText = data.message ? `❌ ${data.message}` : '❌ Credenciales incorrectas o cuenta inactiva.';
@@ -2849,6 +2869,9 @@
     };
 
     async function logout() {
+        if (document.getElementById('login-password')) {
+            document.getElementById('login-password').value = '';
+        }
         await fetch('/api/logout', { method: 'POST' });
         location.reload();
     }

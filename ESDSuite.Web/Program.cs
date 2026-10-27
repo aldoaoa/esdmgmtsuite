@@ -11,12 +11,13 @@ builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(8);
+    options.IdleTimeout = TimeSpan.FromDays(30);
     options.Cookie.Name = ".ESDSuite.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.MaxAge = TimeSpan.FromDays(30);
 });
 
 var rawUrl = builder.Configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
@@ -70,10 +71,47 @@ app.Use(async (context, next) =>
 
         if (!isPublicApi && context.Session.GetString("is_logged_in") != "true")
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json; charset=utf-8";
-            await context.Response.WriteAsync("{\"success\":false,\"message\":\"Sesión no válida o expirada. Inicie sesión nuevamente.\"}");
-            return;
+            // Auto rehydrate from RememberMe token if present
+            if (context.Request.Cookies.TryGetValue(".ESDSuite.AuthToken", out string? authToken) && !string.IsNullOrEmpty(authToken))
+            {
+                string? userId = ESDSuite.Web.Controllers.ApiController.ValidateRememberMeToken(authToken, supabaseConfig.Key);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    var supabase = context.RequestServices.GetRequiredService<SupabaseService>();
+                    var userObj = await supabase.GetUserByIdAsync(userId);
+                    if (userObj != null)
+                    {
+                        bool isActive = true;
+                        if (userObj["is_active"] != null && bool.TryParse(userObj["is_active"]?.ToString(), out bool actVal))
+                            isActive = actVal;
+
+                        if (isActive)
+                        {
+                            string email = userObj["email"]?.ToString() ?? "";
+                            string name = userObj["full_name"]?.ToString() ?? email;
+                            string role = userObj["role"]?.ToString() ?? "AUDITOR";
+                            string siteId = userObj["site_id"]?.ToString() ?? "";
+                            string companyId = userObj["company_id"]?.ToString() ?? "";
+
+                            context.Session.SetString("user_id", userId);
+                            context.Session.SetString("user_email", email);
+                            context.Session.SetString("user_name", name);
+                            context.Session.SetString("user_role", role);
+                            context.Session.SetString("site_id", !string.IsNullOrEmpty(siteId) ? siteId : ESDSuite.Web.Controllers.ApiController.DefaultSiteId);
+                            context.Session.SetString("company_id", companyId);
+                            context.Session.SetString("is_logged_in", "true");
+                        }
+                    }
+                }
+            }
+
+            if (context.Session.GetString("is_logged_in") != "true")
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json; charset=utf-8";
+                await context.Response.WriteAsync("{\"success\":false,\"message\":\"Sesión no válida o expirada. Inicie sesión nuevamente.\"}");
+                return;
+            }
         }
     }
     await next();

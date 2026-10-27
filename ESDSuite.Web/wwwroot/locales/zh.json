@@ -4,6 +4,7 @@
     "subtitle": "电子制造领域用于数字化、溯源和审计管理的综合平台。",
     "email": "电子邮件地址",
     "password": "密码",
+    "remember_me": "在此设备上保持登录状态",
     "submit": "🔒 登录 esd360",
     "heading": "登录",
     "access_sub": "访问您的 esd360 平台账户",

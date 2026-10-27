@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ESDSuite.Core.Constants;
@@ -15,7 +17,7 @@ namespace ESDSuite.Web.Controllers;
 [Route("api")]
 public class ApiController : ControllerBase
 {
-    private const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
+    public const string DefaultSiteId = "eff70028-0759-4033-9c2b-41e1c1cc6efd";
     private const string DefaultAuditorId = "84d85bea-272c-42d1-ad14-35eb702f1e56";
 
     private bool IsAuthenticated => HttpContext.Session.GetString("is_logged_in") == "true";
@@ -64,19 +66,69 @@ public class ApiController : ControllerBase
     private readonly SupabaseService _supabase;
     private readonly FloorMapStorageService _mapStorage;
     private readonly IWebHostEnvironment _env;
+    private readonly SupabaseConfig _config;
 
-    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage, IWebHostEnvironment env)
+    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage, IWebHostEnvironment env, SupabaseConfig config)
     {
         _supabase = supabase;
         _mapStorage = mapStorage;
         _env = env;
+        _config = config;
+    }
+
+    public static string CreateRememberMeToken(string userId, string secretKey, int days = 30)
+    {
+        long expiry = DateTimeOffset.UtcNow.AddDays(days).ToUnixTimeSeconds();
+        string raw = $"{userId}:{expiry}";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
+        byte[] sig = hmac.ComputeHash(Encoding.UTF8.GetBytes(raw));
+        string sigHex = Convert.ToHexString(sig);
+        string token = $"{userId}:{expiry}:{sigHex}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
+    }
+
+    public static string? ValidateRememberMeToken(string? token, string secretKey)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        try
+        {
+            byte[] bytes = Convert.FromBase64String(token);
+            string decoded = Encoding.UTF8.GetString(bytes);
+            string[] parts = decoded.Split(':');
+            if (parts.Length != 3) return null;
+
+            string userId = parts[0];
+            if (!long.TryParse(parts[1], out long expiry)) return null;
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiry) return null;
+
+            string raw = $"{userId}:{expiry}";
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
+            byte[] expectedSig = hmac.ComputeHash(Encoding.UTF8.GetBytes(raw));
+            byte[] actualSig = Convert.FromHexString(parts[2]);
+
+            if (CryptographicOperations.FixedTimeEquals(expectedSig, actualSig))
+            {
+                return userId;
+            }
+        }
+        catch
+        {
+            // invalid token
+        }
+        return null;
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] JsonObject payload)
     {
-        string email = payload["email"]?.ToString() ?? "";
+        string email = payload["email"]?.ToString() ?? payload["username"]?.ToString() ?? "";
         string pwd = payload["password"]?.ToString() ?? "";
+        bool rememberMe = true;
+        if (payload["remember_me"] != null && bool.TryParse(payload["remember_me"]?.ToString(), out bool rmVal))
+        {
+            rememberMe = rmVal;
+        }
 
         var (success, session, message) = await _supabase.IniciarSesionAsync(email, pwd);
         if (success && session != null)
@@ -91,6 +143,19 @@ public class ApiController : ControllerBase
             HttpContext.Session.SetString("company_name", session.CompanyName ?? "");
             HttpContext.Session.SetString("is_logged_in", "true");
 
+            if (rememberMe)
+            {
+                string token = CreateRememberMeToken(session.Id, _config.Key, 30);
+                Response.Cookies.Append(".ESDSuite.AuthToken", token, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = Request.IsHttps,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddDays(30),
+                    IsEssential = true
+                });
+            }
+
             return Ok(new { success = true, user = session });
         }
 
@@ -101,6 +166,8 @@ public class ApiController : ControllerBase
     public IActionResult Logout()
     {
         HttpContext.Session.Clear();
+        Response.Cookies.Delete(".ESDSuite.AuthToken");
+        Response.Cookies.Delete(".ESDSuite.Session");
         return Ok(new { success = true });
     }
 
@@ -110,6 +177,42 @@ public class ApiController : ControllerBase
         try
         {
             bool isLoggedIn = HttpContext.Session.GetString("is_logged_in") == "true";
+            if (!isLoggedIn)
+            {
+                if (Request.Cookies.TryGetValue(".ESDSuite.AuthToken", out string? authToken) && !string.IsNullOrEmpty(authToken))
+                {
+                    string? userId = ValidateRememberMeToken(authToken, _config.Key);
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        var userObj = await _supabase.GetUserByIdAsync(userId);
+                        if (userObj != null)
+                        {
+                            bool isActive = true;
+                            if (userObj["is_active"] != null && bool.TryParse(userObj["is_active"]?.ToString(), out bool actVal))
+                                isActive = actVal;
+
+                            if (isActive)
+                            {
+                                string email = userObj["email"]?.ToString() ?? "";
+                                string name = userObj["full_name"]?.ToString() ?? email;
+                                string role = userObj["role"]?.ToString() ?? "AUDITOR";
+                                string siteId = userObj["site_id"]?.ToString() ?? "";
+                                string companyId = userObj["company_id"]?.ToString() ?? "";
+
+                                HttpContext.Session.SetString("user_id", userId);
+                                HttpContext.Session.SetString("user_email", email);
+                                HttpContext.Session.SetString("user_name", name);
+                                HttpContext.Session.SetString("user_role", role);
+                                HttpContext.Session.SetString("site_id", !string.IsNullOrEmpty(siteId) ? siteId : DefaultSiteId);
+                                HttpContext.Session.SetString("company_id", companyId);
+                                HttpContext.Session.SetString("is_logged_in", "true");
+                                isLoggedIn = true;
+                            }
+                        }
+                    }
+                }
+            }
+
             if (!isLoggedIn)
             {
                 return Ok(new { isLoggedIn = false, version = EsdConstants.SystemVersion });
