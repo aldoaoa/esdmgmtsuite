@@ -2347,7 +2347,7 @@ public class ApiController : ControllerBase
             return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar áreas, líneas o sub-operaciones. Requiere rol CompanyAdmin o SuperAdmin." });
         }
 
-        if (!string.IsNullOrEmpty(confirmText) && !string.Equals(confirmText.Trim(), "DELETE", StringComparison.Ordinal))
+        if (!string.Equals(confirmText?.Trim(), "DELETE", StringComparison.Ordinal))
         {
             return BadRequest(new { success = false, message = "Debes escribir exactamente la palabra DELETE para confirmar la eliminación." });
         }
@@ -3247,7 +3247,7 @@ public class ApiController : ControllerBase
             return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar empresas. Requiere rol SuperAdmin o CompanyAdmin." });
         }
 
-        if (!string.IsNullOrEmpty(confirmText) && !string.Equals(confirmText.Trim(), "DELETE", StringComparison.Ordinal))
+        if (!string.Equals(confirmText?.Trim(), "DELETE", StringComparison.Ordinal))
         {
             return BadRequest(new { success = false, message = "Debes escribir exactamente la palabra DELETE para confirmar la eliminación." });
         }
@@ -3366,7 +3366,7 @@ public class ApiController : ControllerBase
             return StatusCode(403, new { success = false, message = "No tienes permisos para eliminar sites/plantas. Requiere rol CompanyAdmin o SuperAdmin." });
         }
 
-        if (!string.IsNullOrEmpty(confirmText) && !string.Equals(confirmText.Trim(), "DELETE", StringComparison.Ordinal))
+        if (!string.Equals(confirmText?.Trim(), "DELETE", StringComparison.Ordinal))
         {
             return BadRequest(new { success = false, message = "Debes escribir exactamente la palabra DELETE para confirmar la eliminación." });
         }
@@ -3438,7 +3438,7 @@ public class ApiController : ControllerBase
         }
 
         string targetSiteId = payload["target_site_id"]?.ToString()?.Trim() ?? "";
-        string? targetLocation = payload["target_location"]?.ToString()?.Trim();
+        string? targetLocation = payload["target_location"]?.ToString()?.Trim() ?? payload["target_location_override"]?.ToString()?.Trim();
 
         if (string.IsNullOrEmpty(targetSiteId))
         {

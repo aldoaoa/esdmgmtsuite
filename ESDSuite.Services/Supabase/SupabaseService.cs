@@ -1244,26 +1244,50 @@ public class SupabaseService
                         continue;
                     }
 
+                    string scopeType = parsed["scope_type"]?.ToString() ?? "SITE";
+                    string origSiteId = parsed["original_site_id"]?.ToString() ?? "";
+                    string origSiteName = parsed["original_site_name"]?.ToString() ?? "Site";
+                    string origLoc = parsed["original_location"]?.ToString() ?? origSiteName;
+                    int lCount = parsed["lines_count"]?.GetValue<int>() ?? (parsed["lines"] as JsonArray)?.Count ?? 0;
+                    int aCount = parsed["assets_count"]?.GetValue<int>() ?? (parsed["assets"] as JsonArray)?.Count ?? 0;
+                    int mCount = parsed["measurements_count"]?.GetValue<int>() ?? (parsed["measurements"] as JsonArray)?.Count ?? 0;
+                    int eCount = parsed["equipment_count"]?.GetValue<int>() ?? (parsed["equipment"] as JsonArray)?.Count ?? 0;
+                    int lgCount = parsed["logs_count"]?.GetValue<int>() ?? 0;
+                    var linesClone = (parsed["lines"] as JsonArray)?.DeepClone() ?? new JsonArray();
+
                     var summary = new JsonObject
                     {
                         ["group_id"] = groupId,
                         ["log_row_id"] = logObj["id"]?.ToString(),
-                        ["scope_type"] = parsed["scope_type"]?.ToString() ?? "SITE",
+                        ["scope_type"] = scopeType,
+                        ["group_type"] = scopeType == "SITE" ? "site" : (scopeType == "AREA" ? "area" : "suboperation"),
+                        ["group_name"] = origLoc,
                         ["company_id"] = grpCompId,
                         ["company_name"] = parsed["company_name"]?.ToString() ?? "Empresa",
-                        ["original_site_id"] = parsed["original_site_id"]?.ToString() ?? "",
-                        ["original_site_name"] = parsed["original_site_name"]?.ToString() ?? "Site",
-                        ["original_location"] = parsed["original_location"]?.ToString() ?? "",
+                        ["original_site_id"] = origSiteId,
+                        ["source_site_id"] = origSiteId,
+                        ["original_site_name"] = origSiteName,
+                        ["source_site_name"] = origSiteName,
+                        ["original_location"] = origLoc,
                         ["original_area"] = parsed["original_area"]?.ToString() ?? "",
                         ["original_operation"] = parsed["original_operation"]?.ToString() ?? "",
                         ["deleted_at"] = parsed["deleted_at"]?.ToString() ?? logObj["created_at"]?.ToString(),
                         ["deleted_by"] = parsed["deleted_by"]?.ToString() ?? "Administrador",
-                        ["lines_count"] = parsed["lines_count"]?.GetValue<int>() ?? (parsed["lines"] as JsonArray)?.Count ?? 0,
-                        ["assets_count"] = parsed["assets_count"]?.GetValue<int>() ?? (parsed["assets"] as JsonArray)?.Count ?? 0,
-                        ["measurements_count"] = parsed["measurements_count"]?.GetValue<int>() ?? (parsed["measurements"] as JsonArray)?.Count ?? 0,
-                        ["equipment_count"] = parsed["equipment_count"]?.GetValue<int>() ?? (parsed["equipment"] as JsonArray)?.Count ?? 0,
-                        ["logs_count"] = parsed["logs_count"]?.GetValue<int>() ?? 0,
-                        ["lines"] = (parsed["lines"] as JsonArray)?.DeepClone() ?? new JsonArray()
+                        ["lines_count"] = lCount,
+                        ["assets_count"] = aCount,
+                        ["measurements_count"] = mCount,
+                        ["equipment_count"] = eCount,
+                        ["logs_count"] = lgCount,
+                        ["counts"] = new JsonObject
+                        {
+                            ["lines"] = lCount,
+                            ["assets"] = aCount,
+                            ["measurements"] = mCount,
+                            ["equipment"] = eCount,
+                            ["epa_logs"] = lgCount
+                        },
+                        ["lines"] = linesClone,
+                        ["locations"] = linesClone.DeepClone()
                     };
 
                     result.Add(summary);
