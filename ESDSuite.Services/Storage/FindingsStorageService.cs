@@ -497,13 +497,13 @@ public class FindingsStorageService
             string sId = finding["site_id"]?.ToString() ?? "";
             finding["tracking_code"] = await GenerateTrackingCodeAsync(sId);
         }
-        finding["tracker_code"] = finding["tracking_code"];
+        finding["tracker_code"] = finding["tracking_code"]?.ToString();
 
         if (finding["opened_at"] == null || string.IsNullOrWhiteSpace(finding["opened_at"]?.ToString()))
         {
             finding["opened_at"] = DateTime.UtcNow.ToString("o");
         }
-        finding["created_at"] = finding["opened_at"];
+        finding["created_at"] = finding["opened_at"]?.ToString();
 
         if (finding["status"] == null || string.IsNullOrWhiteSpace(finding["status"]?.ToString()))
         {
@@ -629,7 +629,7 @@ public class FindingsStorageService
         else
             sb["timeline"] = new JsonArray();
 
-        sb["created_at"] = sb["opened_at"];
+        sb["created_at"] = sb["opened_at"]?.ToString() ?? DateTime.UtcNow.ToString("o");
         sb["updated_at"] = DateTime.UtcNow.ToString("o");
         return sb;
     }

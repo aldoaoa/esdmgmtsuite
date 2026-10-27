@@ -5253,11 +5253,11 @@ public class ApiController : ControllerBase
         if (payload["location"] != null) existing["location"] = payload["location"]?.ToString();
         if (payload["assignee_name"] != null) existing["assignee_name"] = payload["assignee_name"]?.ToString();
         if (payload["assigned_to"] != null) existing["assignee_name"] = payload["assigned_to"]?.ToString();
-        existing["assigned_to"] = existing["assignee_name"];
+        existing["assigned_to"] = existing["assignee_name"]?.ToString();
         if (payload["due_date"] != null) existing["due_date"] = payload["due_date"]?.ToString();
         if (payload["containment_action"] != null) existing["containment_action"] = payload["containment_action"]?.ToString();
         if (payload["immediate_containment"] != null) existing["containment_action"] = payload["immediate_containment"]?.ToString();
-        existing["immediate_containment"] = existing["containment_action"];
+        existing["immediate_containment"] = existing["containment_action"]?.ToString();
         if (payload["root_cause"] != null) existing["root_cause"] = payload["root_cause"]?.ToString();
         if (payload["corrective_action"] != null) existing["corrective_action"] = payload["corrective_action"]?.ToString();
         if (payload["lessons_learned"] != null) existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
