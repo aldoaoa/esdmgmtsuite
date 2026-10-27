@@ -1599,8 +1599,9 @@ public class ApiController : ControllerBase
 
                 if (entry["status"]?.ToString() != "INACTIVE")
                 {
-                    entry["status"] = mObj["status_result"]?.ToString() ?? "PASS";
-                    entry["status_result"] = entry["status"];
+                    string resStatus = mObj["status_result"]?.ToString() ?? "PASS";
+                    entry["status"] = resStatus;
+                    entry["status_result"] = resStatus;
                 }
                 
                 if (mObj["resistance_value"] != null) entry["resistance_value"] = mObj["resistance_value"]?.GetValue<double>();
