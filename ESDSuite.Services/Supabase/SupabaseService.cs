@@ -84,6 +84,77 @@ public class SupabaseService
         }
     }
 
+    public async Task<(bool Success, JsonObject? Data, string? Error)> InsertRecordAsync(string table, object data)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(data);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _http.PostAsync(table, content);
+            var resJson = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"[Supabase PostgREST Insert Error ({response.StatusCode})] on {table}: {resJson}");
+                return (false, null, $"[{response.StatusCode}] {resJson}");
+            }
+
+            if (string.IsNullOrWhiteSpace(resJson))
+            {
+                return (true, new JsonObject(), null);
+            }
+
+            var node = JsonNode.Parse(resJson);
+            if (node is JsonArray arr && arr.Count > 0)
+            {
+                return (true, arr[0] as JsonObject, null);
+            }
+            return (true, node as JsonObject, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Supabase Insert Exception] on {table}: {ex.Message}");
+            return (false, null, ex.Message);
+        }
+    }
+
+    public async Task<(bool Success, JsonObject? Data, string? Error)> UpsertRecordAsync(string table, string conflictColumn, object data)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(data);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{table}?on_conflict={conflictColumn}")
+            {
+                Content = content
+            };
+            request.Headers.Add("Prefer", "resolution=merge-duplicates,return=representation");
+            var response = await _http.SendAsync(request);
+            var resJson = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"[Supabase PostgREST Upsert Error ({response.StatusCode})] on {table}: {resJson}");
+                return (false, null, $"[{response.StatusCode}] {resJson}");
+            }
+
+            if (string.IsNullOrWhiteSpace(resJson))
+            {
+                return (true, new JsonObject(), null);
+            }
+
+            var node = JsonNode.Parse(resJson);
+            if (node is JsonArray arr && arr.Count > 0)
+            {
+                return (true, arr[0] as JsonObject, null);
+            }
+            return (true, node as JsonObject, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Supabase Upsert Exception] on {table}: {ex.Message}");
+            return (false, null, ex.Message);
+        }
+    }
+
     private async Task<bool> UpdateAsync(string table, string query, object data)
     {
         try
@@ -585,9 +656,12 @@ public class SupabaseService
                 query.Add($"status=eq.{status}");
             }
             var res = await GetAsync($"esd_findings?{string.Join("&", query)}");
-            if (res != null && res.Count > 0) return res;
+            if (res != null) return res;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Supabase GetFindings Exception]: {ex.Message}");
+        }
 
         // Fallback a app_logs (page='esd_findings') en Supabase para garantizar persistencia continua
         try
@@ -601,7 +675,7 @@ public class SupabaseService
             if (logs != null && logs.Count > 0)
             {
                 var arr = new JsonArray();
-                var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var log in logs)
                 {
                     if (log is JsonObject logObj)
@@ -611,12 +685,11 @@ public class SupabaseService
                         {
                             try
                             {
-                                var item = JsonNode.Parse(details) as JsonObject;
-                                if (item != null)
+                                if (JsonNode.Parse(details) is JsonObject item)
                                 {
-                                    string itemId = item["id"]?.ToString() ?? logObj["action"]?.ToString() ?? "";
-                                    if (!string.IsNullOrEmpty(itemId) && seenIds.Contains(itemId)) continue;
-                                    if (!string.IsNullOrEmpty(itemId)) seenIds.Add(itemId);
+                                    string itemCode = item["tracking_code"]?.ToString() ?? item["tracker_code"]?.ToString() ?? item["id"]?.ToString() ?? "";
+                                    if (!string.IsNullOrEmpty(itemCode) && seenCodes.Contains(itemCode)) continue;
+                                    if (!string.IsNullOrEmpty(itemCode)) seenCodes.Add(itemCode);
 
                                     if (!string.IsNullOrEmpty(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
                                     {
@@ -630,7 +703,7 @@ public class SupabaseService
                         }
                     }
                 }
-                if (arr.Count > 0) return arr;
+                return arr;
             }
         }
         catch { }
@@ -643,16 +716,16 @@ public class SupabaseService
         try
         {
             var res = await GetAsync($"esd_findings?id=eq.{id}&select=*");
-            if (res != null && res.Count > 0)
+            if (res != null && res.Count > 0 && res[0] is JsonObject obj)
             {
-                return res[0] as JsonObject;
+                return obj;
             }
         }
         catch { }
 
         try
         {
-            var logs = await GetAsync($"app_logs?page=eq.esd_findings&action=eq.{id}&order=created_at.desc&limit=1");
+            var logs = await GetAsync($"app_logs?page=eq.esd_findings&details=like.*{id}*&order=created_at.desc&limit=1");
             if (logs != null && logs.Count > 0 && logs[0] is JsonObject logObj)
             {
                 string details = logObj["details"]?.ToString() ?? "";
@@ -667,86 +740,110 @@ public class SupabaseService
         return null;
     }
 
-    public async Task<JsonObject?> SaveFindingToSupabaseAsync(JsonObject finding)
+    public async Task<(bool Success, JsonObject? Finding, string? Error)> SaveFindingToSupabaseAsync(JsonObject finding)
     {
         string id = finding["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        if (!Guid.TryParse(id, out _)) id = Guid.NewGuid().ToString();
+        finding["id"] = id;
+
         string trackingCode = finding["tracking_code"]?.ToString() ?? finding["tracker_code"]?.ToString() ?? id;
-        string siteId = finding["site_id"]?.ToString() ?? "";
+        string? siteId = finding["site_id"]?.ToString();
 
-        // 1. Guardar en tabla dedicada esd_findings de Supabase
-        JsonObject? res = null;
-        try
-        {
-            res = await InsertAsync("esd_findings", finding);
-        }
-        catch { }
+        // 1. Guardar o actualizar en tabla dedicada esd_findings de Supabase (UPSERT atómico)
+        var (ok, data, error) = await UpsertRecordAsync("esd_findings", "id", finding);
 
-        // 2. Persistir snapshot en tabla app_logs de Supabase (garantizada en el schema)
-        try
+        // 2. Persistir snapshot en bitácora de app_logs (sin columnas inexistentes)
+        _ = Task.Run(async () =>
         {
-            await InsertAsync("app_logs", new
+            try
             {
-                user_id = finding["auditor_id"]?.ToString(),
-                site_id = !string.IsNullOrEmpty(siteId) ? siteId : (string?)null,
-                action = id,
-                page = "esd_findings",
-                message = trackingCode,
-                details = finding.ToJsonString(),
-                created_at = DateTime.UtcNow.ToString("o")
-            });
-        }
-        catch { }
+                await LogAuditEventAsync(
+                    finding["auditor_id"]?.ToString(),
+                    siteId,
+                    ok ? "INFO" : "ERROR",
+                    "esd_findings",
+                    trackingCode,
+                    finding
+                );
+            }
+            catch { }
+        });
 
-        return res ?? finding;
+        if (ok)
+        {
+            return (true, data ?? finding, null);
+        }
+
+        Console.WriteLine($"[Supabase SaveFinding Error]: {error}");
+        return (false, null, error ?? "Error al persistir en Supabase.");
     }
 
-    public async Task<bool> UpdateFindingInSupabaseAsync(string id, JsonObject finding)
+    public async Task<(bool Success, string? Error)> UpdateFindingInSupabaseAsync(string id, JsonObject finding)
     {
-        bool ok = false;
         try
         {
-            ok = await UpdateAsync("esd_findings", $"id=eq.{id}", finding);
-        }
-        catch { }
+            var json = JsonSerializer.Serialize(finding);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"), $"esd_findings?id=eq.{id}")
+            {
+                Content = content
+            };
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[Supabase Update Error ({response.StatusCode})] on esd_findings: {err}");
+                return (false, $"[{response.StatusCode}] {err}");
+            }
 
-        try
-        {
             string trackingCode = finding["tracking_code"]?.ToString() ?? finding["tracker_code"]?.ToString() ?? id;
-            string siteId = finding["site_id"]?.ToString() ?? "";
-            await InsertAsync("app_logs", new
+            string? siteId = finding["site_id"]?.ToString();
+            _ = Task.Run(async () =>
             {
-                user_id = finding["auditor_id"]?.ToString(),
-                site_id = !string.IsNullOrEmpty(siteId) ? siteId : (string?)null,
-                action = id,
-                page = "esd_findings",
-                message = trackingCode,
-                details = finding.ToJsonString(),
-                created_at = DateTime.UtcNow.ToString("o")
+                try
+                {
+                    await LogAuditEventAsync(finding["auditor_id"]?.ToString(), siteId, "UPDATE", "esd_findings", trackingCode, finding);
+                }
+                catch { }
             });
-            ok = true;
-        }
-        catch { }
 
-        return ok;
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Supabase Update Exception] on esd_findings: {ex.Message}");
+            return (false, ex.Message);
+        }
     }
 
-    public async Task<bool> DeleteFindingFromSupabaseAsync(string id)
+    public async Task<(bool Success, string? Error)> DeleteFindingFromSupabaseAsync(string id)
     {
-        bool ok = false;
         try
         {
-            ok = await DeleteAsync("esd_findings", $"id=eq.{id}");
-        }
-        catch { }
+            var response = await _http.DeleteAsync($"esd_findings?id=eq.{id}");
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[Supabase Delete Error ({response.StatusCode})] on esd_findings: {err}");
+                return (false, $"[{response.StatusCode}] {err}");
+            }
 
-        try
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await LogAuditEventAsync(null, null, "DELETE", "esd_findings", id, new { deleted_id = id });
+                }
+                catch { }
+            });
+
+            return (true, null);
+        }
+        catch (Exception ex)
         {
-            await DeleteAsync("app_logs", $"page=eq.esd_findings&action=eq.{id}");
-            ok = true;
+            Console.WriteLine($"[Supabase Delete Exception] on esd_findings: {ex.Message}");
+            return (false, ex.Message);
         }
-        catch { }
-
-        return ok;
     }
 
     // --- NORMATIVE LIMITS EN SUPABASE ---
@@ -789,37 +886,41 @@ public class SupabaseService
             {
                 if (item is JsonObject obj)
                 {
-                    obj["site_id"] = siteId;
-                    obj["updated_at"] = DateTime.UtcNow.ToString("o");
                     string limitId = obj["id"]?.ToString() ?? Guid.NewGuid().ToString();
-                    var existing = await GetAsync($"esd_normative_limits?id=eq.{limitId}&site_id=eq.{siteId}&select=id");
-                    if (existing != null && existing.Count > 0)
+                    var cleanObj = new JsonObject
                     {
-                        await UpdateAsync("esd_normative_limits", $"id=eq.{limitId}&site_id=eq.{siteId}", obj);
-                    }
-                    else
-                    {
-                        await InsertAsync("esd_normative_limits", obj);
-                    }
+                        ["id"] = limitId,
+                        ["site_id"] = string.IsNullOrWhiteSpace(siteId) ? null : siteId,
+                        ["company_id"] = obj["company_id"]?.ToString(),
+                        ["table_number"] = obj["table_number"]?.ToString() ?? "Tabla 1",
+                        ["table_title"] = obj["table_title"]?.ToString() ?? "Normativa",
+                        ["item_name"] = obj["item_name"]?.ToString() ?? "Elemento",
+                        ["test_type"] = obj["test_type"]?.ToString(),
+                        ["operator"] = obj["operator"]?.ToString() ?? "<",
+                        ["limit_value"] = obj["limit_value"]?.GetValue<double>() ?? 0,
+                        ["unit"] = obj["unit"]?.ToString(),
+                        ["limit_display"] = obj["limit_display"]?.ToString(),
+                        ["test_method"] = obj["test_method"]?.ToString(),
+                        ["frequency"] = obj["frequency"]?.ToString(),
+                        ["severity"] = obj["severity"]?.ToString() ?? "MAJOR",
+                        ["auto_finding"] = obj["auto_finding"]?.GetValue<bool>() ?? true,
+                        ["updated_at"] = DateTime.UtcNow.ToString("o")
+                    };
+
+                    await UpsertRecordAsync("esd_normative_limits", "id", cleanObj);
                 }
             }
             ok = true;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SaveNormativeLimits Exception]: {ex.Message}");
+        }
 
         try
         {
             string json = limits.ToJsonString();
-            await InsertAsync("app_logs", new
-            {
-                user_id = (string?)null,
-                site_id = !string.IsNullOrEmpty(siteId) ? siteId : (string?)null,
-                action = "CONFIG",
-                page = "normative_limits",
-                message = siteId,
-                details = json,
-                created_at = DateTime.UtcNow.ToString("o")
-            });
+            await LogAuditEventAsync(null, siteId, "CONFIG", "normative_limits", siteId, json);
             ok = true;
         }
         catch { }

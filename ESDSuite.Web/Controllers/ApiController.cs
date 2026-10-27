@@ -4975,7 +4975,7 @@ public class ApiController : ControllerBase
         try
         {
             string safeArea = !string.IsNullOrWhiteSpace(area) ? area : (location.Contains("->") ? location.Split("->")[0].Trim() : "Producción");
-            string code = _findingsStorage.GenerateTrackingCode(siteId);
+            string code = await _findingsStorage.GenerateTrackingCodeAsync(siteId);
 
             var finding = new JsonObject
             {
@@ -5011,8 +5011,8 @@ public class ApiController : ControllerBase
                 }
             };
 
-            var saved = _findingsStorage.SaveFinding(finding);
-            return saved;
+            var (ok, saved, err) = await _findingsStorage.SaveFindingAsync(finding);
+            return ok ? saved : null;
         }
         catch (Exception ex)
         {
@@ -5022,10 +5022,10 @@ public class ApiController : ControllerBase
     }
 
     [HttpGet("normative-limits")]
-    public IActionResult GetNormativeLimits([FromQuery] string? siteId = null)
+    public async Task<IActionResult> GetNormativeLimits([FromQuery] string? siteId = null)
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
-        var limits = _findingsStorage.GetNormativeLimits(targetSite);
+        var limits = await _findingsStorage.GetNormativeLimitsAsync(targetSite);
         return Ok(limits);
     }
 
@@ -5038,10 +5038,14 @@ public class ApiController : ControllerBase
         string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
         if (payload["limits"] is JsonArray limitsArr)
         {
-            _findingsStorage.SaveNormativeLimits(targetSite, limitsArr);
-            await _supabase.LogAuditEventAsync(currentUserId, targetSite, "UPDATE", "NormativeLimits",
-                "Actualización de límites normativos ANSI/ESD S20.20", new { siteId = targetSite, count = limitsArr.Count });
-            return Ok(new { success = true, message = "Límites normativos guardados correctamente." });
+            bool ok = await _findingsStorage.SaveNormativeLimitsAsync(targetSite, limitsArr);
+            if (ok)
+            {
+                await _supabase.LogAuditEventAsync(currentUserId, targetSite, "UPDATE", "NormativeLimits",
+                    "Actualización de límites normativos ANSI/ESD S20.20", new { siteId = targetSite, count = limitsArr.Count });
+                return Ok(new { success = true, message = "Límites normativos guardados correctamente." });
+            }
+            return StatusCode(500, new { success = false, message = "No se pudieron persistir los límites normativos en Supabase." });
         }
         return BadRequest(new { success = false, message = "Formato de límites no válido." });
     }
@@ -5053,19 +5057,19 @@ public class ApiController : ControllerBase
         if (string.IsNullOrEmpty(currentUserId)) return Unauthorized(new { success = false, message = "Sesión no válida." });
 
         string targetSite = payload["site_id"]?.ToString() ?? CurrentUserSiteId;
-        var defaults = _findingsStorage.ResetNormativeLimits(targetSite);
+        var defaults = await _findingsStorage.ResetNormativeLimitsAsync(targetSite);
         await _supabase.LogAuditEventAsync(currentUserId, targetSite, "RESET", "NormativeLimits",
             "Restauración de límites normativos estándar ANSI/ESD S20.20-2021", new { siteId = targetSite });
         return Ok(new { success = true, data = defaults, message = "Límites restaurados a los estándares de la ANSI/ESD S20.20-2021." });
     }
 
     [HttpGet("findings")]
-    public IActionResult GetFindings([FromQuery] string? siteId = null, [FromQuery] string? status = null, [FromQuery] string? severity = null, [FromQuery] string? area = null, [FromQuery] string? search = null)
+    public async Task<IActionResult> GetFindings([FromQuery] string? siteId = null, [FromQuery] string? status = null, [FromQuery] string? severity = null, [FromQuery] string? area = null, [FromQuery] string? search = null)
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
         var all = (string.Equals(siteId, "all", StringComparison.OrdinalIgnoreCase) || (IsCompanyAdmin && string.IsNullOrEmpty(siteId) && string.IsNullOrEmpty(CurrentUserSiteId)))
-            ? _findingsStorage.GetAllFindings("all")
-            : _findingsStorage.GetAllFindings(targetSite);
+            ? await _findingsStorage.GetAllFindingsAsync("all", status)
+            : await _findingsStorage.GetAllFindingsAsync(targetSite, status);
         
         var filtered = all.Where(item => {
             if (item is not JsonObject obj) return false;
@@ -5101,9 +5105,9 @@ public class ApiController : ControllerBase
     }
 
     [HttpGet("findings/{id}")]
-    public IActionResult GetFindingById(string id)
+    public async Task<IActionResult> GetFindingById(string id)
     {
-        var finding = _findingsStorage.GetFindingById(id);
+        var finding = await _findingsStorage.GetFindingByIdAsync(id);
         if (finding == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
         return Ok(new { success = true, finding = finding, data = finding });
     }
@@ -5139,7 +5143,7 @@ public class ApiController : ControllerBase
             ?? "";
         string openEvidence = payload["evidence_open_url"]?.ToString() ?? "";
 
-        string code = _findingsStorage.GenerateTrackingCode(targetSite);
+        string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite);
         var finding = new JsonObject
         {
             ["id"] = Guid.NewGuid().ToString(),
@@ -5183,7 +5187,16 @@ public class ApiController : ControllerBase
             }
         };
 
-        var saved = _findingsStorage.SaveFinding(finding);
+        var (success, saved, error) = await _findingsStorage.SaveFindingAsync(finding);
+        if (!success)
+        {
+            return StatusCode(500, new { 
+                success = false, 
+                message = "Error al persistir el hallazgo en Supabase: " + (error ?? "Fallo de comunicación o esquema."),
+                error = error 
+            });
+        }
+
         await _supabase.LogAuditEventAsync(currentUserId, targetSite, "CREATE", "Findings",
             $"Nuevo hallazgo '{code}' para equipo '{elementId}'", new { trackingCode = code, severity, elementId });
 
@@ -5193,7 +5206,7 @@ public class ApiController : ControllerBase
     [HttpPut("findings/{id}")]
     public async Task<IActionResult> UpdateFinding(string id, [FromBody] JsonObject payload)
     {
-        var existing = _findingsStorage.GetFindingById(id);
+        var existing = await _findingsStorage.GetFindingByIdAsync(id);
         if (existing == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
 
         string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Usuario";
@@ -5223,27 +5236,22 @@ public class ApiController : ControllerBase
             ["timestamp"] = DateTime.UtcNow.ToString("o"),
             ["user"] = currentUserName,
             ["action"] = "Actualización de Plan de Acción",
-            ["notes"] = "Se actualizaron los detalles del plan de acción CAPA."
-        });
-        existing["timeline"] = timeline;
-
-        var saved = _findingsStorage.SaveFinding(existing);
-        return Ok(new { success = true, data = saved, finding = saved, message = "Plan de acción actualizado correctamente." });
-    }
-            ["user"] = currentUserName,
-            ["action"] = "Actualización de Acciones",
             ["notes"] = payload["timeline_note"]?.ToString() ?? "Se actualizaron detalles y plan de acción del hallazgo."
         });
         existing["timeline"] = timeline;
 
-        var saved = _findingsStorage.SaveFinding(existing);
-        return Ok(new { success = true, data = saved, message = "Hallazgo actualizado correctamente." });
+        var (success, saved, error) = await _findingsStorage.SaveFindingAsync(existing);
+        if (!success)
+        {
+            return StatusCode(500, new { success = false, message = "Error al actualizar en Supabase: " + (error ?? "Fallo desconocido") });
+        }
+        return Ok(new { success = true, data = saved, finding = saved, message = "Plan de acción actualizado correctamente." });
     }
 
     [HttpPost("findings/{id}/status")]
     public async Task<IActionResult> UpdateFindingStatus(string id, [FromBody] JsonObject payload)
     {
-        var existing = _findingsStorage.GetFindingById(id);
+        var existing = await _findingsStorage.GetFindingByIdAsync(id);
         if (existing == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
 
         string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Usuario";
@@ -5261,6 +5269,7 @@ public class ApiController : ControllerBase
         {
             existing["closed_at"] = DateTime.UtcNow.ToString("o");
             existing["closed_by_name"] = currentUserName;
+            existing["closed_by"] = currentUserName;
             if (payload["lessons_learned"] != null)
             {
                 existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
@@ -5270,6 +5279,7 @@ public class ApiController : ControllerBase
         {
             existing["closed_at"] = null;
             existing["closed_by_name"] = null;
+            existing["closed_by"] = null;
         }
 
         var timeline = existing["timeline"] as JsonArray ?? new JsonArray();
@@ -5282,7 +5292,11 @@ public class ApiController : ControllerBase
         });
         existing["timeline"] = timeline;
 
-        var saved = _findingsStorage.SaveFinding(existing);
+        var (success, saved, error) = await _findingsStorage.SaveFindingAsync(existing);
+        if (!success)
+        {
+            return StatusCode(500, new { success = false, message = "Error al actualizar estatus en Supabase: " + (error ?? "Fallo desconocido") });
+        }
         return Ok(new { success = true, data = saved, message = $"Estatus actualizado a {newStatus}." });
     }
 
@@ -5297,7 +5311,7 @@ public class ApiController : ControllerBase
             });
         }
 
-        var existing = _findingsStorage.GetFindingById(id);
+        var existing = await _findingsStorage.GetFindingByIdAsync(id);
         if (existing == null)
         {
             return NotFound(new { success = false, message = "Hallazgo no encontrado." });
@@ -5308,14 +5322,15 @@ public class ApiController : ControllerBase
         string targetSite = existing["site_id"]?.ToString() ?? CurrentUserSiteId;
         string code = existing["tracking_code"]?.ToString() ?? existing["tracker_code"]?.ToString() ?? id;
 
-        bool ok = _findingsStorage.DeleteFinding(id);
+        var (ok, error) = await _findingsStorage.DeleteFindingAsync(id);
         if (ok)
         {
             await _supabase.LogAuditEventAsync(currentUserId, targetSite, "DELETE", "Findings",
                 $"Hallazgo '{code}' eliminado por {currentUserName}", new { id, trackingCode = code });
+            return Ok(new { success = true, message = $"Hallazgo '{code}' eliminado correctamente." });
         }
 
-        return Ok(new { success = ok, message = ok ? $"Hallazgo '{code}' eliminado correctamente." : "No se pudo eliminar el hallazgo." });
+        return StatusCode(500, new { success = false, message = "Error al eliminar en Supabase: " + (error ?? "Fallo desconocido") });
     }
 
     [HttpPost("findings/upload-evidence")]
@@ -5372,10 +5387,10 @@ public class ApiController : ControllerBase
     }
 
     [HttpGet("findings/dashboard")]
-    public IActionResult GetFindingsDashboard([FromQuery] string? siteId = null)
+    public async Task<IActionResult> GetFindingsDashboard([FromQuery] string? siteId = null)
     {
         string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
-        var metrics = _findingsStorage.GetDashboardMetrics(targetSite);
+        var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
         return Ok(new { success = true, metrics = metrics, data = metrics });
     }
 }

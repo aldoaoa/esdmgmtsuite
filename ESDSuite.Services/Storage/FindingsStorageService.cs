@@ -386,20 +386,16 @@ public class FindingsStorageService
         };
     }
 
-    public JsonArray GetNormativeLimits(string siteId)
+    public async Task<JsonArray> GetNormativeLimitsAsync(string siteId)
     {
         try
         {
-            var task = _supabase.GetNormativeLimitsFromSupabaseAsync(siteId);
-            if (task.Wait(TimeSpan.FromSeconds(5)))
-            {
-                var sbLimits = task.Result;
-                if (sbLimits != null && sbLimits.Count > 0) return sbLimits;
-            }
+            var sbLimits = await _supabase.GetNormativeLimitsFromSupabaseAsync(siteId);
+            if (sbLimits != null && sbLimits.Count > 0) return sbLimits;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FindingsStorageService] GetNormativeLimits error: {ex.Message}");
+            Console.WriteLine($"[FindingsStorageService] GetNormativeLimitsAsync error: {ex.Message}");
         }
 
         var defaults = GetDefaultNormativeLimits();
@@ -410,62 +406,54 @@ public class FindingsStorageService
         return defaults;
     }
 
-    public void SaveNormativeLimits(string siteId, JsonArray limits)
+    public async Task<bool> SaveNormativeLimitsAsync(string siteId, JsonArray limits)
     {
         try
         {
-            var task = _supabase.SaveNormativeLimitsToSupabaseAsync(siteId, limits);
-            task.Wait(TimeSpan.FromSeconds(5));
+            return await _supabase.SaveNormativeLimitsToSupabaseAsync(siteId, limits);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FindingsStorageService] SaveNormativeLimits error: {ex.Message}");
+            Console.WriteLine($"[FindingsStorageService] SaveNormativeLimitsAsync error: {ex.Message}");
+            return false;
         }
     }
 
-    public JsonArray ResetNormativeLimits(string siteId)
+    public async Task<JsonArray> ResetNormativeLimitsAsync(string siteId)
     {
         var defaults = GetDefaultNormativeLimits();
-        SaveNormativeLimits(siteId, defaults);
+        await SaveNormativeLimitsAsync(siteId, defaults);
         return defaults;
     }
 
-    public JsonArray GetAllFindings(string? siteId = null)
+    public async Task<JsonArray> GetAllFindingsAsync(string? siteId = null, string? status = null)
     {
         try
         {
-            var task = _supabase.GetFindingsFromSupabaseAsync(siteId);
-            if (task.Wait(TimeSpan.FromSeconds(5)))
-            {
-                var list = task.Result;
-                if (list != null) return list;
-            }
+            var list = await _supabase.GetFindingsFromSupabaseAsync(siteId, status);
+            if (list != null) return list;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FindingsStorageService] GetAllFindings error: {ex.Message}");
+            Console.WriteLine($"[FindingsStorageService] GetAllFindingsAsync error: {ex.Message}");
         }
         return new JsonArray();
     }
 
-    public JsonObject? GetFindingById(string id)
+    public async Task<JsonObject?> GetFindingByIdAsync(string id)
     {
         try
         {
-            var task = _supabase.GetFindingByIdFromSupabaseAsync(id);
-            if (task.Wait(TimeSpan.FromSeconds(5)))
-            {
-                return task.Result;
-            }
+            return await _supabase.GetFindingByIdFromSupabaseAsync(id);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FindingsStorageService] GetFindingById error: {ex.Message}");
+            Console.WriteLine($"[FindingsStorageService] GetFindingByIdAsync error: {ex.Message}");
+            return null;
         }
-        return null;
     }
 
-    public string GenerateTrackingCode(string siteId)
+    public async Task<string> GenerateTrackingCodeAsync(string siteId)
     {
         int currentYear = DateTime.UtcNow.Year;
         string prefix = $"FND-{currentYear}-";
@@ -473,7 +461,7 @@ public class FindingsStorageService
 
         try
         {
-            var all = GetAllFindings(siteId);
+            var all = await GetAllFindingsAsync(siteId);
             foreach (var item in all)
             {
                 if (item is JsonObject obj)
@@ -495,15 +483,19 @@ public class FindingsStorageService
         return $"{prefix}{(maxNum + 1):D4}";
     }
 
-    public JsonObject SaveFinding(JsonObject finding)
+    public async Task<(bool Success, JsonObject? Finding, string? Error)> SaveFindingAsync(JsonObject finding)
     {
         string id = finding["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        if (!Guid.TryParse(id, out var validGuid))
+        {
+            id = Guid.NewGuid().ToString();
+        }
         finding["id"] = id;
 
         if (finding["tracking_code"] == null || string.IsNullOrWhiteSpace(finding["tracking_code"]?.ToString()))
         {
             string sId = finding["site_id"]?.ToString() ?? "";
-            finding["tracking_code"] = GenerateTrackingCode(sId);
+            finding["tracking_code"] = await GenerateTrackingCodeAsync(sId);
         }
         finding["tracker_code"] = finding["tracking_code"];
 
@@ -535,42 +527,49 @@ public class FindingsStorageService
         try
         {
             var payload = BuildSupabasePayload(finding);
-            var task = _supabase.SaveFindingToSupabaseAsync(payload);
-            if (task.Wait(TimeSpan.FromSeconds(5)))
+            var (ok, data, error) = await _supabase.SaveFindingToSupabaseAsync(payload);
+            if (ok)
             {
-                var res = task.Result;
-                if (res != null) return res;
+                return (true, data ?? finding, null);
             }
+            return (false, null, error ?? "Error al persistir en Supabase");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FindingsStorageService] SaveFinding error: {ex.Message}");
+            Console.WriteLine($"[FindingsStorageService] SaveFindingAsync error: {ex.Message}");
+            return (false, null, ex.Message);
         }
-
-        return finding;
     }
 
-    public bool DeleteFinding(string id)
+    public async Task<(bool Success, string? Error)> DeleteFindingAsync(string id)
     {
         try
         {
-            var task = _supabase.DeleteFindingFromSupabaseAsync(id);
-            if (task.Wait(TimeSpan.FromSeconds(5)))
-            {
-                return task.Result;
-            }
+            return await _supabase.DeleteFindingFromSupabaseAsync(id);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FindingsStorageService] DeleteFinding error: {ex.Message}");
+            Console.WriteLine($"[FindingsStorageService] DeleteFindingAsync error: {ex.Message}");
+            return (false, ex.Message);
         }
-        return false;
     }
+
+    // Synchronous compatibility wrappers
+    public JsonArray GetNormativeLimits(string siteId) => GetNormativeLimitsAsync(siteId).GetAwaiter().GetResult();
+    public void SaveNormativeLimits(string siteId, JsonArray limits) => SaveNormativeLimitsAsync(siteId, limits).GetAwaiter().GetResult();
+    public JsonArray ResetNormativeLimits(string siteId) => ResetNormativeLimitsAsync(siteId).GetAwaiter().GetResult();
+    public JsonArray GetAllFindings(string? siteId = null) => GetAllFindingsAsync(siteId).GetAwaiter().GetResult();
+    public JsonObject? GetFindingById(string id) => GetFindingByIdAsync(id).GetAwaiter().GetResult();
+    public string GenerateTrackingCode(string siteId) => GenerateTrackingCodeAsync(siteId).GetAwaiter().GetResult();
+    public JsonObject SaveFinding(JsonObject finding) => SaveFindingAsync(finding).GetAwaiter().GetResult().Finding ?? finding;
+    public bool DeleteFinding(string id) => DeleteFindingAsync(id).GetAwaiter().GetResult().Success;
+    public JsonObject GetDashboardMetrics(string siteId) => GetDashboardMetricsAsync(siteId).GetAwaiter().GetResult();
 
     private JsonObject BuildSupabasePayload(JsonObject f)
     {
         var sb = new JsonObject();
         string id = f["id"]?.ToString() ?? Guid.NewGuid().ToString();
+        if (!Guid.TryParse(id, out _)) id = Guid.NewGuid().ToString();
         sb["id"] = id;
         sb["tracking_code"] = f["tracking_code"]?.ToString() ?? f["tracker_code"]?.ToString() ?? id;
 
@@ -599,17 +598,19 @@ public class FindingsStorageService
 
         string? openedAt = f["opened_at"]?.ToString() ?? f["created_at"]?.ToString();
         if (!string.IsNullOrWhiteSpace(openedAt) && DateTime.TryParse(openedAt, out var dtOpened))
-            sb["opened_at"] = dtOpened.ToString("o");
+            sb["opened_at"] = DateTime.SpecifyKind(dtOpened, DateTimeKind.Utc).ToString("o");
+        else
+            sb["opened_at"] = DateTime.UtcNow.ToString("o");
 
         string? due = f["due_date"]?.ToString();
         if (!string.IsNullOrWhiteSpace(due) && DateTime.TryParse(due, out var dtDue))
-            sb["due_date"] = dtDue.ToString("o");
+            sb["due_date"] = DateTime.SpecifyKind(dtDue, DateTimeKind.Utc).ToString("o");
         else
             sb["due_date"] = null;
 
         string? closedAt = f["closed_at"]?.ToString();
         if (!string.IsNullOrWhiteSpace(closedAt) && DateTime.TryParse(closedAt, out var dtClosed))
-            sb["closed_at"] = dtClosed.ToString("o");
+            sb["closed_at"] = DateTime.SpecifyKind(dtClosed, DateTimeKind.Utc).ToString("o");
         else
             sb["closed_at"] = null;
 
@@ -628,13 +629,14 @@ public class FindingsStorageService
         else
             sb["timeline"] = new JsonArray();
 
+        sb["created_at"] = sb["opened_at"];
         sb["updated_at"] = DateTime.UtcNow.ToString("o");
         return sb;
     }
 
-    public JsonObject GetDashboardMetrics(string siteId)
+    public async Task<JsonObject> GetDashboardMetricsAsync(string siteId)
     {
-        var all = GetAllFindings(siteId);
+        var all = await GetAllFindingsAsync(siteId);
 
         int total = all.Count;
         int open = 0;
