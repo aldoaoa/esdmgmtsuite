@@ -380,12 +380,17 @@ public class ApiController : ControllerBase
                     string existingDbId = aObj["id"]?.ToString() ?? "";
                     if (!string.IsNullOrEmpty(existingDbId))
                     {
+                        var classObjUpdate = new JsonObject
+                        {
+                            ["name"] = cleanCustomId,
+                            ["subtype"] = subCategory ?? category,
+                            ["area"] = cleanLocation.Contains("->") ? cleanLocation.Split("->")[0].Trim() : cleanLocation
+                        };
                         await _supabase.UpdateAssetAsync(existingDbId, new
                         {
                             location = cleanLocation,
                             category = category,
-                            sub_category = subCategory ?? category,
-                            classification = category,
+                            classification = classObjUpdate.ToJsonString(),
                             status = "ACTIVE"
                         });
                     }
@@ -394,31 +399,22 @@ public class ApiController : ControllerBase
             }
         }
 
-        string? companyId = HttpContext.Session.GetString("company_id");
-        if (string.IsNullOrEmpty(companyId) && !string.IsNullOrEmpty(siteId))
-        {
-            var sites = await _supabase.GetSitesAsync();
-            foreach (var s in sites)
-            {
-                if (s is JsonObject sObj && sObj["id"]?.ToString() == siteId)
-                {
-                    companyId = sObj["company_id"]?.ToString();
-                    break;
-                }
-            }
-        }
-
         // Insert new asset if not existing
+        var classObjNew = new JsonObject
+        {
+            ["name"] = cleanCustomId,
+            ["subtype"] = subCategory ?? category,
+            ["area"] = cleanLocation.Contains("->") ? cleanLocation.Split("->")[0].Trim() : cleanLocation
+        };
         var newAsset = await _supabase.InsertAssetAsync(new
         {
             site_id = siteId,
-            company_id = companyId,
             custom_id = cleanCustomId,
             category = category,
-            sub_category = subCategory ?? category,
-            classification = category,
+            classification = classObjNew.ToJsonString(),
             location = cleanLocation,
-            status = "ACTIVE"
+            status = "ACTIVE",
+            created_at = DateTime.UtcNow.ToString("o")
         });
 
         return newAsset?["id"]?.ToString() ?? Guid.NewGuid().ToString();
@@ -445,8 +441,8 @@ public class ApiController : ControllerBase
             ?? payload["auditor"]?.ToString() 
             ?? "Auditor ESD";
         string comentarios = payload["comentarios"]?.ToString() ?? "";
-        string siteId = HttpContext.Session.GetString("site_id") ?? payload["site_id"]?.ToString() ?? DefaultSiteId;
-        string auditorId = HttpContext.Session.GetString("user_id") ?? payload["auditor_id"]?.ToString() ?? DefaultAuditorId;
+        string siteId = payload["site_id"]?.ToString() ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        string auditorId = payload["auditor_id"]?.ToString() ?? HttpContext.Session.GetString("user_id") ?? DefaultAuditorId;
         string fechaActual = DateTime.Now.ToString("o");
 
         string assetId = await GetOrCreateAssetIdAsync(idElemento, siteId, tipoEquipo, ubicacion, subtipoElemento);

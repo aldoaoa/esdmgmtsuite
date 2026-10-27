@@ -251,7 +251,7 @@ public class SupabaseService
         }
 
         // 2. Search in assets table and match measurement by asset_id
-        var assets = await GetAsync("assets?select=id,custom_id,category,sub_category,location,status");
+        var assets = await GetAsync("assets?select=id,custom_id,category,classification,location,status");
         JsonObject? matchedAsset = null;
         foreach (var a in assets)
         {
@@ -342,7 +342,7 @@ public class SupabaseService
             var seenIds = new HashSet<string>();
 
             // 1. Get all assets to resolve asset_id if available
-            var assets = await GetAsync("assets?select=id,custom_id,category,sub_category,location");
+            var assets = await GetAsync("assets?select=id,custom_id,category,classification,location");
             string matchedAssetId = "";
             foreach (var a in assets)
             {
@@ -1824,7 +1824,10 @@ public class SupabaseService
             string location = data["ubicacion"]?.ToString() ?? "General";
 
             // Find or create asset
-            var existingAssets = await GetAsync($"assets?custom_id=eq.{elementId}&select=*");
+            string assetQuery = !string.IsNullOrEmpty(siteId)
+                ? $"assets?site_id=eq.{siteId}&custom_id=eq.{elementId}&select=*"
+                : $"assets?custom_id=eq.{elementId}&select=*";
+            var existingAssets = await GetAsync(assetQuery);
             string assetDbId = "";
             if (existingAssets.Count > 0 && existingAssets[0] is JsonObject aObj)
             {
