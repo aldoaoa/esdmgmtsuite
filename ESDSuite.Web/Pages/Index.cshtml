@@ -85,7 +85,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.6</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.7</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +192,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.6</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.8.7</span>
             </div>
         </div>
     </aside>
@@ -1399,7 +1399,6 @@
                                 <option value="PENDING" data-i18n="inventory.st_pending">PENDIENTE / PENDING</option>
                                 <option value="PASS" data-i18n="audit.res_pass">PASA / PASS</option>
                                 <option value="FAIL" data-i18n="audit.res_fail">FALLA / FAIL</option>
-                                <option value="INACTIVE" data-i18n="inventory.st_inactive">DADO DE BAJA / INACTIVO</option>
                             </select>
                         </div>
                         <button type="button" class="btn-primary" style="padding:8px 14px; font-size:12.5px;" onclick="loadInventory()" data-i18n="inventory.btn_search">🔍 Buscar</button>
@@ -1891,6 +1890,7 @@
                     <div class="tabs-header" style="margin-top:14px;">
                         <button class="tab-btn active" id="set-tab-btn-tree" onclick="switchSettingsTab('tree')" data-i18n="settings.tab_tree">Estructura & Jerarquía Multi-Tenant</button>
                         <button class="tab-btn" id="set-tab-btn-users" onclick="switchSettingsTab('users')" data-i18n="settings.tab_users">Usuarios, Alta & Permisos de Rol</button>
+                        <button class="tab-btn" id="set-tab-btn-inventory-mgmt" onclick="switchSettingsTab('inventory-mgmt')">📦 <span data-i18n="settings.tab_inventory_mgmt">Manejo de Inventario (Bajas)</span></button>
                         <button class="tab-btn" id="set-tab-btn-lang" onclick="switchSettingsTab('lang')" data-i18n="settings.tab_lang">Idioma / Language</button>
                         <button class="tab-btn" id="set-tab-btn-equipment" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
                         <button class="tab-btn" id="set-tab-btn-maps" onclick="switchSettingsTab('maps')">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
@@ -2478,6 +2478,54 @@
                             </form>
                         </div>
                     </div>
+
+                    <!-- TAB: MANEJO DE INVENTARIOS & ACTIVOS DADOS DE BAJA -->
+                    <div id="set-tab-inventory-mgmt" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                            <div>
+                                <h4 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px; margin:0 0 4px 0;">
+                                    <img src="/images/icons/icon-inventory.svg" class="ui-icon-3d-sm" alt="" />
+                                    <span data-i18n="settings.inv_mgmt_title">Manejo de Inventario: Activos Dados de Baja</span>
+                                </h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:0;" data-i18n="settings.inv_mgmt_sub">
+                                    Equipos retirados del control normativo por baja de inventario. Puedes consultar su historial normativo completo o reactivarlos para devolverlos al directorio operativo.
+                                </p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="tab-btn" onclick="loadDecommissionedInventory()" style="font-weight:700;">🔄 <span data-i18n="validation.btn_refresh">Actualizar</span></button>
+                            </div>
+                        </div>
+
+                        <!-- SEARCH TOOLBAR -->
+                        <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:12px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                            <div style="flex:1; min-width:240px; position:relative;">
+                                <input type="text" id="inv-mgmt-search" class="form-control" placeholder="Buscar activo dado de baja por ID, Nombre o Ubicación..." data-i18n-placeholder="settings.ph_search_decom" style="padding-left:34px;" onkeyup="if(event.key==='Enter') loadDecommissionedInventory();" />
+                                <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-muted); pointer-events:none;">🔍</span>
+                            </div>
+                            <button type="button" class="btn-primary" style="padding:8px 14px; font-size:12.5px;" onclick="loadDecommissionedInventory()" data-i18n="inventory.btn_search">🔍 Buscar</button>
+                            <button type="button" class="tab-btn" style="padding:8px 12px; font-size:12.5px;" onclick="document.getElementById('inv-mgmt-search').value=''; loadDecommissionedInventory();" data-i18n="inventory.btn_reset">🔄 Limpiar</button>
+                        </div>
+
+                        <!-- DECOMMISSIONED ASSETS DATA TABLE -->
+                        <div class="table-responsive" style="max-height:550px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                            <table class="data-table" style="margin:0; width:100%;">
+                                <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                                    <tr>
+                                        <th style="min-width:130px;" data-i18n="inventory.col_asset_id">ID Activo</th>
+                                        <th style="min-width:180px;" data-i18n="inventory.col_category_subtype">Categoría &amp; Subtipo</th>
+                                        <th style="min-width:140px;" data-i18n="inventory.col_location">Última Ubicación</th>
+                                        <th style="min-width:110px;" data-i18n="inventory.col_periodicity">Periodicidad</th>
+                                        <th style="min-width:110px;" data-i18n="inventory.col_status">Estatus</th>
+                                        <th style="min-width:130px;" data-i18n="inventory.col_last_test">Última Verificación</th>
+                                        <th style="min-width:170px; text-align:center;" data-i18n="schedule.col_actions">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-decommissioned-tbody">
+                                    <tr><td colspan="7" style="text-align:center; padding:24px;">Cargando activos dados de baja...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3040,8 +3088,16 @@
 
         if (data.found && data.data) {
             const m = data.data;
-            cardStatus.className = (m.estatus === 'PASA' || m.status_result === 'PASS') ? 'badge-pass' : 'badge-fail';
-            cardStatus.innerText = m.estatus || m.status_result || 'ACTIVE';
+            const isDecommissioned = (m.asset_status === 'INACTIVE' || m.asset_status === 'BAJA' || m.asset_status === 'DECOMMISSIONED' || m.status_result === 'INACTIVE' || m.estatus === 'INACTIVE');
+
+            if (isDecommissioned) {
+                cardStatus.className = 'badge-fail';
+                cardStatus.innerText = t('inventory.status_inactive', 'DADO DE BAJA');
+            } else {
+                cardStatus.className = (m.estatus === 'PASA' || m.status_result === 'PASS') ? 'badge-pass' : (m.status_result === 'PENDING' ? 'badge-pending' : 'badge-fail');
+                cardStatus.innerText = m.estatus || m.status_result || 'ACTIVE';
+            }
+
             cardLoc.innerText = m.ubicacion || m.linea_ubicacion || m.location || 'N/A';
             cardClass.innerText = m.tipo_equipo || m.category || 'Mobiliario ESD';
 
@@ -3061,6 +3117,14 @@
                     <div>📅 <b>${lblDate}:</b> ${m.fecha_medicion || m.measured_at || 'N/A'}${ptTxt}</div>
                     <div>⚡ <b>${lblRes}:</b> ${resTxt} | 🧲 <b>${lblField}:</b> ${voltTxt}</div>
                     <div>📊 <b>${lblStatus}:</b> <b>${m.estatus || m.status_result || 'PASA'}</b></div>
+                `;
+            }
+
+            if (isDecommissioned) {
+                cardHist.innerHTML += `
+                    <div style="margin-top:8px; padding:8px 12px; background:#FEF3C7; border:1px solid #FDE68A; border-radius:6px; color:#92400E; font-size:12px; font-weight:600;">
+                        ⚠️ <b>Activo Dado de Baja:</b> Al registrar y guardar esta auditoría, el equipo será reactivado automáticamente en el directorio operativo.
+                    </div>
                 `;
             }
             if (m.tipo_equipo || m.category) {
@@ -7663,6 +7727,7 @@
 
         if (tabName === 'hierarchy') { loadHierarchyTree(); loadArchivedLocationGroups(); }
         if (tabName === 'equipment') loadEquipmentTable();
+        if (tabName === 'inventory-mgmt') loadDecommissionedInventory();
         if (tabName === 'maps') loadMapsEditor();
         if (tabName === 'photos') loadPhotoPolicySettingsTab();
         if (tabName === 'branding') loadBrandingSettingsTab();
@@ -7675,6 +7740,7 @@
         loadUsersTable();
         loadCompaniesAndSitesSelects();
         loadEquipmentTable();
+        loadDecommissionedInventory();
         checkBrandingTabVisibility();
     }
 
@@ -7895,6 +7961,105 @@
             }
         } catch (ex) {
             showToast('❌ Error de conexión: ' + ex.message, 'error');
+        }
+    }
+
+    // --- MANEJO DE INVENTARIOS: ACTIVOS DADOS DE BAJA ---
+    async function loadDecommissionedInventory() {
+        const tbody = document.getElementById('inventory-decommissioned-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px;">${t('inventory.loading', 'Cargando activos dados de baja...')}</td></tr>`;
+
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const search = (document.getElementById('inv-mgmt-search')?.value || '').trim();
+            const query = new URLSearchParams({ siteId, search });
+            const res = await fetch(`/api/inventory/decommissioned?${query.toString()}`);
+            if (!res.ok) throw new Error('Error al cargar activos dados de baja');
+            const assets = await res.json();
+
+            tbody.innerHTML = '';
+            if (!assets || assets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:32px; color:var(--text-muted);">ℹ️ ${t('settings.no_decom_assets', 'No hay equipos dados de baja en este site.')}</td></tr>`;
+                return;
+            }
+
+            assets.forEach(a => {
+                const assetId = a.custom_id || a.asset_id || a.id || 'N/A';
+                const assetName = a.name && a.name !== assetId ? a.name : '';
+                const cat = a.category || 'Mobiliario ESD';
+                const subCat = a.sub_category || a.category || '';
+                const loc = a.location || 'N/A';
+                const per = a.periodicity || '1m';
+                const lastDate = a.last_verification ? a.last_verification.split('T')[0] : 'Sin mediciones';
+
+                const subCatLabel = (subCat && subCat !== cat) ? `<div style="font-size:11px; color:var(--text-muted);">${subCat}</div>` : '';
+                const nameLabel = assetName ? `<div style="font-size:11px; color:var(--text-muted); font-weight:500;">${assetName}</div>` : '';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong style="color:var(--accent-blue); font-size:13px; font-family:monospace;">${assetId}</strong>
+                            ${nameLabel}
+                        </td>
+                        <td>
+                            <div style="font-weight:600;">${cat}</div>
+                            ${subCatLabel}
+                        </td>
+                        <td>
+                            <span style="font-weight:600; color:var(--text-primary);">${loc}</span>
+                        </td>
+                        <td>
+                            <span class="badge-pass" style="background:#F8FAFC; color:var(--text-primary); border-color:#E2E8F0; font-size:11px; padding:2px 7px;">${per}</span>
+                        </td>
+                        <td>
+                            <span class="badge-fail">${t('inventory.status_inactive', 'DADO DE BAJA')}</span>
+                        </td>
+                        <td>
+                            <span style="font-size:12px; color:var(--text-secondary);">${lastDate}</span>
+                        </td>
+                        <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:6px;">
+                                <button type="button" class="btn-primary" style="padding:4px 10px; font-size:11.5px; background:var(--accent-emerald);" onclick="reactivateAssetFromSettings('${escapeJsString(a.id || assetId)}', '${escapeJsString(assetId)}')" title="Reactivar Activo">
+                                    🔄 Reactivar
+                                </button>
+                                <button type="button" class="tab-btn" style="padding:4px 9px; font-size:11.5px; font-weight:600;" onclick="openAssetHistoryModal('${escapeJsString(assetId)}', '${escapeJsString(cat)}', '${escapeJsString(loc)}')" title="Ver Historial">
+                                    📜
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        } catch(err) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--accent-rose); padding:20px;">❌ Error: ${err.message}</td></tr>`;
+        }
+    }
+
+    async function reactivateAssetFromSettings(assetId, customId) {
+        const disp = customId || assetId;
+        if (!confirm(`¿Deseas reactivar el equipo '${disp}' para devolverlo al inventario operativo del site?`)) return;
+
+        try {
+            const siteId = (sessionData && sessionData.site_id) || '';
+            const res = await fetch(`/api/inventory/assets/${encodeURIComponent(assetId)}/reactivate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_id: siteId })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(`✅ El equipo '${disp}' ha sido reactivado exitosamente e incorporado de nuevo al directorio operativo.`);
+                loadDecommissionedInventory();
+                loadInventory();
+                loadDashboardMetrics();
+                if (currentModule === 'schedule') loadScheduleData();
+            } else {
+                alert('❌ ' + (data.message || 'Error al reactivar el activo.'));
+            }
+        } catch(e) {
+            alert('❌ Error de conexión al reactivar el activo: ' + e.message);
         }
     }
 

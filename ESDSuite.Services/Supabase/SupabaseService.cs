@@ -281,6 +281,7 @@ public class SupabaseService
                     m["category"] = matchedAsset["category"]?.ToString();
                     m["sub_category"] = matchedAsset["sub_category"]?.ToString();
                     m["location"] = matchedAsset["location"]?.ToString();
+                    m["asset_status"] = matchedAsset["status"]?.ToString() ?? "ACTIVE";
                     return m;
                 }
             }
@@ -293,6 +294,7 @@ public class SupabaseService
                 ["tipo_equipo"] = matchedAsset["category"]?.ToString(),
                 ["ubicacion"] = matchedAsset["location"]?.ToString(),
                 ["status_result"] = matchedAsset["status"]?.ToString() ?? "ACTIVE",
+                ["asset_status"] = matchedAsset["status"]?.ToString() ?? "ACTIVE",
                 ["is_asset_only"] = true
             };
         }
@@ -1832,6 +1834,15 @@ public class SupabaseService
             if (existingAssets.Count > 0 && existingAssets[0] is JsonObject aObj)
             {
                 assetDbId = aObj["id"]?.ToString() ?? "";
+                string existingStatus = aObj["status"]?.ToString() ?? "ACTIVE";
+                bool isDecom = existingStatus.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) ||
+                               existingStatus.Equals("BAJA", StringComparison.OrdinalIgnoreCase) ||
+                               existingStatus.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+                if (isDecom && !string.IsNullOrEmpty(assetDbId))
+                {
+                    // REACTIVATE UPON AUDIT
+                    await UpdateAsync("assets", $"id=eq.{assetDbId}", new { status = "ACTIVE" });
+                }
             }
             else
             {

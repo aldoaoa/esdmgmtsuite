@@ -294,12 +294,24 @@ public class ApiController : ControllerBase
         var measurements = await _supabase.GetMeasurementsForSiteAsync(targetSite);
         
         var assetMap = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+        var decommissionedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var node in assets)
         {
             if (node is JsonObject aObj)
             {
                 string customId = aObj["custom_id"]?.ToString().Trim() ?? "";
+                string rawStatus = aObj["status"]?.ToString() ?? "ACTIVE";
+                bool isDecom = rawStatus.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) ||
+                               rawStatus.Equals("BAJA", StringComparison.OrdinalIgnoreCase) ||
+                               rawStatus.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+
+                if (isDecom)
+                {
+                    if (!string.IsNullOrEmpty(customId)) decommissionedIds.Add(customId);
+                    continue; // EXCLUDE DECOMMISSIONED ASSETS FROM DASHBOARD METRICS & CHARTS!
+                }
+
                 if (!string.IsNullOrEmpty(customId))
                 {
                     assetMap[customId] = aObj;
@@ -324,7 +336,7 @@ public class ApiController : ControllerBase
                 if (matched != null) idElem = matched["custom_id"]?.ToString() ?? "";
             }
 
-            if (!string.IsNullOrEmpty(idElem) && !assetMap.ContainsKey(idElem))
+            if (!string.IsNullOrEmpty(idElem) && !assetMap.ContainsKey(idElem) && !decommissionedIds.Contains(idElem))
             {
                 string cat = "Mobiliario ESD";
                 string loc = "N/A";
@@ -1218,6 +1230,14 @@ public class ApiController : ControllerBase
             try
             {
                 var siteAssets = await GetEnrichedSiteAssetsAsync(activeSiteId);
+                // Exclude decommissioned assets from reports
+                siteAssets = siteAssets.Where(a => {
+                    string st = a["status"]?.ToString() ?? "";
+                    return !st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) &&
+                           !st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) &&
+                           !st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+                }).ToList();
+
                 string cleanLine = linea.Trim();
 
                 var matchingAssets = siteAssets.Where(a => {
@@ -1632,6 +1652,50 @@ public class ApiController : ControllerBase
         string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
         var resultList = await GetEnrichedSiteAssetsAsync(activeSiteId);
 
+        // REQUIREMENT: Decommissioned assets must NOT appear in the directory of registered assets by site!
+        if (string.IsNullOrWhiteSpace(status) || status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            resultList = resultList.Where(x => {
+                string st = x["status"]?.ToString() ?? "";
+                return !st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) && 
+                       !st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) && 
+                       !st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+        }
+        else if (status.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase))
+        {
+            resultList = resultList.Where(x => {
+                string st = x["status"]?.ToString() ?? "";
+                return !st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) && !st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) && !st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+        }
+        else if (status.Equals("PENDING", StringComparison.OrdinalIgnoreCase) || status.Equals("PENDIENTE", StringComparison.OrdinalIgnoreCase))
+        {
+            resultList = resultList.Where(x => {
+                string st = x["status"]?.ToString() ?? "";
+                return st.Equals("PENDING", StringComparison.OrdinalIgnoreCase) || st.Equals("PENDIENTE", StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+        }
+        else if (status.Equals("PASS", StringComparison.OrdinalIgnoreCase))
+        {
+            resultList = resultList.Where(x => x["status"]?.ToString().Equals("PASS", StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+        }
+        else if (status.Equals("FAIL", StringComparison.OrdinalIgnoreCase))
+        {
+            resultList = resultList.Where(x => x["status"]?.ToString().Equals("FAIL", StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+        }
+        else if (status.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || status.Equals("BAJA", StringComparison.OrdinalIgnoreCase))
+        {
+            resultList = resultList.Where(x => {
+                string st = x["status"]?.ToString() ?? "";
+                return st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) || st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+        }
+        else
+        {
+            resultList = resultList.Where(x => x["status"]?.ToString().Equals(status, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+        }
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             string sLower = search.Trim().ToLower();
@@ -1651,36 +1715,37 @@ public class ApiController : ControllerBase
             resultList = resultList.Where(x => x["category"]?.ToString().Equals(category, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
         }
 
-        if (!string.IsNullOrWhiteSpace(status) && status != "all")
+        return Ok(resultList.OrderByDescending(x => x["last_verification"]?.ToString() ?? ""));
+    }
+
+    [HttpGet("inventory/decommissioned")]
+    public async Task<IActionResult> GetDecommissionedInventory([FromQuery] string? siteId = null, [FromQuery] string? search = null)
+    {
+        string activeSiteId = siteId ?? HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+        var resultList = await GetEnrichedSiteAssetsAsync(activeSiteId);
+
+        var decommissioned = resultList.Where(x => {
+            string st = x["status"]?.ToString() ?? "";
+            return st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || 
+                   st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) || 
+                   st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+        }).ToList();
+
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            if (status.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || status.Equals("BAJA", StringComparison.OrdinalIgnoreCase))
-            {
-                resultList = resultList.Where(x => {
-                    string st = x["status"]?.ToString() ?? "";
-                    return st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) || st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) || st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
-                }).ToList();
-            }
-            else if (status.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase))
-            {
-                resultList = resultList.Where(x => {
-                    string st = x["status"]?.ToString() ?? "";
-                    return !st.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) && !st.Equals("BAJA", StringComparison.OrdinalIgnoreCase) && !st.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
-                }).ToList();
-            }
-            else if (status.Equals("PENDING", StringComparison.OrdinalIgnoreCase) || status.Equals("PENDIENTE", StringComparison.OrdinalIgnoreCase))
-            {
-                resultList = resultList.Where(x => {
-                    string st = x["status"]?.ToString() ?? "";
-                    return st.Equals("PENDING", StringComparison.OrdinalIgnoreCase) || st.Equals("PENDIENTE", StringComparison.OrdinalIgnoreCase);
-                }).ToList();
-            }
-            else
-            {
-                resultList = resultList.Where(x => x["status"]?.ToString().Equals(status, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
-            }
+            string sLower = search.Trim().ToLower();
+            decommissioned = decommissioned.Where(x => 
+                (x["asset_id"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["name"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["sub_category"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["location"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["punto_contacto"]?.ToString().ToLower().Contains(sLower) ?? false) ||
+                (x["auditor"]?.ToString().ToLower().Contains(sLower) ?? false)
+            ).ToList();
         }
 
-        return Ok(resultList.OrderByDescending(x => x["last_verification"]?.ToString() ?? ""));
+        return Ok(decommissioned.OrderByDescending(x => x["last_verification"]?.ToString() ?? ""));
     }
 
     [HttpGet("inventory/history/{id}")]
@@ -1732,6 +1797,41 @@ public class ApiController : ControllerBase
                 ["periodicity"] = periodicity,
                 ["notes"] = notes
             };
+
+            // Check if asset already exists in this site (Reactivation via Alta de Equipo)
+            var existingAssets = await _supabase.GetAssetsAsync(targetSite);
+            var match = existingAssets.FirstOrDefault(a => a is JsonObject aObj && string.Equals(aObj["custom_id"]?.ToString()?.Trim(), customId, StringComparison.OrdinalIgnoreCase)) as JsonObject;
+            if (match != null)
+            {
+                string matchStatus = match["status"]?.ToString() ?? "ACTIVE";
+                bool isDecom = matchStatus.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) ||
+                               matchStatus.Equals("BAJA", StringComparison.OrdinalIgnoreCase) ||
+                               matchStatus.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+
+                if (isDecom)
+                {
+                    // REACTIVATE VIA ALTA DE EQUIPO
+                    string matchId = match["id"]?.ToString() ?? "";
+                    var updatePayload = new JsonObject
+                    {
+                        ["category"] = category,
+                        ["classification"] = classObj.ToJsonString(),
+                        ["location"] = location,
+                        ["status"] = "ACTIVE"
+                    };
+                    await _supabase.UpdateAssetAsync(matchId, updatePayload);
+
+                    await _supabase.LogAuditEventAsync(currentUserId, targetSite, "AUDIT", "AssetDirectory",
+                        $"Reactivación de activo '{customId}' ({name}) mediante Alta de Equipo. Ubicación: '{location}', Periodicidad: '{periodicity}'.",
+                        new { customId, name, category, subtype, location, area, periodicity, ip = HttpContext.Connection.RemoteIpAddress?.ToString() });
+
+                    return Ok(new { success = true, reactivated = true, message = $"El equipo '{customId}' que estaba dado de baja ha sido reactivado y actualizado exitosamente en el inventario activo.", data = match });
+                }
+                else
+                {
+                    return BadRequest(new { success = false, message = $"El equipo con ID '{customId}' ya se encuentra registrado y activo en este site." });
+                }
+            }
 
             var insertPayload = new JsonObject
             {
@@ -1915,6 +2015,7 @@ public class ApiController : ControllerBase
         var measurements = await _supabase.GetMeasurementsForSiteAsync(activeSiteId);
         
         var assetMap = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+        var decommissionedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // 1. Populate registered assets from assets table
         foreach (var node in assets)
@@ -1923,6 +2024,17 @@ public class ApiController : ControllerBase
             {
                 string customId = aObj["custom_id"]?.ToString().Trim() ?? "";
                 if (string.IsNullOrEmpty(customId)) continue;
+
+                string rawStatus = aObj["status"]?.ToString() ?? "ACTIVE";
+                bool isDecom = rawStatus.Equals("INACTIVE", StringComparison.OrdinalIgnoreCase) ||
+                               rawStatus.Equals("BAJA", StringComparison.OrdinalIgnoreCase) ||
+                               rawStatus.Equals("DECOMMISSIONED", StringComparison.OrdinalIgnoreCase);
+
+                if (isDecom)
+                {
+                    decommissionedIds.Add(customId);
+                    continue; // EXCLUDE DECOMMISSIONED FROM SCHEDULE & OVERDUE METRICS
+                }
 
                 string rawClass = aObj["classification"]?.ToString() ?? "";
                 string assetName = customId;
@@ -2010,7 +2122,7 @@ public class ApiController : ControllerBase
                 if (matched != null) idElem = matched["custom_id"]?.ToString() ?? "";
             }
 
-            if (string.IsNullOrEmpty(idElem)) continue;
+            if (string.IsNullOrEmpty(idElem) || decommissionedIds.Contains(idElem)) continue;
 
             if (!assetMap.TryGetValue(idElem, out var entry))
             {
