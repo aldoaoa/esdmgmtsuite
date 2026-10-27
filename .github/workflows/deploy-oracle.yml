@@ -30,3 +30,14 @@ jobs:
             
             # 4. Limpiar imágenes viejas de Docker para que no se llene tu disco
             sudo docker image prune -f
+
+            # 5. Verificación de salud y endpoints v2.9.0
+            sleep 4
+            echo "=== SMOKE TEST: NORMATIVE LIMITS ==="
+            curl -s http://localhost:8080/api/normative-limits | head -c 300
+            echo ""
+            echo "=== SMOKE TEST: FINDINGS DASHBOARD ==="
+            curl -s http://localhost:8080/api/findings/dashboard | head -c 300
+            echo ""
+            echo "=== DOCKER LOGS RECENT ==="
+            sudo docker logs --tail 25 esdmgmtsuite_web_1
