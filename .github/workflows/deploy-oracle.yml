@@ -23,9 +23,10 @@ jobs:
             git reset --hard origin/main
             
             # 3. Construir imagen primero y reemplazar contenedor web (evita bug KeyError: 'ContainerConfig' de docker-compose 1.29.2)
+            set -e
             sudo docker-compose build web
             sudo docker-compose rm -s -f web || sudo docker rm -f esdmgmtsuite_web_1 || true
-            sudo docker-compose up -d --no-recreate web
+            sudo docker-compose up -d --force-recreate web
             sudo docker ps
             
             # 4. Limpiar imágenes viejas de Docker para que no se llene tu disco

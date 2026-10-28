@@ -6,10 +6,12 @@ using System.Text.Json.Nodes;
 using ESDSuite.Core.Constants;
 using ESDSuite.Core.Helpers;
 using ESDSuite.Core.Models;
+using ESDSuite.Core.Services;
 using ESDSuite.Services.Auth;
+using ESDSuite.Services.Email;
 using ESDSuite.Services.Supabase;
-
 using ESDSuite.Services.Storage;
+using ESDSuite.Web.Services;
 
 namespace ESDSuite.Web.Controllers;
 
