@@ -11,6 +11,12 @@ namespace ESDSuite.Services.Email;
 
 public class ResendEmailService : IEmailNotificationService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = false
+    };
+
     private readonly HttpClient _http;
     private readonly ResendConfig _config;
     private readonly SupabaseService _supabase;
@@ -62,7 +68,8 @@ public class ResendEmailService : IEmailNotificationService
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.ApiKey.Trim());
-            request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+            string jsonPayload = payload.ToJsonString(JsonOptions);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
             var response = await _http.SendAsync(request);
             string respContent = await response.Content.ReadAsStringAsync();
@@ -242,6 +249,7 @@ public class ResendEmailService : IEmailNotificationService
 <!DOCTYPE html>
 <html>
 <head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
     <meta charset='utf-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Nuevo Hallazgo Asignado</title>
@@ -356,7 +364,9 @@ public class ResendEmailService : IEmailNotificationService
 <!DOCTYPE html>
 <html>
 <head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
     <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Recordatorio de Hallazgo</title>
 </head>
 <body style='margin:0; padding:0; background-color:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;'>
@@ -399,7 +409,12 @@ public class ResendEmailService : IEmailNotificationService
         return $@"
 <!DOCTYPE html>
 <html>
-<head><meta charset='utf-8'><title>Bienvenido a esd360</title></head>
+<head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Bienvenido a esd360</title>
+</head>
 <body style='margin:0; padding:0; background-color:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;'>
     <div style='max-width:620px; margin:30px auto; background:#FFFFFF; border-radius:14px; overflow:hidden; border:1px solid #E2E8F0; box-shadow:0 10px 25px rgba(15,23,42,0.08);'>
         <div style='background:linear-gradient(135deg, #0F172A 0%, #312E81 100%); padding:28px 32px; color:#FFFFFF;'>
@@ -443,7 +458,12 @@ public class ResendEmailService : IEmailNotificationService
         return $@"
 <!DOCTYPE html>
 <html>
-<head><meta charset='utf-8'><title>Restablecer Contraseña</title></head>
+<head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Restablecer Contraseña</title>
+</head>
 <body style='margin:0; padding:0; background-color:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;'>
     <div style='max-width:580px; margin:30px auto; background:#FFFFFF; border-radius:14px; overflow:hidden; border:1px solid #E2E8F0;'>
         <div style='background:#0F172A; padding:24px 32px; color:#FFFFFF;'>
@@ -473,7 +493,12 @@ public class ResendEmailService : IEmailNotificationService
         return $@"
 <!DOCTYPE html>
 <html>
-<head><meta charset='utf-8'><title>{HtmlEncoder.Default.Encode(title)}</title></head>
+<head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>{HtmlEncoder.Default.Encode(title)}</title>
+</head>
 <body style='margin:0; padding:0; background-color:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;'>
     <div style='max-width:600px; margin:30px auto; background:#FFFFFF; border-radius:12px; overflow:hidden; border:1px solid #E2E8F0;'>
         <div style='background:#0F172A; padding:22px 28px; color:#FFFFFF;'>
