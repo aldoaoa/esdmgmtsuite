@@ -33,6 +33,9 @@ public class ApiController : ControllerBase
     }
     private string? CurrentUserCompanyId => HttpContext.Session.GetString("company_id");
     private string CurrentUserSiteId => HttpContext.Session.GetString("site_id") ?? DefaultSiteId;
+    private string CurrentUserId => HttpContext.Session.GetString("user_id") ?? "";
+    private string CurrentUserName => HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+    private string CurrentUserEmail => HttpContext.Session.GetString("user_email") ?? "";
 
     private bool IsSuperAdmin
     {
@@ -5141,7 +5144,7 @@ public class ApiController : ControllerBase
     public async Task<IActionResult> GetFindingsFormContext([FromQuery] string? siteId = null)
     {
         string targetSite = !string.IsNullOrWhiteSpace(siteId) ? siteId.Trim() : CurrentUserSiteId;
-        string companyId = CurrentUserCompanyId;
+        string? companyId = CurrentUserCompanyId;
 
         // 1. Locations / Lines
         var locationList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
