@@ -5121,6 +5121,166 @@ public class ApiController : ControllerBase
         return Ok(new { success = true, findings = filtered, data = filtered, count = filtered.Count });
     }
 
+    public class FindingElementDto
+    {
+        public string id { get; set; } = "";
+        public string custom_id { get; set; } = "";
+        public string category { get; set; } = "";
+        public string location { get; set; } = "";
+    }
+
+    public class FindingUserDto
+    {
+        public string name { get; set; } = "";
+        public string display { get; set; } = "";
+        public string email { get; set; } = "";
+        public string role { get; set; } = "";
+    }
+
+    [HttpGet("findings/form-context")]
+    public async Task<IActionResult> GetFindingsFormContext([FromQuery] string? siteId = null)
+    {
+        string targetSite = !string.IsNullOrWhiteSpace(siteId) ? siteId.Trim() : CurrentUserSiteId;
+        string companyId = CurrentUserCompanyId;
+
+        // 1. Locations / Lines
+        var locationList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var lines = await _supabase.GetCatalogoLineasAsync(targetSite);
+            foreach (var l in lines)
+            {
+                if (l is JsonObject lObj)
+                {
+                    string name = lObj["nombre_linea"]?.ToString()?.Trim() ?? lObj["name"]?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(name)) locationList.Add(name);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetFindingsFormContext lines error]: {ex.Message}");
+        }
+
+        // 2. Elements / Assets registered in system
+        var elementList = new List<FindingElementDto>();
+        var seenElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var assets = await _supabase.GetAssetsAsync(targetSite);
+            foreach (var a in assets)
+            {
+                if (a is JsonObject aObj)
+                {
+                    string loc = aObj["location"]?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(loc)) locationList.Add(loc);
+
+                    string customId = aObj["custom_id"]?.ToString()?.Trim() ?? aObj["asset_id"]?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(customId) && seenElements.Add(customId))
+                    {
+                        elementList.Add(new FindingElementDto
+                        {
+                            id = aObj["id"]?.ToString() ?? customId,
+                            custom_id = customId,
+                            category = aObj["category"]?.ToString() ?? "",
+                            location = loc
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetFindingsFormContext assets error]: {ex.Message}");
+        }
+
+        try
+        {
+            var eqCatalog = await _supabase.GetCatalogoEquiposAsync(targetSite);
+            foreach (var eq in eqCatalog)
+            {
+                if (eq is JsonObject eqObj)
+                {
+                    string loc = eqObj["ubicacion"]?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(loc)) locationList.Add(loc);
+
+                    string cod = eqObj["codigo_interno"]?.ToString()?.Trim() ?? eqObj["codigo"]?.ToString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(cod) && seenElements.Add(cod))
+                    {
+                        elementList.Add(new FindingElementDto
+                        {
+                            id = eqObj["id"]?.ToString() ?? cod,
+                            custom_id = cod,
+                            category = eqObj["tipo_equipo"]?.ToString() ?? "Equipo",
+                            location = loc
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetFindingsFormContext equipment error]: {ex.Message}");
+        }
+
+        // 3. Plant Users
+        var userList = new List<FindingUserDto>();
+        var seenUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var rawUsers = await _supabase.GetUsersAsync(string.IsNullOrEmpty(companyId) ? null : companyId, targetSite);
+            foreach (var u in rawUsers)
+            {
+                if (u is JsonObject uObj)
+                {
+                    string name = uObj["full_name"]?.ToString()?.Trim() ?? uObj["name"]?.ToString()?.Trim() ?? "";
+                    string email = uObj["email"]?.ToString()?.Trim() ?? "";
+                    string role = uObj["role"]?.ToString()?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(email)) name = email.Split('@')[0];
+
+                    if (!string.IsNullOrEmpty(name) && seenUsers.Add(name))
+                    {
+                        string display = !string.IsNullOrEmpty(role) ? $"{name} ({role})" : name;
+                        userList.Add(new FindingUserDto
+                        {
+                            name = name,
+                            display = display,
+                            email = email,
+                            role = role
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetFindingsFormContext users error]: {ex.Message}");
+        }
+
+        // Add current logged in user if not in list
+        if (!string.IsNullOrEmpty(CurrentUserName) && seenUsers.Add(CurrentUserName))
+        {
+            userList.Insert(0, new FindingUserDto
+            {
+                name = CurrentUserName,
+                display = !string.IsNullOrEmpty(CurrentUserRole) ? $"{CurrentUserName} ({CurrentUserRole})" : CurrentUserName,
+                email = CurrentUserEmail,
+                role = CurrentUserRole
+            });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            site_id = targetSite,
+            locations = locationList.OrderBy(x => x).ToList(),
+            elements = elementList.OrderBy(x => x.custom_id).ToList(),
+            users = userList.OrderBy(x => x.name).ToList()
+        });
+    }
+
     [HttpGet("findings/{id}")]
     public async Task<IActionResult> GetFindingById(string id)
     {

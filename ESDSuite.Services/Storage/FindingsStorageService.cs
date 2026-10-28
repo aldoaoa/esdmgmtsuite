@@ -646,6 +646,7 @@ public class FindingsStorageService
         int critical = 0;
         int major = 0;
         int minor = 0;
+        int observation = 0;
         int manualLessonsCount = 0;
         int auditLessonsCount = 0;
 
@@ -681,9 +682,10 @@ public class FindingsStorageService
                     else if (status == "PENDING_VERIFICATION") pendingVerification++;
                     else if (status == "CLOSED") closed++;
 
-                    if (sev == "CRITICAL") critical++;
-                    else if (sev == "MAJOR") major++;
-                    else if (sev == "MINOR") minor++;
+                    if (sev.Contains("CRITICAL") || sev.Contains("F1")) critical++;
+                    else if (sev.Contains("MAJOR") || sev.Contains("F2")) major++;
+                    else if (sev.Contains("MINOR") || sev.Contains("F3")) minor++;
+                    else if (sev.Contains("OBSERVATION") || sev.Contains("F4")) observation++;
 
                     // By Type / Category
                     if (!typeDistribution.ContainsKey(cat)) typeDistribution[cat] = 0;
@@ -804,8 +806,24 @@ public class FindingsStorageService
             ["pendingVerificationFindings"] = pendingVerification,
             ["closedFindings"] = closed,
             ["criticalFindings"] = critical,
+            ["f1CriticalFindings"] = critical,
             ["majorFindings"] = major,
+            ["f2MajorFindings"] = major,
             ["minorFindings"] = minor,
+            ["f3MinorFindings"] = minor,
+            ["observationFindings"] = observation,
+            ["f4ObservationFindings"] = observation,
+            ["by_severity"] = new JsonObject
+            {
+                ["critical"] = critical,
+                ["f1_critical"] = critical,
+                ["major"] = major,
+                ["f2_major"] = major,
+                ["minor"] = minor,
+                ["f3_minor"] = minor,
+                ["observation"] = observation,
+                ["f4_observation"] = observation
+            },
             ["mttrDays"] = mttr,
             ["onTimeRate"] = onTimePct,
             ["typeDistribution"] = typeArr,

@@ -91,7 +91,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.2</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.3</span>
                     </div>
                 </div>
             </div>
@@ -203,7 +203,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.2</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.3</span>
             </div>
         </div>
     </aside>
@@ -1448,12 +1448,13 @@
                                     <option value="CLOSED">🟢 Cerrado</option>
                                 </select>
                             </div>
-                            <div style="width:150px;">
+                            <div style="width:160px;">
                                 <select id="fnd-filter-severity" class="form-control" onchange="filterFindingsList()" style="font-size:12px; height:34px;">
                                     <option value="" data-i18n="findings.filter_all_severities">Toda Severidad</option>
-                                    <option value="CRITICAL">🔴 Crítica</option>
-                                    <option value="MAJOR">🟠 Mayor</option>
-                                    <option value="MINOR">🔵 Menor</option>
+                                    <option value="F1">🔴 F1 Critical</option>
+                                    <option value="F2">🟠 F2 Major</option>
+                                    <option value="F3">🔵 F3 Minor</option>
+                                    <option value="F4">🟢 F4 Observation</option>
                                 </select>
                             </div>
                             <div style="width:180px;">
@@ -10421,11 +10422,22 @@
 
         const canDelete = isUserCompanyAdminOrSuper();
 
-        const sevColors = {
-            'CRITICAL': { bg: '#FEE2E2', color: '#DC2626', label: 'Crítico' },
-            'MAJOR': { bg: '#FEF3C7', color: '#D97706', label: 'Mayor' },
-            'MINOR': { bg: '#E0E7FF', color: '#4F46E5', label: 'Menor' }
-        };
+        function getSeverityBadgeInfo(rawSev) {
+            const s = (rawSev || 'MAJOR').toUpperCase();
+            if (s.includes('CRITICAL') || s.includes('F1')) {
+                return { bg: '#FEE2E2', color: '#DC2626', label: '🔴 F1 Critical' };
+            }
+            if (s.includes('MAJOR') || s.includes('F2')) {
+                return { bg: '#FEF3C7', color: '#D97706', label: '🟠 F2 Major' };
+            }
+            if (s.includes('MINOR') || s.includes('F3')) {
+                return { bg: '#E0E7FF', color: '#4F46E5', label: '🔵 F3 Minor' };
+            }
+            if (s.includes('OBSERVATION') || s.includes('F4')) {
+                return { bg: '#DCFCE7', color: '#15803D', label: '🟢 F4 Observation' };
+            }
+            return { bg: '#FEF3C7', color: '#D97706', label: '🟠 ' + (rawSev || 'F2 Major') };
+        }
 
         const statusBadges = {
             'OPEN': `<span style="background:#FEE2E2; color:#DC2626; padding:3px 8px; border-radius:12px; font-weight:800; font-size:11px;">🔴 Abierto</span>`,
@@ -10437,8 +10449,7 @@
         let html = '';
         findings.forEach(f => {
             const code = f.tracking_code || f.tracker_code || f.id;
-            const sevKey = (f.severity || 'MAJOR').toUpperCase();
-            const sev = sevColors[sevKey] || sevColors['MAJOR'];
+            const sev = getSeverityBadgeInfo(f.severity);
             const statusKey = (f.status || 'OPEN').toUpperCase();
             const stat = statusBadges[statusKey] || statusKey;
             const dateStr = (f.opened_at || f.created_at || '').substring(0, 10);
@@ -10516,7 +10527,13 @@
             const fTbl = (f.normative_table || f.reference_table || '');
 
             if (st && fStatus !== st) return false;
-            if (sev && fSev !== sev) return false;
+            if (sev) {
+                if (sev === 'F1' && !fSev.includes('F1') && !fSev.includes('CRITICAL')) return false;
+                else if (sev === 'F2' && !fSev.includes('F2') && !fSev.includes('MAJOR')) return false;
+                else if (sev === 'F3' && !fSev.includes('F3') && !fSev.includes('MINOR')) return false;
+                else if (sev === 'F4' && !fSev.includes('F4') && !fSev.includes('OBSERVATION')) return false;
+                else if (sev !== 'F1' && sev !== 'F2' && sev !== 'F3' && sev !== 'F4' && fSev !== sev) return false;
+            }
             if (tbl && !fTbl.includes(tbl)) return false;
             if (q) {
                 const code = f.tracking_code || f.tracker_code || '';
@@ -10557,9 +10574,27 @@
             const sevKey = (f.severity || 'MAJOR').toUpperCase();
             const sevEl = document.getElementById('fnd-det-severity-badge');
             if (sevEl) {
-                sevEl.textContent = sevKey;
-                sevEl.style.background = sevKey === 'CRITICAL' ? '#FEE2E2' : (sevKey === 'MAJOR' ? '#FEF3C7' : '#E0E7FF');
-                sevEl.style.color = sevKey === 'CRITICAL' ? '#DC2626' : (sevKey === 'MAJOR' ? '#D97706' : '#4F46E5');
+                if (sevKey.includes('CRITICAL') || sevKey.includes('F1')) {
+                    sevEl.textContent = '🔴 F1 Critical';
+                    sevEl.style.background = '#FEE2E2';
+                    sevEl.style.color = '#DC2626';
+                } else if (sevKey.includes('MAJOR') || sevKey.includes('F2')) {
+                    sevEl.textContent = '🟠 F2 Major';
+                    sevEl.style.background = '#FEF3C7';
+                    sevEl.style.color = '#D97706';
+                } else if (sevKey.includes('MINOR') || sevKey.includes('F3')) {
+                    sevEl.textContent = '🔵 F3 Minor';
+                    sevEl.style.background = '#E0E7FF';
+                    sevEl.style.color = '#4F46E5';
+                } else if (sevKey.includes('OBSERVATION') || sevKey.includes('F4')) {
+                    sevEl.textContent = '🟢 F4 Observation';
+                    sevEl.style.background = '#DCFCE7';
+                    sevEl.style.color = '#15803D';
+                } else {
+                    sevEl.textContent = sevKey;
+                    sevEl.style.background = '#FEF3C7';
+                    sevEl.style.color = '#D97706';
+                }
             }
 
             // Status badge
@@ -10754,10 +10789,188 @@
         }
     }
 
+    const FINDING_SEVERITY_GUIDES = {
+        'F1 Critical': {
+            criterio: 'Pérdida de control requerido con ESDS expuesto; impacto potencial no contenido; o incumplimiento Clase 0 de control primario.',
+            ejemplos: 'Personal sin grounding manipulando ESDS; conexión abierta; superficie fuera de criterio; ionización obligatoria no disponible; monitor requerido en alarma.',
+            reaccion: 'STOP de la operación afectada, contención de producto, notificación inmediata, corrección, verificación ESD y disposición de Calidad.',
+            border: '#DC2626',
+            bg: '#FEF2F2',
+            badgeBg: '#FEE2E2',
+            color: '#991B1B'
+        },
+        'F2 Major': {
+            criterio: 'Elemento fuera de especificación sin exposición directa demostrada, o existe protección alterna efectiva y aprobada.',
+            ejemplos: 'Tapete falla antes de colocar producto; estación fuera de uso; elemento no conforme sustituible; equipo vencido retirado antes de uso.',
+            reaccion: 'Retirar/restringir, corregir, verificar y liberar. Registrar y escalar si no se corrige.',
+            border: '#D97706',
+            bg: '#FFFBEB',
+            badgeBg: '#FEF3C7',
+            color: '#92400E'
+        },
+        'F3 Minor': {
+            criterio: 'Discrepancia sin pérdida inmediata de protección.',
+            ejemplos: 'Etiqueta faltante, evidencia incompleta, registro pendiente, housekeeping o identificación dañada.',
+            reaccion: 'Registrar, asignar responsable y fecha; verificar evidencia antes de cerrar.',
+            border: '#4F46E5',
+            bg: '#EEF2FF',
+            badgeBg: '#E0E7FF',
+            color: '#3730A3'
+        },
+        'F4 Observation': {
+            criterio: 'Oportunidad preventiva o de mejora sin incumplimiento demostrado.',
+            ejemplos: 'Mejorar señalización, estandarizar ubicación, monitoreo adicional o automatización.',
+            reaccion: 'Incluir en plan de mejora; no requiere contención de producto.',
+            border: '#059669',
+            bg: '#F0FDF4',
+            badgeBg: '#DCFCE7',
+            color: '#166534'
+        }
+    };
+
+    function onFindingSeverityChange(val) {
+        const card = document.getElementById('fnd-severity-info-card');
+        if (!card) return;
+        
+        let key = 'F2 Major';
+        if (val.includes('F1') || val.includes('CRITICAL')) key = 'F1 Critical';
+        else if (val.includes('F2') || val.includes('MAJOR')) key = 'F2 Major';
+        else if (val.includes('F3') || val.includes('MINOR')) key = 'F3 Minor';
+        else if (val.includes('F4') || val.includes('OBSERVATION')) key = 'F4 Observation';
+
+        const info = FINDING_SEVERITY_GUIDES[key] || FINDING_SEVERITY_GUIDES['F2 Major'];
+        card.style.background = info.bg;
+        card.style.borderLeft = `4px solid ${info.border}`;
+        card.style.borderColor = info.border;
+        card.style.color = info.color;
+        card.innerHTML = `
+            <div style="font-weight:800; font-size:12px; margin-bottom:4px; display:flex; align-items:center; justify-content:space-between;">
+                <span>Guía Normativa de Severidad: <strong>${key}</strong></span>
+                <span style="font-size:10px; background:${info.badgeBg}; padding:2px 8px; border-radius:10px; font-weight:800;">${key}</span>
+            </div>
+            <div style="margin-bottom:3px;"><strong>📌 Criterio:</strong> ${info.criterio}</div>
+            <div style="margin-bottom:3px;"><strong>📋 Ejemplos:</strong> ${info.ejemplos}</div>
+            <div><strong>⚡ Reacción mínima requerida:</strong> ${info.reaccion}</div>
+        `;
+    }
+
+    let findingFormContextCache = null;
+
+    async function loadFindingFormContext(force = false) {
+        const siteId = getActiveSiteId();
+        if (findingFormContextCache && findingFormContextCache.siteId === siteId && !force) {
+            populateFindingFormControls(findingFormContextCache);
+            return;
+        }
+
+        try {
+            let url = '/api/findings/form-context';
+            if (siteId) url += '?siteId=' + encodeURIComponent(siteId);
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.success) {
+                    findingFormContextCache = { ...data, siteId: siteId };
+                    populateFindingFormControls(findingFormContextCache);
+                }
+            }
+        } catch(e) {
+            console.error('Error loading findings form context:', e);
+        }
+    }
+
+    function populateFindingFormControls(ctx) {
+        if (!ctx) return;
+
+        // 1. Ubicaciones
+        const locSelect = document.getElementById('fnd-new-location');
+        if (locSelect) {
+            const currentVal = locSelect.value;
+            locSelect.innerHTML = '<option value="">-- Seleccionar Ubicación / Línea / Área --</option>';
+            if (Array.isArray(ctx.locations)) {
+                ctx.locations.forEach(loc => {
+                    if (!loc) return;
+                    const opt = document.createElement('option');
+                    opt.value = loc;
+                    opt.textContent = loc;
+                    locSelect.appendChild(opt);
+                });
+            }
+            if (currentVal) locSelect.value = currentVal;
+        }
+
+        // 2. Elementos auditados (Datalist para autocompletar)
+        const elemDatalist = document.getElementById('fnd-elements-datalist');
+        if (elemDatalist) {
+            elemDatalist.innerHTML = '';
+            if (Array.isArray(ctx.elements)) {
+                ctx.elements.forEach(el => {
+                    if (!el.custom_id) return;
+                    const opt = document.createElement('option');
+                    opt.value = el.custom_id;
+                    opt.label = `${el.category || 'Elemento'} (${el.location || 'General'})`;
+                    elemDatalist.appendChild(opt);
+                });
+            }
+        }
+
+        // 3. Responsables Asignados
+        const assigneeSelect = document.getElementById('fnd-new-assignee');
+        if (assigneeSelect) {
+            const currentVal = assigneeSelect.value;
+            assigneeSelect.innerHTML = '<option value="">-- Seleccionar Responsable Asignado --</option>';
+            if (Array.isArray(ctx.users)) {
+                ctx.users.forEach(u => {
+                    if (!u.name) return;
+                    const opt = document.createElement('option');
+                    opt.value = u.name;
+                    opt.textContent = u.display || u.name;
+                    assigneeSelect.appendChild(opt);
+                });
+            }
+            if (currentVal) assigneeSelect.value = currentVal;
+        }
+    }
+
+    function onFindingElementSelected(val) {
+        if (!val || !findingFormContextCache || !Array.isArray(findingFormContextCache.elements)) return;
+        const trimmed = val.trim().toLowerCase();
+        const found = findingFormContextCache.elements.find(e => (e.custom_id || '').toLowerCase() === trimmed);
+        if (found) {
+            // Auto-select location if present
+            if (found.location) {
+                const locSelect = document.getElementById('fnd-new-location');
+                if (locSelect) {
+                    for (let i = 0; i < locSelect.options.length; i++) {
+                        if (locSelect.options[i].value.toLowerCase() === found.location.toLowerCase()) {
+                            locSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            // If normative table matches category
+            if (found.category) {
+                const catLower = found.category.toLowerCase();
+                const tblSelect = document.getElementById('fnd-new-table');
+                if (tblSelect) {
+                    if (catLower.includes('tierra') || catLower.includes('pulsera')) tblSelect.value = 'Tabla 1';
+                    else if (catLower.includes('superficie') || catLower.includes('tapete') || catLower.includes('mesa')) tblSelect.value = 'Tabla 2';
+                    else if (catLower.includes('piso') || catLower.includes('calzado')) tblSelect.value = 'Tabla 3';
+                    else if (catLower.includes('empaque') || catLower.includes('ionizador')) tblSelect.value = 'Tabla 4';
+                }
+            }
+        }
+    }
+
     function openNewFindingModal() {
         document.getElementById('form-new-finding').reset();
         const due = new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10);
         document.getElementById('fnd-new-due-date').value = due;
+        const sevSel = document.getElementById('fnd-new-severity');
+        if (sevSel) sevSel.value = 'F2 Major';
+        onFindingSeverityChange('F2 Major');
+        loadFindingFormContext();
         document.getElementById('modal-new-finding').style.display = 'flex';
     }
 
@@ -10769,6 +10982,18 @@
         const titleVal = (document.getElementById('fnd-new-title')?.value || '').trim();
         if (!titleVal) {
             alert('⚠️ Por favor ingresa el título o descripción del hallazgo.');
+            return;
+        }
+
+        const locationVal = (document.getElementById('fnd-new-location')?.value || '').trim();
+        if (!locationVal) {
+            alert('⚠️ Por favor selecciona la Ubicación / Línea / Área.');
+            return;
+        }
+
+        const assigneeVal = (document.getElementById('fnd-new-assignee')?.value || '').trim();
+        if (!assigneeVal) {
+            alert('⚠️ Por favor selecciona el Responsable Asignado de la lista.');
             return;
         }
 
@@ -10803,7 +11028,6 @@
 
         const tableVal = document.getElementById('fnd-new-table').value;
         const limitVal = document.getElementById('fnd-new-limit').value.trim();
-        const assigneeVal = document.getElementById('fnd-new-assignee').value.trim();
         const containmentVal = document.getElementById('fnd-new-containment').value.trim();
 
         const payload = {
@@ -10811,8 +11035,9 @@
             normative_table: tableVal,
             reference_table: tableVal,
             severity: document.getElementById('fnd-new-severity').value,
-            element_id: document.getElementById('fnd-new-elem-id').value.trim(),
-            location: document.getElementById('fnd-new-location').value.trim(),
+            element_id: (document.getElementById('fnd-new-elem-id')?.value || '').trim(),
+            location: locationVal,
+            area: locationVal.includes('->') ? locationVal.split('->')[0].trim() : locationVal,
             measured_value: document.getElementById('fnd-new-measured').value.trim(),
             required_limit: limitVal,
             limit_applied: limitVal,
@@ -10823,6 +11048,11 @@
             immediate_containment: containmentVal,
             evidence_open_url: evidenceUrl,
             opened_by: sessionData ? sessionData.user_name : 'Auditor',
+            auditor_name: sessionData ? sessionData.user_name : 'Auditor',
+            site_id: getActiveSiteId(),
+            source_module: 'Levantamiento Manual',
+            source: 'Levantamiento Manual'
+        };
             auditor_name: sessionData ? sessionData.user_name : 'Auditor',
             site_id: getActiveSiteId(),
             source_module: 'Levantamiento Manual',
@@ -10924,13 +11154,18 @@
         if (ctxSev) {
             if (chartFindingsBySeverity) chartFindingsBySeverity.destroy();
             const sevMap = m.by_severity || {};
+            const cF1 = sevMap['f1_critical'] ?? sevMap['critical'] ?? sevMap['CRITICAL'] ?? 0;
+            const cF2 = sevMap['f2_major'] ?? sevMap['major'] ?? sevMap['MAJOR'] ?? 0;
+            const cF3 = sevMap['f3_minor'] ?? sevMap['minor'] ?? sevMap['MINOR'] ?? 0;
+            const cF4 = sevMap['f4_observation'] ?? sevMap['observation'] ?? sevMap['OBSERVATION'] ?? 0;
+
             chartFindingsBySeverity = new Chart(ctxSev, {
                 type: 'pie',
                 data: {
-                    labels: ['Crítica', 'Mayor', 'Menor'],
+                    labels: ['F1 Critical', 'F2 Major', 'F3 Minor', 'F4 Observation'],
                     datasets: [{
-                        data: [sevMap['CRITICAL'] || 0, sevMap['MAJOR'] || 0, sevMap['MINOR'] || 0],
-                        backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6']
+                        data: [cF1, cF2, cF3, cF4],
+                        backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6', '#10B981']
                     }]
                 },
                 options: {
@@ -12137,22 +12372,34 @@
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Severidad*</label>
-                    <select id="fnd-new-severity" class="form-control" required>
-                        <option value="CRITICAL">🔴 Crítica (Paro de proceso / Riesgo ESD alto)</option>
-                        <option value="MAJOR" selected>🟠 Mayor (Fuera de norma S20.20)</option>
-                        <option value="MINOR">🔵 Menor (Observación de control)</option>
+                    <select id="fnd-new-severity" class="form-control" required onchange="onFindingSeverityChange(this.value)">
+                        <option value="F1 Critical">🔴 F1 Critical</option>
+                        <option value="F2 Major" selected>🟠 F2 Major</option>
+                        <option value="F3 Minor">🔵 F3 Minor</option>
+                        <option value="F4 Observation">🟢 F4 Observation</option>
                     </select>
                 </div>
             </div>
 
+            <!-- DYNAMIC SEVERITY CRITERIA CARD -->
+            <div id="fnd-severity-info-card" style="padding:10px 14px; background:#FFFBEB; border:1px solid #FCD34D; border-left:4px solid #D97706; border-radius:8px; font-size:11.5px; line-height:1.45; color:#92400E;">
+                <!-- Populated dynamically -->
+            </div>
+
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                 <div class="form-group" style="margin-bottom:0;">
-                    <label style="font-weight:700; font-size:12px; margin-bottom:4px;">ID del Elemento Auditado</label>
-                    <input id="fnd-new-elem-id" class="form-control" placeholder="Ej: WS-SMT1-04" />
+                    <label style="font-weight:700; font-size:12px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>ID del Elemento Auditado</span>
+                        <span style="font-size:11px; font-weight:normal; color:var(--text-muted);">(Opcional)</span>
+                    </label>
+                    <input id="fnd-new-elem-id" class="form-control" list="fnd-elements-datalist" placeholder="Opcional - Escribir o buscar ID..." autocomplete="off" onchange="onFindingElementSelected(this.value)" />
+                    <datalist id="fnd-elements-datalist"></datalist>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Ubicación / Línea / Área*</label>
-                    <input id="fnd-new-location" class="form-control" list="val-lines-datalist" placeholder="Ej: Línea SMT 1" required />
+                    <select id="fnd-new-location" class="form-control" required>
+                        <option value="">-- Seleccionar Ubicación / Línea / Área --</option>
+                    </select>
                 </div>
             </div>
 
@@ -12170,7 +12417,9 @@
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                 <div class="form-group" style="margin-bottom:0;">
                     <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Responsable Asignado*</label>
-                    <input id="fnd-new-assignee" class="form-control" placeholder="Ej: Pedro Martínez (Mantenimiento)" required />
+                    <select id="fnd-new-assignee" class="form-control" required>
+                        <option value="">-- Seleccionar Responsable Asignado --</option>
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                     <label style="font-weight:700; font-size:12px; margin-bottom:4px;">Fecha Compromiso*</label>
