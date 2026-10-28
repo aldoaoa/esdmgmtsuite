@@ -125,15 +125,55 @@ public class ApiController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] JsonObject payload)
+    [Consumes("application/json", "application/x-www-form-urlencoded", "multipart/form-data")]
+    public async Task<IActionResult> Login()
     {
-        string email = payload["email"]?.ToString() ?? payload["username"]?.ToString() ?? "";
-        string pwd = payload["password"]?.ToString() ?? "";
+        string email = "";
+        string pwd = "";
         bool rememberMe = true;
-        if (payload["remember_me"] != null && bool.TryParse(payload["remember_me"]?.ToString(), out bool rmVal))
+        bool isFormSubmission = Request.HasFormContentType;
+
+        if (isFormSubmission)
         {
-            rememberMe = rmVal;
+            var form = await Request.ReadFormAsync();
+            email = form["email"].ToString();
+            if (string.IsNullOrWhiteSpace(email)) email = form["username"].ToString();
+            pwd = form["password"].ToString();
+            if (form.ContainsKey("remember_me"))
+            {
+                string rm = form["remember_me"].ToString();
+                rememberMe = rm == "on" || rm == "true" || rm == "1";
+            }
         }
+        else
+        {
+            try
+            {
+                using var reader = new System.IO.StreamReader(Request.Body, Encoding.UTF8);
+                string bodyStr = await reader.ReadToEndAsync();
+                if (!string.IsNullOrWhiteSpace(bodyStr))
+                {
+                    var node = JsonNode.Parse(bodyStr);
+                    if (node is JsonObject payload)
+                    {
+                        email = payload["email"]?.ToString() ?? payload["username"]?.ToString() ?? "";
+                        pwd = payload["password"]?.ToString() ?? "";
+                        if (payload["remember_me"] != null && bool.TryParse(payload["remember_me"]?.ToString(), out bool rmVal))
+                        {
+                            rememberMe = rmVal;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        bool isAjax = Request.Headers.Accept.ToString().Contains("application/json") ||
+                      Request.Headers["X-Requested-With"] == "XMLHttpRequest" ||
+                      !isFormSubmission;
 
         var (success, session, message) = await _supabase.IniciarSesionAsync(email, pwd);
         if (success && session != null)
@@ -161,7 +201,17 @@ public class ApiController : ControllerBase
                 });
             }
 
+            if (!isAjax)
+            {
+                return LocalRedirect("/");
+            }
+
             return Ok(new { success = true, user = session });
+        }
+
+        if (!isAjax)
+        {
+            return LocalRedirect("/?login_error=" + Uri.EscapeDataString(message ?? "Credenciales inválidas"));
         }
 
         return BadRequest(new { success = false, message });
