@@ -2450,5 +2450,61 @@ public class SupabaseService
         _companyLogoCache[cleanId] = "NONE";
         return "";
     }
+
+    // --- EMAIL NOTIFICATION AUDIT LOGS IN SUPABASE ---
+    public async Task<JsonObject?> InsertEmailLogAsync(object data)
+    {
+        try
+        {
+            var res = await InsertAsync("esd_email_logs", data);
+            if (res != null) return res;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[InsertEmailLogAsync fallback to app_logs]: {ex.Message}");
+        }
+
+        try
+        {
+            var logPayload = new
+            {
+                page = "esd_email_logs",
+                action = "EMAIL_SENT",
+                details = JsonSerializer.Serialize(data),
+                created_at = DateTime.UtcNow.ToString("o")
+            };
+            return await InsertAsync("app_logs", logPayload);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<JsonArray> GetEmailLogsAsync(string? siteId = null, int limit = 50)
+    {
+        try
+        {
+            string query = string.IsNullOrEmpty(siteId)
+                ? $"esd_email_logs?order=created_at.desc&limit={limit}"
+                : $"esd_email_logs?site_id=eq.{siteId}&order=created_at.desc&limit={limit}";
+
+            var logs = await GetAsync(query);
+            if (logs.Count > 0) return logs;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetEmailLogsAsync fallback to app_logs]: {ex.Message}");
+        }
+
+        try
+        {
+            return await GetAsync($"app_logs?page=eq.esd_email_logs&order=created_at.desc&limit={limit}");
+        }
+        catch
+        {
+            return new JsonArray();
+        }
+    }
 }
 

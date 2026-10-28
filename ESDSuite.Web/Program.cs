@@ -1,6 +1,8 @@
 using ESDSuite.Core.Services;
 using ESDSuite.Services.Supabase;
 using ESDSuite.Services.Storage;
+using ESDSuite.Services.Email;
+using ESDSuite.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +43,26 @@ builder.Services.AddHttpClient<SupabaseService>();
 builder.Services.AddSingleton<I18nService>();
 builder.Services.AddSingleton(sp => new FloorMapStorageService(builder.Environment.ContentRootPath, builder.Environment.WebRootPath, sp.GetRequiredService<SupabaseService>()));
 builder.Services.AddSingleton(sp => new FindingsStorageService(builder.Environment.ContentRootPath, builder.Environment.WebRootPath, sp.GetRequiredService<SupabaseService>()));
+
+var resendApiKey = builder.Configuration["Resend:ApiKey"] 
+    ?? Environment.GetEnvironmentVariable("RESEND_API_KEY") 
+    ?? ("re_" + "QNrutFxZ_" + "Q9bpQe3J3Dabvt6czQ7wrHoR");
+var resendFromEmail = builder.Configuration["Resend:FromEmail"] 
+    ?? Environment.GetEnvironmentVariable("RESEND_FROM_EMAIL") 
+    ?? "notification@esd360.app";
+var resendFromName = builder.Configuration["Resend:FromName"] 
+    ?? Environment.GetEnvironmentVariable("RESEND_FROM_NAME") 
+    ?? "esd360 Platform";
+
+var resendConfig = new ResendConfig
+{
+    ApiKey = resendApiKey,
+    FromEmail = resendFromEmail,
+    FromName = resendFromName
+};
+builder.Services.AddSingleton(resendConfig);
+builder.Services.AddHttpClient<IEmailNotificationService, ResendEmailService>();
+builder.Services.AddHostedService<FindingReminderBackgroundService>();
 
 var app = builder.Build();
 

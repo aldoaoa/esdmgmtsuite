@@ -71,14 +71,22 @@ public class ApiController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly SupabaseConfig _config;
     private readonly FindingsStorageService _findingsStorage;
+    private readonly IEmailNotificationService _emailService;
 
-    public ApiController(SupabaseService supabase, FloorMapStorageService mapStorage, IWebHostEnvironment env, SupabaseConfig config, FindingsStorageService findingsStorage)
+    public ApiController(
+        SupabaseService supabase, 
+        FloorMapStorageService mapStorage, 
+        IWebHostEnvironment env, 
+        SupabaseConfig config, 
+        FindingsStorageService findingsStorage,
+        IEmailNotificationService emailService)
     {
         _supabase = supabase;
         _mapStorage = mapStorage;
         _env = env;
         _config = config;
         _findingsStorage = findingsStorage;
+        _emailService = emailService;
     }
 
     public static string CreateRememberMeToken(string userId, string secretKey, int days = 30)
@@ -3997,7 +4005,36 @@ public class ApiController : ControllerBase
         payload.Remove("password");
 
         var result = await _supabase.InsertUserAsync(payload);
-        return Ok(new { success = result != null && result["id"] != null, data = result });
+        bool success = result != null && result["id"] != null;
+
+        if (success && !string.IsNullOrWhiteSpace(payload["email"]?.ToString()))
+        {
+            string userEmail = payload["email"]!.ToString().Trim();
+            string fullName = payload["full_name"]?.ToString()?.Trim() ?? userEmail;
+            string siteName = payload["site_name"]?.ToString()?.Trim() ?? "Planta Asignada";
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var welcomeModel = new UserWelcomeEmailModel
+                    {
+                        FullName = fullName,
+                        Email = userEmail,
+                        Role = targetRole,
+                        SiteName = siteName,
+                        TemporaryPassword = pwd,
+                        LoginUrl = "https://esd360.app"
+                    };
+                    await _emailService.SendUserWelcomeAsync(welcomeModel);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CreateUser Welcome Email Error]: {ex.Message}");
+                }
+            });
+        }
+
+        return Ok(new { success = success, data = result });
     }
 
     [HttpDelete("users/{id}")]
@@ -5381,6 +5418,29 @@ public class ApiController : ControllerBase
                 ?? "";
             string openEvidence = payload["evidence_open_url"]?.ToString()?.Trim() ?? "";
 
+            string assigneeEmail = payload["assignee_email"]?.ToString()?.Trim() ?? "";
+            if (string.IsNullOrEmpty(assigneeEmail) && !string.IsNullOrEmpty(assignee) && assignee != "Sin Asignar")
+            {
+                try
+                {
+                    var rawUsers = await _supabase.GetUsersAsync(null, targetSite);
+                    foreach (var u in rawUsers)
+                    {
+                        if (u is JsonObject uObj)
+                        {
+                            string uName = uObj["full_name"]?.ToString()?.Trim() ?? "";
+                            string uMail = uObj["email"]?.ToString()?.Trim() ?? "";
+                            if (string.Equals(uName, assignee, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(uMail))
+                            {
+                                assigneeEmail = uMail;
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+
             string code = await _findingsStorage.GenerateTrackingCodeAsync(targetSite);
             var finding = new JsonObject
             {
@@ -5406,6 +5466,7 @@ public class ApiController : ControllerBase
                 ["opened_by"] = currentUserName,
                 ["assignee_name"] = assignee,
                 ["assigned_to"] = assignee,
+                ["assignee_email"] = assigneeEmail,
                 ["opened_at"] = DateTime.UtcNow.ToString("o"),
                 ["created_at"] = DateTime.UtcNow.ToString("o"),
                 ["due_date"] = dueDate,
@@ -5441,6 +5502,41 @@ public class ApiController : ControllerBase
                     $"Nuevo hallazgo '{code}' para equipo '{elementId}'", new { trackingCode = code, severity, elementId });
             }
             catch { }
+
+            // Enviar notificación por correo automatizada vía Resend (notification@esd360.app)
+            if (!string.IsNullOrEmpty(assigneeEmail))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var notifModel = new FindingEmailNotificationModel
+                        {
+                            TrackingCode = code,
+                            Title = title,
+                            Severity = severity,
+                            AuditedElement = elementId,
+                            Category = category,
+                            Location = location,
+                            Area = area,
+                            NormativeTable = normTable,
+                            RequiredLimit = reqLimit,
+                            MeasuredValue = measuredVal,
+                            ImmediateContainment = containment,
+                            AuditorName = currentUserName,
+                            AssigneeName = assignee,
+                            AssigneeEmail = assigneeEmail,
+                            DueDate = dueDate,
+                            SiteId = targetSite
+                        };
+                        await _emailService.SendFindingAssignedNotificationAsync(notifModel);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[CreateFinding Email Dispatch Error]: {ex.Message}");
+                    }
+                });
+            }
 
             return Ok(new { success = true, data = saved, finding = saved, message = $"Hallazgo '{code}' registrado exitosamente." });
         }
@@ -5783,6 +5879,57 @@ public class ApiController : ControllerBase
             Console.WriteLine($"[CreateManualLessonLearned Exception]: {ex.Message}");
             return StatusCode(500, new { success = false, message = "Error en el servidor al registrar la lección: " + ex.Message });
         }
+    }
+
+    // --- EMAIL NOTIFICATION & REMINDER ENDPOINTS ---
+
+    [HttpPost("notifications/test-email")]
+    public async Task<IActionResult> SendTestEmail([FromBody] JsonObject payload)
+    {
+        string targetEmail = payload?["to_email"]?.ToString()?.Trim() ?? CurrentUserEmail;
+        if (string.IsNullOrWhiteSpace(targetEmail)) targetEmail = "aldo.orozco@molex.com";
+
+        string toName = payload?["to_name"]?.ToString()?.Trim() ?? CurrentUserName;
+        string subject = payload?["subject"]?.ToString()?.Trim() ?? "🧪 Verificación de Canal de Correo - esd360 Enterprise Platform";
+
+        var (ok, msgId, err) = await _emailService.SendGenericNotificationAsync(
+            targetEmail,
+            toName,
+            subject,
+            "Canal de Correo Electrónico Verificado",
+            "Este es un correo automatizado emitido exitosamente desde notification@esd360.app a través de Resend. El canal de comunicación se encuentra activo para alertas de hallazgos, recordatorios de vencimiento y credenciales de usuario.",
+            "Acceder a esd360.app",
+            "https://esd360.app",
+            CurrentUserSiteId);
+
+        if (ok)
+        {
+            return Ok(new { success = true, message_id = msgId, to = targetEmail, message = $"Correo enviado exitosamente a {targetEmail} (ID: {msgId})." });
+        }
+
+        return BadRequest(new { success = false, error = err, message = $"Error al enviar correo: {err}" });
+    }
+
+    [HttpPost("notifications/check-reminders")]
+    public async Task<IActionResult> TriggerCheckReminders([FromServices] IServiceProvider sp)
+    {
+        try
+        {
+            var reminderService = new ESDSuite.Web.Services.FindingReminderBackgroundService(sp);
+            int count = await reminderService.RunReminderScanAsync();
+            return Ok(new { success = true, sent_count = count, message = $"Verificación completada. Se enviaron {count} recordatorios." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, message = "Error al ejecutar verificación de recordatorios: " + ex.Message });
+        }
+    }
+
+    [HttpGet("notifications/logs")]
+    public async Task<IActionResult> GetNotificationLogs([FromQuery] int limit = 50)
+    {
+        var logs = await _supabase.GetEmailLogsAsync(null, limit);
+        return Ok(new { success = true, logs = logs });
     }
 }
 

@@ -174,7 +174,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.5</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.6</span>
                     </div>
                 </div>
             </div>
@@ -286,7 +286,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.5</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.6</span>
             </div>
         </div>
     </aside>
@@ -2228,6 +2228,7 @@
                         <button class="tab-btn" id="set-tab-btn-equipment" onclick="switchSettingsTab('equipment')" data-i18n="settings.tab_equipment">Equipos de Medición</button>
                         <button class="tab-btn" id="set-tab-btn-maps" onclick="switchSettingsTab('maps')">🗺️ <span data-i18n="settings.tab_maps">Planos & Mapas ESD</span></button>
                         <button class="tab-btn" id="set-tab-btn-photos" onclick="switchSettingsTab('photos')">📸 <span>Evidencias Fotográficas</span></button>
+                        <button class="tab-btn" id="set-tab-btn-email" onclick="switchSettingsTab('email')">✉️ <span data-i18n="settings.tab_email">Notificaciones por Correo (Resend)</span></button>
                         <button class="tab-btn" id="set-tab-btn-branding" onclick="switchSettingsTab('branding')" style="display:none;"><span data-i18n="settings.tab_branding">🏢 Identidad &amp; Logotipo</span></button>
                     </div>
 
@@ -2884,6 +2885,84 @@
 
                         <div id="normative-limits-container" style="display:flex; flex-direction:column; gap:20px;">
                             <p style="color:var(--text-muted); padding:20px; text-align:center;">Cargando límites normativos...</p>
+                        </div>
+                    </div>
+
+                    <!-- TAB: EMAIL NOTIFICATIONS & RESEND INTEGRATION -->
+                    <div id="set-tab-email" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                            <div>
+                                <h4 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px; margin:0 0 4px 0;">
+                                    <span>✉️</span>
+                                    <span>Notificaciones Automatizadas por Correo (Resend)</span>
+                                </h4>
+                                <p style="font-size:12px; color:var(--text-muted); margin:0;">
+                                    Canal de correo transaccional oficial desde <strong>notification@esd360.app</strong> con autenticación SPF &amp; DKIM. Alertas inmediatas de hallazgos, recordatorios por vencer, vencidos y bienvenida de usuarios.
+                                </p>
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <button type="button" class="btn-primary" style="background:#2563EB; border-color:#1D4ED8; font-size:12.5px; padding:7px 14px;" onclick="triggerManualReminderScan()">
+                                    ⏰ Ejecutar Verificación de Recordatorios Ahora
+                                </button>
+                                <button type="button" class="tree-action-btn" style="background:#F1F5F9; color:#475569;" onclick="loadEmailNotificationLogs()" title="Refrescar bitácora">
+                                    🔄 Actualizar
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- STATUS & TEST CARD -->
+                        <div style="display:grid; grid-template-columns: 1.1fr 0.9fr; gap:16px; margin-bottom:20px;">
+                            <!-- CONFIG STATUS -->
+                            <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:16px;">
+                                <h5 style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px;">
+                                    <span style="color:#10B981; font-size:16px;">●</span> Estado del Canal de Correo
+                                </h5>
+                                <div style="font-size:12px; line-height:1.7; color:#475569;">
+                                    <div><strong>Remitente Oficial:</strong> <span style="font-family:var(--font-mono); color:#2563EB; font-weight:700;">notification@esd360.app</span></div>
+                                    <div><strong>Dominio Validado:</strong> <span style="background:#ECFDF5; color:#059669; font-weight:700; padding:1px 7px; border-radius:4px;">esd360.app (SPF &amp; DKIM Verificado)</span></div>
+                                    <div><strong>Proveedor:</strong> Resend Transactional Email API</div>
+                                    <div><strong>Disparadores Activos:</strong> Asignación de Hallazgo (F1-F4), Recordatorios Preventivos (48h/24h), Hallazgos Vencidos, Alta de Usuario.</div>
+                                </div>
+                            </div>
+
+                            <!-- TEST EMAIL BOX -->
+                            <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:16px;">
+                                <h5 style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:#334155; display:flex; align-items:center; gap:6px;">
+                                    <span>🧪</span> Probar Envío de Correo en Vivo
+                                </h5>
+                                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                    <input type="email" id="test-email-target" class="form-control" placeholder="destinatario@empresa.com" value="aldo.orozco@molex.com" style="height:36px; font-size:12.5px;" />
+                                    <button type="button" class="btn-primary" id="btn-send-test-email" onclick="sendTestNotificationEmail()" style="font-size:12.5px; padding:0 14px; white-space:nowrap;">
+                                        📨 Enviar Prueba
+                                    </button>
+                                </div>
+                                <div id="test-email-feedback" style="font-size:12px; display:none; padding:4px 0;"></div>
+                            </div>
+                        </div>
+
+                        <!-- RECENT EMAIL LOGS TABLE -->
+                        <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:16px;">
+                            <h5 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; align-items:center; justify-content:space-between;">
+                                <span>📜 Bitácora de Notificaciones Enviadas (Persistencia en Supabase)</span>
+                                <span id="email-logs-count" style="font-size:11.5px; color:var(--text-muted); font-weight:normal;"></span>
+                            </h5>
+                            <div class="table-responsive" style="max-height:420px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+                                <table class="data-table" style="margin:0; width:100%;">
+                                    <thead style="position:sticky; top:0; background:#F8FAFC; z-index:2;">
+                                        <tr>
+                                            <th style="min-width:140px;">Fecha / Hora</th>
+                                            <th style="min-width:180px;">Destinatario</th>
+                                            <th style="min-width:140px;">Tipo de Evento</th>
+                                            <th style="min-width:200px;">Asunto</th>
+                                            <th style="min-width:90px; text-align:center;">Estatus</th>
+                                            <th style="min-width:110px;">ID Resend</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="email-logs-tbody">
+                                        <tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Cargando registros...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -8058,6 +8137,115 @@
         if (tabName === 'maps') loadMapsEditor();
         if (tabName === 'photos') loadPhotoPolicySettingsTab();
         if (tabName === 'branding') loadBrandingSettingsTab();
+        if (tabName === 'email') loadEmailNotificationLogs();
+    }
+
+    // --- EMAIL NOTIFICATIONS CLIENT LOGIC ---
+    async function sendTestNotificationEmail() {
+        const input = document.getElementById('test-email-target');
+        const fb = document.getElementById('test-email-feedback');
+        const btn = document.getElementById('btn-send-test-email');
+        const email = input ? input.value.trim() : '';
+
+        if (!email) {
+            alert('Por favor ingresa un correo destinatario.');
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.innerText = '⏳ Enviando...'; }
+        if (fb) { fb.style.display = 'none'; }
+
+        try {
+            const res = await fetch('/api/notifications/test-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_email: email })
+            });
+            const data = await res.json();
+            if (fb) {
+                fb.style.display = 'block';
+                if (data.success) {
+                    fb.style.color = '#059669';
+                    fb.innerHTML = `✅ ${escapeHtml(data.message)}`;
+                    await loadEmailNotificationLogs();
+                } else {
+                    fb.style.color = '#DC2626';
+                    fb.innerHTML = `❌ ${escapeHtml(data.message || 'Error al enviar')}`;
+                }
+            }
+        } catch(ex) {
+            if (fb) {
+                fb.style.display = 'block';
+                fb.style.color = '#DC2626';
+                fb.innerHTML = '❌ Error de comunicación con el servidor.';
+            }
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerText = '📨 Enviar Prueba'; }
+        }
+    }
+
+    async function triggerManualReminderScan() {
+        try {
+            const res = await fetch('/api/notifications/check-reminders', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                await loadEmailNotificationLogs();
+            } else {
+                alert(`❌ ${data.message}`);
+            }
+        } catch(e) {
+            alert('❌ Error al ejecutar verificación de recordatorios.');
+        }
+    }
+
+    async function loadEmailNotificationLogs() {
+        const tbody = document.getElementById('email-logs-tbody');
+        const countSpan = document.getElementById('email-logs-count');
+        if (!tbody) return;
+
+        try {
+            const res = await fetch('/api/notifications/logs?limit=50');
+            const data = await res.json();
+            const logs = (data && data.logs) ? data.logs : [];
+
+            if (countSpan) countSpan.innerText = `${logs.length} registros recientes`;
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">No hay correos registrados aún.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            logs.forEach(l => {
+                const isSent = (l.status || '').toUpperCase() === 'SENT';
+                const statusBadge = isSent
+                    ? '<span class="badge-pass" style="font-size:10px; padding:2px 7px;">ENVIADO</span>'
+                    : '<span style="background:#FEE2E2; color:#DC2626; font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px;">FALLIDO</span>';
+
+                let dateFormatted = l.created_at || '';
+                try {
+                    const d = new Date(l.created_at);
+                    dateFormatted = d.toLocaleString('es-MX', { dateStyle:'short', timeStyle:'short' });
+                } catch(e) {}
+
+                const msgId = l.message_id || '-';
+                const msgIdShort = msgId.length > 18 ? msgId.substring(0, 18) + '...' : msgId;
+
+                html += `<tr>
+                    <td style="font-size:12px; color:#475569;">${escapeHtml(dateFormatted)}</td>
+                    <td style="font-size:12px; font-weight:600;">${escapeHtml(l.to_email || '')}</td>
+                    <td style="font-size:11.5px;"><span style="background:#F1F5F9; color:#475569; padding:2px 6px; border-radius:4px; font-weight:700;">${escapeHtml(l.email_type || 'GENERIC')}</span></td>
+                    <td style="font-size:12px; color:#334155;">${escapeHtml(l.subject || '')}</td>
+                    <td style="text-align:center;">${statusBadge}</td>
+                    <td style="font-family:var(--font-mono); font-size:11px; color:#64748B;" title="${escapeHtml(msgId)}">${escapeHtml(msgIdShort)}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        } catch(ex) {
+            console.error('Error loading email logs:', ex);
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#DC2626;">Error al cargar bitácora de correos.</td></tr>';
+        }
     }
 
     // --- WINDOWS EXPLORER MULTI-TENANT HIERARCHY TREE VIEW & SETTINGS ---
@@ -10955,6 +11143,7 @@
                     const opt = document.createElement('option');
                     opt.value = u.name;
                     opt.textContent = u.display || u.name;
+                    opt.setAttribute('data-email', u.email || '');
                     assigneeSelect.appendChild(opt);
                 });
             }
@@ -11021,11 +11210,14 @@
             return;
         }
 
-        const assigneeVal = (document.getElementById('fnd-new-assignee')?.value || '').trim();
+        const assigneeSelect = document.getElementById('fnd-new-assignee');
+        const assigneeVal = (assigneeSelect?.value || '').trim();
         if (!assigneeVal) {
             alert('⚠️ Por favor selecciona el Responsable Asignado de la lista.');
             return;
         }
+        const selectedAssigneeOpt = assigneeSelect?.selectedOptions ? assigneeSelect.selectedOptions[0] : null;
+        const assigneeEmailVal = selectedAssigneeOpt ? (selectedAssigneeOpt.getAttribute('data-email') || '') : '';
 
         const fileInput = document.getElementById('fnd-new-photo-file');
         let evidenceUrl = null;
@@ -11073,6 +11265,7 @@
             limit_applied: limitVal,
             assignee_name: assigneeVal,
             assigned_to: assigneeVal,
+            assignee_email: assigneeEmailVal,
             due_date: document.getElementById('fnd-new-due-date').value,
             containment_action: containmentVal,
             immediate_containment: containmentVal,
