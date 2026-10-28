@@ -52,7 +52,7 @@ public class FindingReminderBackgroundService : BackgroundService
         var supabase = scope.ServiceProvider.GetRequiredService<SupabaseService>();
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailNotificationService>();
 
-        var allFindings = await storage.GetFindingsAsync();
+        var allFindings = await storage.GetAllFindingsAsync();
         var plantUsers = await supabase.GetUsersAsync();
 
         // Build email lookup by user name/id
