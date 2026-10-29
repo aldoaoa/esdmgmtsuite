@@ -532,7 +532,7 @@ public class FindingsStorageService
             {
                 return (true, data ?? finding, null);
             }
-            return (false, null, error ?? "Error al persistir en Supabase");
+            return (false, null, error ?? "Error al persistir en la nube");
         }
         catch (Exception ex)
         {

@@ -5465,6 +5465,7 @@ public class ApiController : ControllerBase
                 ["status"] = "OPEN",
                 ["auditor_id"] = currentUserId,
                 ["auditor_name"] = currentUserName,
+                ["auditor_email"] = currentUserEmail,
                 ["opened_by"] = currentUserName,
                 ["assignee_name"] = assignee,
                 ["assigned_to"] = assignee,
@@ -5493,7 +5494,7 @@ public class ApiController : ControllerBase
             {
                 return StatusCode(500, new { 
                     success = false, 
-                    message = "Error al persistir el hallazgo en Supabase: " + (error ?? "Fallo de comunicación o esquema."),
+                    message = "Error al persistir el hallazgo en la nube: " + (error ?? "Fallo de comunicación o esquema."),
                     error = error 
                 });
             }
@@ -5556,6 +5557,7 @@ public class ApiController : ControllerBase
         if (existing == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
 
         string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Usuario";
+        string currentUserEmail = HttpContext.Session.GetString("user_email") ?? "";
         string targetSite = existing["site_id"]?.ToString() ?? CurrentUserSiteId;
 
         if (payload["title"] != null) existing["title"] = payload["title"]?.ToString();
@@ -5582,15 +5584,94 @@ public class ApiController : ControllerBase
             ["timestamp"] = DateTime.UtcNow.ToString("o"),
             ["user"] = currentUserName,
             ["action"] = "Actualización de Plan de Acción",
-            ["notes"] = payload["timeline_note"]?.ToString() ?? "Se actualizaron detalles y plan de acción del hallazgo."
+            ["notes"] = payload["timeline_note"]?.ToString() ?? "Se actualizaron detalles y plan de acción CAPA del hallazgo."
         });
         existing["timeline"] = timeline;
 
         var (success, saved, error) = await _findingsStorage.SaveFindingAsync(existing);
         if (!success)
         {
-            return StatusCode(500, new { success = false, message = "Error al actualizar en Supabase: " + (error ?? "Fallo desconocido") });
+            return StatusCode(500, new { success = false, message = "Error al actualizar en la nube: " + (error ?? "Fallo desconocido") });
         }
+
+        // Email notification of CAPA Plan update to involved parties
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                string auditorEmail = existing["auditor_email"]?.ToString() ?? "";
+                string auditorName = existing["auditor_name"]?.ToString() ?? existing["opened_by"]?.ToString() ?? "Auditor";
+                string auditorId = existing["auditor_id"]?.ToString() ?? "";
+
+                if (string.IsNullOrEmpty(auditorEmail) && !string.IsNullOrEmpty(auditorId))
+                {
+                    try
+                    {
+                        var u = await _supabase.GetUserByIdAsync(auditorId);
+                        if (u != null) auditorEmail = u["email"]?.ToString() ?? "";
+                    }
+                    catch { }
+                }
+
+                if (string.IsNullOrEmpty(auditorEmail) && !string.IsNullOrEmpty(currentUserEmail))
+                {
+                    auditorEmail = currentUserEmail;
+                }
+
+                string assigneeEmail = existing["assignee_email"]?.ToString() ?? "";
+                string assigneeName = existing["assignee_name"]?.ToString() ?? existing["assigned_to"]?.ToString() ?? "";
+
+                if (string.IsNullOrEmpty(assigneeEmail) && !string.IsNullOrEmpty(assigneeName))
+                {
+                    try
+                    {
+                        var users = await _supabase.GetUsersAsync();
+                        foreach (var uNode in users)
+                        {
+                            if (uNode is JsonObject uObj)
+                            {
+                                if (string.Equals(uObj["full_name"]?.ToString()?.Trim(), assigneeName.Trim(), StringComparison.OrdinalIgnoreCase))
+                                {
+                                    assigneeEmail = uObj["email"]?.ToString() ?? "";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                string code = existing["tracking_code"]?.ToString() ?? existing["tracker_code"]?.ToString() ?? id;
+                string title = existing["title"]?.ToString() ?? "Hallazgo Normativo";
+                string currentStatus = existing["status"]?.ToString() ?? "OPEN";
+
+                var statusModel = new FindingStatusChangedEmailModel
+                {
+                    TrackingCode = code,
+                    Title = title,
+                    Severity = existing["severity"]?.ToString() ?? "MAJOR",
+                    AuditedElement = existing["element_id"]?.ToString() ?? "",
+                    Location = existing["location"]?.ToString() ?? existing["area"]?.ToString() ?? "",
+                    PreviousStatus = currentStatus,
+                    NewStatus = currentStatus,
+                    ChangedBy = currentUserName,
+                    ChangeNotes = payload["timeline_note"]?.ToString() ?? "Actualización del plan de acción CAPA (Causa raíz y acciones correctivas documentadas).",
+                    RootCause = existing["root_cause"]?.ToString() ?? "",
+                    CorrectiveAction = existing["corrective_action"]?.ToString() ?? "",
+                    AuditorName = auditorName,
+                    AuditorEmail = auditorEmail,
+                    AssigneeName = assigneeName,
+                    AssigneeEmail = assigneeEmail,
+                    SiteId = targetSite
+                };
+                await _emailService.SendFindingStatusChangedNotificationAsync(statusModel);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UpdateFinding Email Error]: {ex.Message}");
+            }
+        });
+
         return Ok(new { success = true, data = saved, finding = saved, message = "Plan de acción actualizado correctamente." });
     }
 
@@ -5601,8 +5682,23 @@ public class ApiController : ControllerBase
         if (existing == null) return NotFound(new { success = false, message = "Hallazgo no encontrado." });
 
         string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Usuario";
-        string newStatus = payload["status"]?.ToString()?.ToUpper() ?? "OPEN";
-        string notes = payload["notes"]?.ToString() ?? $"Cambio de estatus a {newStatus}";
+        string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
+        string currentUserEmail = HttpContext.Session.GetString("user_email") ?? "";
+        string targetSite = existing["site_id"]?.ToString() ?? CurrentUserSiteId;
+
+        string previousStatus = existing["status"]?.ToString()?.ToUpper() ?? "OPEN";
+
+        string? statusCandidate = payload["new_status"]?.ToString() 
+            ?? payload["status"]?.ToString() 
+            ?? payload["newStatus"]?.ToString();
+
+        if (string.IsNullOrWhiteSpace(statusCandidate))
+        {
+            return BadRequest(new { success = false, message = "Estatus no especificado en la solicitud." });
+        }
+
+        string newStatus = statusCandidate.Trim().ToUpperInvariant();
+        string notes = payload["notes"]?.ToString() ?? payload["comment"]?.ToString() ?? $"Cambio de estatus a {newStatus}";
         string evidenceClose = payload["evidence_close_url"]?.ToString() ?? "";
 
         existing["status"] = newStatus;
@@ -5611,15 +5707,23 @@ public class ApiController : ControllerBase
             existing["evidence_close_url"] = evidenceClose;
         }
 
+        // Capture CAPA fields if provided during status transition
+        if (payload["root_cause"] != null) existing["root_cause"] = payload["root_cause"]?.ToString();
+        if (payload["corrective_action"] != null) existing["corrective_action"] = payload["corrective_action"]?.ToString();
+        if (payload["lessons_learned"] != null) existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
+        if (payload["containment_action"] != null) existing["containment_action"] = payload["containment_action"]?.ToString();
+        if (payload["assignee_name"] != null)
+        {
+            existing["assignee_name"] = payload["assignee_name"]?.ToString();
+            existing["assigned_to"] = payload["assignee_name"]?.ToString();
+        }
+        if (payload["due_date"] != null) existing["due_date"] = payload["due_date"]?.ToString();
+
         if (newStatus == "CLOSED")
         {
             existing["closed_at"] = DateTime.UtcNow.ToString("o");
             existing["closed_by_name"] = currentUserName;
             existing["closed_by"] = currentUserName;
-            if (payload["lessons_learned"] != null)
-            {
-                existing["lessons_learned"] = payload["lessons_learned"]?.ToString();
-            }
         }
         else
         {
@@ -5641,8 +5745,124 @@ public class ApiController : ControllerBase
         var (success, saved, error) = await _findingsStorage.SaveFindingAsync(existing);
         if (!success)
         {
-            return StatusCode(500, new { success = false, message = "Error al actualizar estatus en Supabase: " + (error ?? "Fallo desconocido") });
+            return StatusCode(500, new { success = false, message = "Error al actualizar estatus en la nube: " + (error ?? "Fallo desconocido") });
         }
+
+        // Dispatch Email notifications asynchronously to Auditor and Assignee
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Resolve auditor email
+                string auditorEmail = existing["auditor_email"]?.ToString() ?? "";
+                string auditorName = existing["auditor_name"]?.ToString() ?? existing["opened_by"]?.ToString() ?? "Auditor";
+                string auditorId = existing["auditor_id"]?.ToString() ?? "";
+
+                if (string.IsNullOrEmpty(auditorEmail) && !string.IsNullOrEmpty(auditorId))
+                {
+                    try
+                    {
+                        var u = await _supabase.GetUserByIdAsync(auditorId);
+                        if (u != null) auditorEmail = u["email"]?.ToString() ?? "";
+                    }
+                    catch { }
+                }
+
+                if (string.IsNullOrEmpty(auditorEmail) && !string.IsNullOrEmpty(currentUserEmail))
+                {
+                    auditorEmail = currentUserEmail;
+                }
+
+                // Resolve assignee email
+                string assigneeEmail = existing["assignee_email"]?.ToString() ?? "";
+                string assigneeName = existing["assignee_name"]?.ToString() ?? existing["assigned_to"]?.ToString() ?? "";
+
+                if (string.IsNullOrEmpty(assigneeEmail) && !string.IsNullOrEmpty(assigneeName))
+                {
+                    try
+                    {
+                        var users = await _supabase.GetUsersAsync();
+                        foreach (var uNode in users)
+                        {
+                            if (uNode is JsonObject uObj)
+                            {
+                                if (string.Equals(uObj["full_name"]?.ToString()?.Trim(), assigneeName.Trim(), StringComparison.OrdinalIgnoreCase))
+                                {
+                                    assigneeEmail = uObj["email"]?.ToString() ?? "";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                string code = existing["tracking_code"]?.ToString() ?? existing["tracker_code"]?.ToString() ?? id;
+                string title = existing["title"]?.ToString() ?? "Hallazgo Normativo";
+                string sev = existing["severity"]?.ToString() ?? "MAJOR";
+                string elem = existing["element_id"]?.ToString() ?? "";
+                string loc = existing["location"]?.ToString() ?? existing["area"]?.ToString() ?? "";
+                string area = existing["area"]?.ToString() ?? "";
+                string table = existing["normative_table"]?.ToString() ?? "";
+
+                if (newStatus == "CLOSED")
+                {
+                    var closedModel = new FindingClosedEmailModel
+                    {
+                        TrackingCode = code,
+                        Title = title,
+                        Severity = sev,
+                        AuditedElement = elem,
+                        Location = loc,
+                        Area = area,
+                        NormativeTable = table,
+                        ImmediateContainment = existing["containment_action"]?.ToString() ?? "",
+                        RootCause = existing["root_cause"]?.ToString() ?? "",
+                        CorrectiveAction = existing["corrective_action"]?.ToString() ?? "",
+                        LessonsLearned = existing["lessons_learned"]?.ToString() ?? "",
+                        ClosedBy = currentUserName,
+                        ClosedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
+                        EvidenceOpenUrl = existing["evidence_open_url"]?.ToString(),
+                        EvidenceCloseUrl = existing["evidence_close_url"]?.ToString(),
+                        AuditorName = auditorName,
+                        AuditorEmail = auditorEmail,
+                        AssigneeName = assigneeName,
+                        AssigneeEmail = assigneeEmail,
+                        SiteId = targetSite,
+                        CloseNotes = notes
+                    };
+                    await _emailService.SendFindingClosedNotificationAsync(closedModel);
+                }
+                else
+                {
+                    var statusModel = new FindingStatusChangedEmailModel
+                    {
+                        TrackingCode = code,
+                        Title = title,
+                        Severity = sev,
+                        AuditedElement = elem,
+                        Location = loc,
+                        PreviousStatus = previousStatus,
+                        NewStatus = newStatus,
+                        ChangedBy = currentUserName,
+                        ChangeNotes = notes,
+                        RootCause = existing["root_cause"]?.ToString() ?? "",
+                        CorrectiveAction = existing["corrective_action"]?.ToString() ?? "",
+                        AuditorName = auditorName,
+                        AuditorEmail = auditorEmail,
+                        AssigneeName = assigneeName,
+                        AssigneeEmail = assigneeEmail,
+                        SiteId = targetSite
+                    };
+                    await _emailService.SendFindingStatusChangedNotificationAsync(statusModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UpdateFindingStatus Email Dispatch Error]: {ex.Message}");
+            }
+        });
+
         return Ok(new { success = true, data = saved, message = $"Estatus actualizado a {newStatus}." });
     }
 
@@ -5676,11 +5896,15 @@ public class ApiController : ControllerBase
             return Ok(new { success = true, message = $"Hallazgo '{code}' eliminado correctamente." });
         }
 
-        return StatusCode(500, new { success = false, message = "Error al eliminar en Supabase: " + (error ?? "Fallo desconocido") });
+        return StatusCode(500, new { success = false, message = "Error al eliminar en la nube: " + (error ?? "Fallo desconocido") });
     }
 
     [HttpPost("findings/upload-evidence")]
-    public async Task<IActionResult> UploadFindingEvidence([FromForm] IFormFile? file, [FromForm] string? type = "open")
+    public async Task<IActionResult> UploadFindingEvidence(
+        [FromForm] IFormFile? file, 
+        [FromForm] string? type = "open",
+        [FromForm] string? finding_id = null,
+        [FromForm] string? findingId = null)
     {
         if (file == null || file.Length == 0) return BadRequest(new { success = false, message = "No se recibió archivo de evidencia." });
 
@@ -5710,7 +5934,7 @@ public class ApiController : ControllerBase
             string fileName = $"ev_{type}_{Guid.NewGuid():N}{ext}";
             string storagePath = $"findings/{year}/{fileName}";
 
-            // 1. Subir directamente a Supabase Storage bucket 'audit-evidence'
+            // 1. Subir a Storage bucket 'audit-evidence'
             var (uploadOk, storageKey, uploadMsg) = await _supabase.UploadStorageObjectAsync("audit-evidence", storagePath, fileBytes, contentType);
             string evidenceUrl = "";
 
@@ -5732,11 +5956,79 @@ public class ApiController : ControllerBase
                 }
             }
 
-            return Ok(new { success = true, url = evidenceUrl, evidence_url = evidenceUrl, message = "Evidencia procesada exitosamente." });
+            // 2. Asociar URL de evidencia al hallazgo si se especificó ID
+            string targetFindingId = !string.IsNullOrEmpty(finding_id) ? finding_id : (findingId ?? "");
+            JsonObject? savedFinding = null;
+
+            if (!string.IsNullOrEmpty(targetFindingId))
+            {
+                var existing = await _findingsStorage.GetFindingByIdAsync(targetFindingId);
+                if (existing != null)
+                {
+                    string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+                    bool isClose = string.Equals(type, "close", StringComparison.OrdinalIgnoreCase);
+
+                    if (isClose)
+                    {
+                        existing["evidence_close_url"] = evidenceUrl;
+                    }
+                    else
+                    {
+                        existing["evidence_open_url"] = evidenceUrl;
+                    }
+
+                    // Guardar simultáneamente cualquier borrador de texto que el usuario haya escrito en el modal
+                    string? rootCause = Request.Form["root_cause"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(rootCause)) existing["root_cause"] = rootCause;
+
+                    string? corrective = Request.Form["corrective_action"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(corrective)) existing["corrective_action"] = corrective;
+
+                    string? lessons = Request.Form["lessons_learned"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(lessons)) existing["lessons_learned"] = lessons;
+
+                    string? containment = Request.Form["containment_action"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(containment)) existing["containment_action"] = containment;
+
+                    string? assignee = Request.Form["assignee_name"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(assignee))
+                    {
+                        existing["assignee_name"] = assignee;
+                        existing["assigned_to"] = assignee;
+                    }
+
+                    string? dueDate = Request.Form["due_date"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(dueDate)) existing["due_date"] = dueDate;
+
+                    var timeline = existing["timeline"] as JsonArray ?? new JsonArray();
+                    timeline.Add(new JsonObject
+                    {
+                        ["timestamp"] = DateTime.UtcNow.ToString("o"),
+                        ["user"] = currentUserName,
+                        ["action"] = isClose ? "Carga de Evidencia de Cierre" : "Carga de Evidencia Inicial",
+                        ["notes"] = $"Fotografía de evidencia {(isClose ? "de cierre" : "inicial")} adjuntada al hallazgo."
+                    });
+                    existing["timeline"] = timeline;
+
+                    var (saveOk, saved, _) = await _findingsStorage.SaveFindingAsync(existing);
+                    if (saveOk && saved != null)
+                    {
+                        savedFinding = saved;
+                    }
+                }
+            }
+
+            return Ok(new { 
+                success = true, 
+                url = evidenceUrl, 
+                evidence_url = evidenceUrl, 
+                finding = savedFinding,
+                message = "Evidencia fotográfica procesada y guardada exitosamente." 
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { success = false, message = ex.Message });
+            return StatusCode(500, new { success = false, message = "Error al procesar la evidencia: " + ex.Message });
         }
     }
 
@@ -5856,7 +6148,7 @@ public class ApiController : ControllerBase
             {
                 return StatusCode(500, new { 
                     success = false, 
-                    message = "Error al persistir la lección aprendida en Supabase: " + (error ?? "Fallo de comunicación"),
+                    message = "Error al persistir la lección aprendida en la nube: " + (error ?? "Fallo de comunicación"),
                     error = error 
                 });
             }
@@ -5873,7 +6165,7 @@ public class ApiController : ControllerBase
                 data = saved, 
                 lesson = saved, 
                 tracking_code = code,
-                message = $"Lección aprendida '{code}' guardada exitosamente en Supabase." 
+                message = $"Lección aprendida '{code}' guardada exitosamente." 
             });
         }
         catch (Exception ex)

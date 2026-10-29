@@ -34,6 +34,51 @@ public class FindingReminderEmailModel
     public string SiteId { get; set; } = "";
 }
 
+public class FindingClosedEmailModel
+{
+    public string TrackingCode { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Severity { get; set; } = "MAJOR";
+    public string AuditedElement { get; set; } = "";
+    public string Location { get; set; } = "";
+    public string Area { get; set; } = "";
+    public string NormativeTable { get; set; } = "";
+    public string ImmediateContainment { get; set; } = "";
+    public string RootCause { get; set; } = "";
+    public string CorrectiveAction { get; set; } = "";
+    public string LessonsLearned { get; set; } = "";
+    public string ClosedBy { get; set; } = "";
+    public string ClosedAt { get; set; } = "";
+    public string? EvidenceOpenUrl { get; set; }
+    public string? EvidenceCloseUrl { get; set; }
+    public string AuditorName { get; set; } = "";
+    public string? AuditorEmail { get; set; }
+    public string AssigneeName { get; set; } = "";
+    public string? AssigneeEmail { get; set; }
+    public string SiteId { get; set; } = "";
+    public string CloseNotes { get; set; } = "";
+}
+
+public class FindingStatusChangedEmailModel
+{
+    public string TrackingCode { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Severity { get; set; } = "MAJOR";
+    public string AuditedElement { get; set; } = "";
+    public string Location { get; set; } = "";
+    public string PreviousStatus { get; set; } = "";
+    public string NewStatus { get; set; } = "";
+    public string ChangedBy { get; set; } = "";
+    public string ChangeNotes { get; set; } = "";
+    public string RootCause { get; set; } = "";
+    public string CorrectiveAction { get; set; } = "";
+    public string AuditorName { get; set; } = "";
+    public string? AuditorEmail { get; set; }
+    public string AssigneeName { get; set; } = "";
+    public string? AssigneeEmail { get; set; }
+    public string SiteId { get; set; } = "";
+}
+
 public class UserWelcomeEmailModel
 {
     public string FullName { get; set; } = "";

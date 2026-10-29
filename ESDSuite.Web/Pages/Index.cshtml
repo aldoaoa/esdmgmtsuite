@@ -174,7 +174,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.7</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.8</span>
                     </div>
                 </div>
             </div>
@@ -286,7 +286,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.7</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.8</span>
             </div>
         </div>
     </aside>
@@ -2538,7 +2538,7 @@
                                 </div>
                                 <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
                                     <button type="button" class="btn-primary" style="background:var(--text-muted);" onclick="toggleAddEquipmentForm()" data-i18n="settings.btn_cancel">Cancelar</button>
-                                    <button type="submit" id="btn-save-eq-submit" class="btn-primary" data-i18n="settings.btn_save_supabase">💾 Guardar Equipo</button>
+                                    <button type="submit" id="btn-save-eq-submit" class="btn-primary" data-i18n="settings.btn_save_equipment">💾 Guardar Equipo</button>
                                 </div>
                             </form>
                         </div>
@@ -2943,7 +2943,7 @@
                         <!-- RECENT EMAIL LOGS TABLE -->
                         <div style="background:var(--bg-glass); border:1px solid var(--border-color); border-radius:10px; padding:16px;">
                             <h5 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; align-items:center; justify-content:space-between;">
-                                <span>📜 Bitácora de Notificaciones Enviadas (Persistencia en Supabase)</span>
+                                <span>📜 Bitácora de Notificaciones Enviadas (Persistencia en la Nube)</span>
                                 <span id="email-logs-count" style="font-size:11.5px; color:var(--text-muted); font-weight:normal;"></span>
                             </h5>
                             <div class="table-responsive" style="max-height:420px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
@@ -8718,7 +8718,7 @@
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerText = t('settings.btn_save_supabase', '💾 Guardar Equipo');
+                submitBtn.innerText = t('settings.btn_save_equipment', '💾 Guardar Equipo');
             }
         }
     };
@@ -10929,10 +10929,19 @@
         if (!currentFinding) return;
         const id = currentFinding.id;
 
+        // Obtain latest values from input elements
+        const rootCauseVal = document.getElementById('fnd-det-root-cause')?.value?.trim() || '';
+        const correctiveVal = document.getElementById('fnd-det-corrective')?.value?.trim() || '';
+        const lessonsVal = document.getElementById('fnd-det-lessons')?.value?.trim() || '';
+        const containmentVal = document.getElementById('fnd-det-containment')?.value?.trim() || '';
+        const assigneeVal = document.getElementById('fnd-det-assignee')?.value?.trim() || '';
+        const dueDateVal = document.getElementById('fnd-det-due-date')?.value || '';
+
         if (newStatus === 'CLOSED') {
-            const corrective = document.getElementById('fnd-det-corrective').value.trim();
-            if (!corrective && !currentFinding.corrective_action) {
+            const effectiveCorrective = correctiveVal || currentFinding.corrective_action;
+            if (!effectiveCorrective) {
                 alert('⚠️ Para cerrar un hallazgo debe documentar la Acción Correctiva Definitiva implementada.');
+                document.getElementById('fnd-det-corrective')?.focus();
                 return;
             }
             if (!currentFinding.evidence_close_url) {
@@ -10946,15 +10955,26 @@
         if (comment === null) return;
 
         try {
+            const payload = {
+                status: newStatus,
+                new_status: newStatus,
+                newStatus: newStatus,
+                comment: comment,
+                notes: comment,
+                user: sessionData ? sessionData.user_name : 'Auditor',
+                root_cause: rootCauseVal,
+                corrective_action: correctiveVal,
+                lessons_learned: lessonsVal,
+                containment_action: containmentVal,
+                assignee_name: assigneeVal,
+                due_date: dueDateVal,
+                evidence_close_url: currentFinding.evidence_close_url || ''
+            };
+
             const res = await fetch(`/api/findings/${encodeURIComponent(id)}/status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    new_status: newStatus,
-                    comment: comment,
-                    notes: comment,
-                    user: sessionData ? sessionData.user_name : 'Auditor'
-                })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (data.success) {
@@ -10973,12 +10993,29 @@
     async function handleEvidenceUpload(type, fileInput) {
         if (!currentFinding || !fileInput.files || fileInput.files.length === 0) return;
         const file = fileInput.files[0];
+        const fId = currentFinding.id;
+
+        // Capture current form inputs so they are NOT lost when uploading
+        const draftAssignee = document.getElementById('fnd-det-assignee')?.value || '';
+        const draftDueDate = document.getElementById('fnd-det-due-date')?.value || '';
+        const draftContainment = document.getElementById('fnd-det-containment')?.value || '';
+        const draftRootCause = document.getElementById('fnd-det-root-cause')?.value || '';
+        const draftCorrective = document.getElementById('fnd-det-corrective')?.value || '';
+        const draftLessons = document.getElementById('fnd-det-lessons')?.value || '';
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('photo', file);
-        formData.append('finding_id', currentFinding.id);
+        formData.append('finding_id', fId);
+        formData.append('findingId', fId);
         formData.append('type', type);
         formData.append('evidence_type', type);
+        formData.append('root_cause', draftRootCause);
+        formData.append('corrective_action', draftCorrective);
+        formData.append('lessons_learned', draftLessons);
+        formData.append('containment_action', draftContainment);
+        formData.append('assignee_name', draftAssignee);
+        formData.append('due_date', draftDueDate);
 
         try {
             const res = await fetch('/api/findings/upload-evidence', {
@@ -10995,8 +11032,26 @@
                 return;
             }
             if (data && data.success) {
-                alert('📸 Evidencia fotográfica subida correctamente a Supabase.');
-                await openFindingModal(currentFinding.id);
+                alert('✅ Evidencia fotográfica guardada exitosamente.');
+                if (data.finding) {
+                    currentFinding = data.finding;
+                } else if (type === 'close') {
+                    currentFinding.evidence_close_url = data.url || data.evidence_url;
+                } else {
+                    currentFinding.evidence_open_url = data.url || data.evidence_url;
+                }
+                await openFindingModal(fId);
+
+                // Preserve draft values if modal reload didn't populate them
+                if (draftRootCause && !document.getElementById('fnd-det-root-cause').value) {
+                    document.getElementById('fnd-det-root-cause').value = draftRootCause;
+                }
+                if (draftCorrective && !document.getElementById('fnd-det-corrective').value) {
+                    document.getElementById('fnd-det-corrective').value = draftCorrective;
+                }
+                if (draftLessons && !document.getElementById('fnd-det-lessons').value) {
+                    document.getElementById('fnd-det-lessons').value = draftLessons;
+                }
                 loadFindingsModule();
             } else {
                 alert('❌ ' + (data && data.message ? data.message : 'Error al subir la evidencia.'));
@@ -11004,6 +11059,8 @@
         } catch(e) {
             console.error('Error uploading evidence:', e);
             alert('❌ Error al subir la imagen: ' + (e.message || e));
+        } finally {
+            fileInput.value = '';
         }
     }
 
@@ -11297,14 +11354,14 @@
                 const code = (data.finding && (data.finding.tracking_code || data.finding.tracker_code))
                     || (data.data && (data.data.tracking_code || data.data.tracker_code))
                     || '';
-                alert('✅ Hallazgo creado con éxito en Supabase' + (code ? `: ${code}` : '.'));
+                alert('✅ Hallazgo creado con éxito' + (code ? `: ${code}` : '.'));
                 closeNewFindingModal();
                 await loadFindingsModule();
                 if (typeof loadFindingsDashboard === 'function') {
                     await loadFindingsDashboard();
                 }
             } else {
-                alert('❌ ' + (data && data.message ? data.message : 'Error al crear el hallazgo en Supabase.'));
+                alert('❌ ' + (data && data.message ? data.message : 'Error al crear el hallazgo.'));
             }
         } catch(e) {
             console.error('Error creating manual finding:', e);
@@ -11669,7 +11726,7 @@
             }
             if (data && data.success) {
                 const code = data.tracking_code || (data.lesson && (data.lesson.tracking_code || data.lesson.tracker_code)) || '';
-                alert('✅ Lección aprendida guardada exitosamente en Supabase' + (code ? `: ${code}` : '.'));
+                alert('✅ Lección aprendida guardada exitosamente' + (code ? `: ${code}` : '.'));
                 closeNewLessonModal();
                 await loadLessonsLearned();
                 if (typeof loadFindingsDashboard === 'function') loadFindingsDashboard();
@@ -11689,7 +11746,7 @@
             return;
         }
         const label = code || id;
-        if (!confirm(`¿Está seguro de eliminar permanentemente la lección aprendida "${label}"?\n\nEsta acción no se puede deshacer y se eliminará de Supabase.`)) {
+        if (!confirm(`¿Está seguro de eliminar permanentemente la lección aprendida "${label}"?\n\nEsta acción no se puede deshacer y se eliminará del sistema.`)) {
             return;
         }
         try {

@@ -167,6 +167,86 @@ public class ResendEmailService : IEmailNotificationService
             model.SiteId);
     }
 
+    public async Task<(bool success, string messageId, string? error)> SendFindingClosedNotificationAsync(FindingClosedEmailModel model)
+    {
+        var recipients = new List<(string email, string name)>();
+        if (!string.IsNullOrWhiteSpace(model.AuditorEmail))
+            recipients.Add((model.AuditorEmail.Trim(), model.AuditorName));
+        if (!string.IsNullOrWhiteSpace(model.AssigneeEmail) && !recipients.Any(r => string.Equals(r.email, model.AssigneeEmail.Trim(), StringComparison.OrdinalIgnoreCase)))
+            recipients.Add((model.AssigneeEmail.Trim(), model.AssigneeName));
+
+        if (recipients.Count == 0)
+        {
+            return (false, "", "No se encontraron destinatarios con correo para el cierre de hallazgo.");
+        }
+
+        string subject = $"✅ [Hallazgo Cerrado {model.TrackingCode}] {model.Title} - Resolución Verificada";
+        string html = BuildFindingClosedHtml(model);
+        string plain = $"esd360 - Hallazgo Cerrado: {model.TrackingCode}\nTítulo: {model.Title}\nSeveridad: {model.Severity}\nCerrado por: {model.ClosedBy} ({model.ClosedAt})\nAcción Correctiva: {model.CorrectiveAction}\nCausa Raíz: {model.RootCause}\nLección Aprendida: {model.LessonsLearned}\nAccede a https://esd360.app para ver el reporte completo.";
+
+        bool anySuccess = false;
+        string lastMsgId = "";
+        string? lastError = null;
+
+        foreach (var (toEmail, toName) in recipients)
+        {
+            var (ok, mId, err) = await SendEmailAsync(
+                toEmail, 
+                toName, 
+                subject, 
+                html, 
+                plain, 
+                "FINDING_CLOSED", 
+                model.TrackingCode, 
+                model.SiteId);
+
+            if (ok) { anySuccess = true; lastMsgId = mId; }
+            else { lastError = err; }
+        }
+
+        return (anySuccess, lastMsgId, lastError);
+    }
+
+    public async Task<(bool success, string messageId, string? error)> SendFindingStatusChangedNotificationAsync(FindingStatusChangedEmailModel model)
+    {
+        var recipients = new List<(string email, string name)>();
+        if (!string.IsNullOrWhiteSpace(model.AuditorEmail))
+            recipients.Add((model.AuditorEmail.Trim(), model.AuditorName));
+        if (!string.IsNullOrWhiteSpace(model.AssigneeEmail) && !recipients.Any(r => string.Equals(r.email, model.AssigneeEmail.Trim(), StringComparison.OrdinalIgnoreCase)))
+            recipients.Add((model.AssigneeEmail.Trim(), model.AssigneeName));
+
+        if (recipients.Count == 0)
+        {
+            return (false, "", "No se encontraron destinatarios con correo para la actualización de estatus.");
+        }
+
+        string subject = $"🔄 [Estatus: {model.NewStatus}] Hallazgo {model.TrackingCode} - {model.Title}";
+        string html = BuildFindingStatusChangedHtml(model);
+        string plain = $"esd360 - Estatus Actualizado: {model.TrackingCode}\nNuevo Estatus: {model.NewStatus}\nModificado por: {model.ChangedBy}\nNotas: {model.ChangeNotes}\nAccede a https://esd360.app.";
+
+        bool anySuccess = false;
+        string lastMsgId = "";
+        string? lastError = null;
+
+        foreach (var (toEmail, toName) in recipients)
+        {
+            var (ok, mId, err) = await SendEmailAsync(
+                toEmail, 
+                toName, 
+                subject, 
+                html, 
+                plain, 
+                "FINDING_STATUS_CHANGED", 
+                model.TrackingCode, 
+                model.SiteId);
+
+            if (ok) { anySuccess = true; lastMsgId = mId; }
+            else { lastError = err; }
+        }
+
+        return (anySuccess, lastMsgId, lastError);
+    }
+
     public async Task<(bool success, string messageId, string? error)> SendUserWelcomeAsync(UserWelcomeEmailModel model)
     {
         if (string.IsNullOrWhiteSpace(model.Email))
@@ -511,6 +591,256 @@ public class ResendEmailService : IEmailNotificationService
         </div>
         <div style='background:#F8FAFC; padding:14px 28px; border-top:1px solid #E2E8F0; font-size:11px; color:#94A3B8; text-align:center;'>
             esd360 Platform &bull; notification@esd360.app
+        </div>
+    </div>
+</body>
+</html>";
+    }
+
+    private string BuildFindingClosedHtml(FindingClosedEmailModel m)
+    {
+        var (sevBadge, sevColor, sevBg) = GetSeverityBadges(m.Severity);
+        string safeCode = HtmlEncoder.Default.Encode(m.TrackingCode);
+        string safeTitle = HtmlEncoder.Default.Encode(m.Title);
+        string safeElem = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.AuditedElement) ? "General / No especificado" : m.AuditedElement);
+        string safeLoc = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.Location) ? (m.Area ?? "-") : m.Location);
+        string safeTable = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.NormativeTable) ? "ANSI/ESD S20.20-2021" : m.NormativeTable);
+        string safeClosedBy = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.ClosedBy) ? "Auditor de Calidad" : m.ClosedBy);
+        string safeClosedAt = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.ClosedAt) ? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") : m.ClosedAt);
+        string safeRoot = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.RootCause) ? "No especificada" : m.RootCause);
+        string safeCorr = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.CorrectiveAction) ? "Acción correctiva implementada satisfactoriamente." : m.CorrectiveAction);
+        string safeLesson = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.LessonsLearned) ? "No registrada" : m.LessonsLearned);
+        string safeNotes = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.CloseNotes) ? "Cierre y validación satisfactoria." : m.CloseNotes);
+
+        string openImgTag = "";
+        if (!string.IsNullOrEmpty(m.EvidenceOpenUrl))
+        {
+            string url = m.EvidenceOpenUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) 
+                ? m.EvidenceOpenUrl 
+                : $"https://esd360.app{m.EvidenceOpenUrl}";
+            openImgTag = $@"
+                <div style='display:inline-block; vertical-align:top; width:260px; margin:6px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px; text-align:center;'>
+                    <div style='font-size:11px; font-weight:700; color:#DC2626; margin-bottom:6px;'>🔴 Apertura (No Conformidad)</div>
+                    <a href='{url}' target='_blank'>
+                        <img src='{url}' style='max-width:100%; max-height:160px; object-fit:contain; border-radius:6px; border:1px solid #CBD5E1;' alt='Evidencia de Apertura' />
+                    </a>
+                </div>";
+        }
+
+        string closeImgTag = "";
+        if (!string.IsNullOrEmpty(m.EvidenceCloseUrl))
+        {
+            string url = m.EvidenceCloseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) 
+                ? m.EvidenceCloseUrl 
+                : $"https://esd360.app{m.EvidenceCloseUrl}";
+            closeImgTag = $@"
+                <div style='display:inline-block; vertical-align:top; width:260px; margin:6px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px; text-align:center;'>
+                    <div style='font-size:11px; font-weight:700; color:#059669; margin-bottom:6px;'>🟢 Cierre (Evidencia Eficaz)</div>
+                    <a href='{url}' target='_blank'>
+                        <img src='{url}' style='max-width:100%; max-height:160px; object-fit:contain; border-radius:6px; border:1px solid #CBD5E1;' alt='Evidencia de Cierre' />
+                    </a>
+                </div>";
+        }
+
+        string evidenceBlock = (!string.IsNullOrEmpty(openImgTag) || !string.IsNullOrEmpty(closeImgTag))
+            ? $@"
+            <div style='margin-top:20px; padding:16px; background:#F8FAFC; border-radius:10px; border:1px solid #E2E8F0;'>
+                <div style='font-size:12px; font-weight:700; color:#334155; margin-bottom:10px; text-transform:uppercase;'>Evidencias Fotográficas Auditadas</div>
+                <div style='text-align:center;'>
+                    {openImgTag}
+                    {closeImgTag}
+                </div>
+            </div>"
+            : "";
+
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Hallazgo Cerrado - {safeCode}</title>
+</head>
+<body style='margin:0; padding:0; background-color:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; color:#0F172A;'>
+    <div style='max-width:620px; margin:30px auto; background:#FFFFFF; border-radius:14px; overflow:hidden; border:1px solid #E2E8F0; box-shadow:0 10px 25px rgba(15,23,42,0.08);'>
+        
+        <!-- HEADER -->
+        <div style='background:linear-gradient(135deg, #064E3B 0%, #0F172A 100%); padding:28px 32px; color:#FFFFFF;'>
+            <table style='width:100%; border-collapse:collapse;'>
+                <tr>
+                    <td>
+                        <span style='font-size:20px; font-weight:800; letter-spacing:-0.5px;'>esd360</span>
+                        <span style='font-size:11px; background:rgba(255,255,255,0.18); padding:3px 8px; border-radius:12px; margin-left:8px; font-weight:700;'>ENTERPRISE</span>
+                    </td>
+                    <td style='text-align:right;'>
+                        <span style='font-size:11px; color:#A7F3D0;'>ANSI/ESD S20.20-2021</span>
+                    </td>
+                </tr>
+            </table>
+            <h1 style='margin:18px 0 6px 0; font-size:22px; font-weight:800; color:#FFFFFF; line-height:1.25;'>✅ Hallazgo Normativo Cerrado y Verificado</h1>
+            <p style='margin:0; font-size:13px; color:#D1FAE5;'>La acción correctiva ha sido documentada, validada eficazmente y el hallazgo ha concluido exitosamente.</p>
+        </div>
+
+        <!-- MAIN BODY -->
+        <div style='padding:28px 32px;'>
+            
+            <!-- CODE & STATUS BADGE -->
+            <table style='width:100%; margin-bottom:20px; border-collapse:collapse;'>
+                <tr>
+                    <td>
+                        <span style='font-size:11px; font-weight:800; text-transform:uppercase; color:#059669; letter-spacing:0.5px;'>Código de Rastreo</span>
+                        <div style='font-size:18px; font-weight:800; color:#0F172A; font-family:monospace;'>{safeCode}</div>
+                        <div style='font-size:13px; color:#475569; font-weight:600; margin-top:2px;'>{safeTitle}</div>
+                    </td>
+                    <td style='text-align:right; vertical-align:middle;'>
+                        <span style='display:inline-block; background:{sevColor}; color:#FFFFFF; font-weight:800; font-size:11px; padding:4px 10px; border-radius:16px; margin-bottom:4px;'>
+                            {sevBadge}
+                        </span><br/>
+                        <span style='display:inline-block; background:#059669; color:#FFFFFF; font-weight:800; font-size:12px; padding:5px 14px; border-radius:20px;'>
+                            ✅ ESTATUS: CLOSED
+                        </span>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- DETAILS TABLE -->
+            <table style='width:100%; border-collapse:collapse; background:#F8FAFC; border-radius:8px; overflow:hidden; border:1px solid #E2E8F0; margin-bottom:20px;'>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; font-weight:600; border-bottom:1px solid #E2E8F0; width:40%;'>Elemento Auditado:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; color:#0F172A; font-weight:700; border-bottom:1px solid #E2E8F0;'>{safeElem}</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; font-weight:600; border-bottom:1px solid #E2E8F0;'>Ubicación / Área:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; color:#0F172A; font-weight:600; border-bottom:1px solid #E2E8F0;'>{safeLoc}</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; font-weight:600; border-bottom:1px solid #E2E8F0;'>Norma de Referencia:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; color:#0F172A; border-bottom:1px solid #E2E8F0;'>{safeTable}</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; font-weight:600; border-bottom:1px solid #E2E8F0;'>Cerrado y Validado por:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; color:#0F172A; font-weight:700; border-bottom:1px solid #E2E8F0;'>{safeClosedBy} ({safeClosedAt})</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; font-weight:600;'>Comentario de Cierre:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; color:#0F172A; font-style:italic;'>""{safeNotes}""</td>
+                </tr>
+            </table>
+
+            <!-- CAPA RESOLUTION DETAILS -->
+            <div style='background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:16px 20px; margin-bottom:16px;'>
+                <div style='font-size:13px; font-weight:800; color:#166534; margin-bottom:8px;'>
+                    🔍 2. Análisis de Causa Raíz (Root Cause Analysis - 5 Porqués / Ishikawa)
+                </div>
+                <div style='font-size:13px; color:#14532D; line-height:1.5; background:#FFFFFF; padding:10px 14px; border-radius:6px; border:1px solid #DCFCE7;'>
+                    {safeRoot}
+                </div>
+
+                <div style='font-size:13px; font-weight:800; color:#166534; margin-top:14px; margin-bottom:8px;'>
+                    🛠️ 3. Acción Correctiva Definitiva Implementada
+                </div>
+                <div style='font-size:13px; color:#14532D; line-height:1.5; background:#FFFFFF; padding:10px 14px; border-radius:6px; border:1px solid #DCFCE7;'>
+                    {safeCorr}
+                </div>
+
+                <div style='font-size:13px; font-weight:800; color:#5B21B6; margin-top:14px; margin-bottom:8px;'>
+                    💡 4. Lección Aprendida y Mejora Continua
+                </div>
+                <div style='font-size:13px; color:#4C1D95; line-height:1.5; background:#FFFFFF; padding:10px 14px; border-radius:6px; border:1px solid #EDE9FE;'>
+                    {safeLesson}
+                </div>
+            </div>
+
+            {evidenceBlock}
+
+            <!-- CTA BUTTON -->
+            <div style='text-align:center; margin:28px 0 10px 0;'>
+                <a href='https://esd360.app' target='_blank' style='background:#059669; color:#FFFFFF; text-decoration:none; padding:13px 28px; border-radius:8px; font-weight:700; font-size:14px; display:inline-block; box-shadow:0 4px 12px rgba(5,150,105,0.25);'>
+                    Consultar Hallazgo en esd360 &rarr;
+                </a>
+            </div>
+
+        </div>
+
+        <!-- FOOTER -->
+        <div style='background:#F8FAFC; padding:18px 32px; border-top:1px solid #E2E8F0; text-align:center;'>
+            <p style='margin:0; font-size:11.5px; color:#64748B;'>
+                Este correo fue generado automáticamente por la Plataforma <strong>esd360 Enterprise</strong>.<br/>
+                Cumplimiento normativo auditado bajo estándar internacional <strong>ANSI/ESD S20.20-2021 / IEC 61340-5-1</strong>.
+            </p>
+        </div>
+
+    </div>
+</body>
+</html>";
+    }
+
+    private string BuildFindingStatusChangedHtml(FindingStatusChangedEmailModel m)
+    {
+        var (sevBadge, sevColor, sevBg) = GetSeverityBadges(m.Severity);
+        string safeCode = HtmlEncoder.Default.Encode(m.TrackingCode);
+        string safeTitle = HtmlEncoder.Default.Encode(m.Title);
+        string safePrev = HtmlEncoder.Default.Encode(m.PreviousStatus);
+        string safeNew = HtmlEncoder.Default.Encode(m.NewStatus);
+        string safeBy = HtmlEncoder.Default.Encode(m.ChangedBy);
+        string safeNotes = HtmlEncoder.Default.Encode(string.IsNullOrEmpty(m.ChangeNotes) ? "Actualización de estatus registrada." : m.ChangeNotes);
+        string safeLoc = HtmlEncoder.Default.Encode(m.Location);
+
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Actualización de Hallazgo {safeCode}</title>
+</head>
+<body style='margin:0; padding:0; background-color:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif; color:#0F172A;'>
+    <div style='max-width:600px; margin:30px auto; background:#FFFFFF; border-radius:14px; overflow:hidden; border:1px solid #E2E8F0; box-shadow:0 10px 25px rgba(15,23,42,0.08);'>
+        
+        <div style='background:#0F172A; padding:24px 30px; color:#FFFFFF;'>
+            <span style='font-size:18px; font-weight:800;'>esd360</span>
+            <span style='font-size:11px; background:rgba(255,255,255,0.18); padding:3px 8px; border-radius:12px; margin-left:8px; font-weight:700;'>ENTERPRISE</span>
+            <h2 style='margin:14px 0 4px 0; font-size:20px; font-weight:800; color:#FFFFFF;'>Actualización de Estatus de Hallazgo</h2>
+            <div style='font-size:12.5px; color:#94A3B8;'>El seguimiento CAPA del hallazgo normativo ha sido actualizado.</div>
+        </div>
+
+        <div style='padding:26px 30px;'>
+            <div style='background:{sevBg}; border:1px solid {sevColor}; border-radius:8px; padding:12px 16px; margin-bottom:18px;'>
+                <span style='font-size:11px; font-weight:800; text-transform:uppercase; color:{sevColor};'>Código: {safeCode}</span>
+                <div style='font-size:16px; font-weight:800; color:#0F172A;'>{safeTitle}</div>
+                <div style='font-size:12px; color:#64748B;'>Ubicación: {safeLoc}</div>
+            </div>
+
+            <table style='width:100%; border-collapse:collapse; background:#F8FAFC; border-radius:8px; border:1px solid #E2E8F0; margin-bottom:20px;'>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; width:40%; border-bottom:1px solid #E2E8F0;'>Estatus Anterior:</td>
+                    <td style='padding:10px 14px; font-size:13px; font-weight:700; color:#475569; border-bottom:1px solid #E2E8F0;'>{safePrev}</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; border-bottom:1px solid #E2E8F0;'>Nuevo Estatus:</td>
+                    <td style='padding:10px 14px; font-size:13px; font-weight:800; color:#2563EB; border-bottom:1px solid #E2E8F0;'>{safeNew}</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B; border-bottom:1px solid #E2E8F0;'>Modificado por:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; font-weight:600; color:#0F172A; border-bottom:1px solid #E2E8F0;'>{safeBy}</td>
+                </tr>
+                <tr>
+                    <td style='padding:10px 14px; font-size:12px; color:#64748B;'>Comentarios / Justificación:</td>
+                    <td style='padding:10px 14px; font-size:12.5px; color:#0F172A; font-style:italic;'>""{safeNotes}""</td>
+                </tr>
+            </table>
+
+            <div style='text-align:center; margin:22px 0 10px 0;'>
+                <a href='https://esd360.app' target='_blank' style='background:#2563EB; color:#FFFFFF; text-decoration:none; padding:12px 24px; border-radius:6px; font-weight:700; font-size:13px; display:inline-block;'>
+                    Acceder a esd360 &rarr;
+                </a>
+            </div>
+        </div>
+
+        <div style='background:#F8FAFC; padding:14px 30px; border-top:1px solid #E2E8F0; text-align:center; font-size:11px; color:#94A3B8;'>
+            esd360 Platform &bull; ANSI/ESD S20.20-2021
         </div>
     </div>
 </body>

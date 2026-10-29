@@ -18,6 +18,10 @@ public interface IEmailNotificationService
 
     Task<(bool success, string messageId, string? error)> SendFindingReminderAsync(FindingReminderEmailModel model);
 
+    Task<(bool success, string messageId, string? error)> SendFindingClosedNotificationAsync(FindingClosedEmailModel model);
+
+    Task<(bool success, string messageId, string? error)> SendFindingStatusChangedNotificationAsync(FindingStatusChangedEmailModel model);
+
     Task<(bool success, string messageId, string? error)> SendUserWelcomeAsync(UserWelcomeEmailModel model);
 
     Task<(bool success, string messageId, string? error)> SendPasswordResetAsync(string toEmail, string toName, string resetUrl);
