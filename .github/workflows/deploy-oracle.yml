@@ -32,7 +32,7 @@ jobs:
             # 4. Limpiar imágenes viejas de Docker para que no se llene tu disco
             sudo docker image prune -f
 
-            # 5. Verificación de salud y endpoints v2.9.8
+            # 5. Verificación de salud y endpoints v2.9.9
             sleep 4
             echo "=== SMOKE TEST: CADDY PROXY RESOLVE ==="
             curl -s -k --resolve esd360.app:443:127.0.0.1 https://esd360.app/api/normative-limits | head -c 350

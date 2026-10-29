@@ -6036,18 +6036,34 @@ public class ApiController : ControllerBase
     [HttpGet("findings/dashboard")]
     public async Task<IActionResult> GetFindingsDashboard([FromQuery] string? siteId = null)
     {
-        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
-        var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
-        return Ok(new { success = true, metrics = metrics, data = metrics });
+        try
+        {
+            string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+            var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
+            return Ok(new { success = true, metrics = metrics, data = metrics });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetFindingsDashboard Exception]: {ex.Message}");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
     }
 
     [HttpGet("lessons-learned")]
     public async Task<IActionResult> GetLessonsLearned([FromQuery] string? siteId = null)
     {
-        string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
-        var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
-        var lessons = metrics["lessonsLearned"] as JsonArray ?? new JsonArray();
-        return Ok(new { success = true, lessons = lessons, data = lessons, count = lessons.Count });
+        try
+        {
+            string targetSite = !string.IsNullOrEmpty(siteId) ? siteId : CurrentUserSiteId;
+            var metrics = await _findingsStorage.GetDashboardMetricsAsync(targetSite);
+            var lessons = (metrics["lessonsLearned"] as JsonArray ?? metrics["lessons_learned"] as JsonArray ?? new JsonArray()).DeepClone();
+            return Ok(new { success = true, lessons = lessons, data = lessons, count = (lessons as JsonArray)?.Count ?? 0, metrics = metrics });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetLessonsLearned Exception]: {ex.Message}");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
     }
 
     [HttpPost("lessons-learned")]

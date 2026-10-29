@@ -636,204 +636,239 @@ public class FindingsStorageService
 
     public async Task<JsonObject> GetDashboardMetricsAsync(string siteId)
     {
-        var all = await GetAllFindingsAsync(siteId);
-
-        int total = 0;
-        int open = 0;
-        int inProgress = 0;
-        int pendingVerification = 0;
-        int closed = 0;
-        int critical = 0;
-        int major = 0;
-        int minor = 0;
-        int observation = 0;
-        int manualLessonsCount = 0;
-        int auditLessonsCount = 0;
-
-        var typeDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var responsibleDistribution = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
-        var areaDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var lessonsLearned = new JsonArray();
-
-        double totalClosureDays = 0;
-        int closedWithDurationCount = 0;
-        int onTimeClosedCount = 0;
-
-        foreach (var item in all)
+        try
         {
-            if (item is JsonObject obj)
+            var all = await GetAllFindingsAsync(siteId);
+
+            int total = 0;
+            int open = 0;
+            int inProgress = 0;
+            int pendingVerification = 0;
+            int closed = 0;
+            int critical = 0;
+            int major = 0;
+            int minor = 0;
+            int observation = 0;
+            int manualLessonsCount = 0;
+            int auditLessonsCount = 0;
+
+            var typeDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var responsibleDistribution = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+            var areaDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var lessonsLearned = new JsonArray();
+
+            double totalClosureDays = 0;
+            int closedWithDurationCount = 0;
+            int onTimeClosedCount = 0;
+
+            foreach (var item in all)
             {
-                string status = obj["status"]?.ToString().ToUpper() ?? "OPEN";
-                string sev = obj["severity"]?.ToString().ToUpper() ?? "MAJOR";
-                string cat = obj["category"]?.ToString() ?? "General";
-                string area = obj["area"]?.ToString() ?? "General";
-                string resp = obj["assignee_name"]?.ToString() ?? "Sin Asignar";
-                string srcModule = obj["source_module"]?.ToString() ?? "";
-                string tCode = obj["tracking_code"]?.ToString() ?? obj["tracker_code"]?.ToString() ?? "";
-                bool isManualLesson = srcModule.Equals("Lección Aprendida Manual", StringComparison.OrdinalIgnoreCase)
-                    || srcModule.Equals("Lección Manual", StringComparison.OrdinalIgnoreCase)
-                    || tCode.StartsWith("LRN-", StringComparison.OrdinalIgnoreCase);
-
-                if (!isManualLesson)
+                if (item is JsonObject obj)
                 {
-                    total++;
-                    if (status == "OPEN") open++;
-                    else if (status == "IN_PROGRESS") inProgress++;
-                    else if (status == "PENDING_VERIFICATION") pendingVerification++;
-                    else if (status == "CLOSED") closed++;
+                    string status = obj["status"]?.ToString().ToUpper() ?? "OPEN";
+                    string sev = obj["severity"]?.ToString().ToUpper() ?? "MAJOR";
+                    string cat = obj["category"]?.ToString() ?? "General";
+                    string area = obj["area"]?.ToString() ?? "General";
+                    string resp = obj["assignee_name"]?.ToString() ?? "Sin Asignar";
+                    string srcModule = obj["source_module"]?.ToString() ?? "";
+                    string tCode = obj["tracking_code"]?.ToString() ?? obj["tracker_code"]?.ToString() ?? "";
+                    bool isManualLesson = srcModule.Equals("Lección Aprendida Manual", StringComparison.OrdinalIgnoreCase)
+                        || srcModule.Equals("Lección Manual", StringComparison.OrdinalIgnoreCase)
+                        || tCode.StartsWith("LRN-", StringComparison.OrdinalIgnoreCase);
 
-                    if (sev.Contains("CRITICAL") || sev.Contains("F1")) critical++;
-                    else if (sev.Contains("MAJOR") || sev.Contains("F2")) major++;
-                    else if (sev.Contains("MINOR") || sev.Contains("F3")) minor++;
-                    else if (sev.Contains("OBSERVATION") || sev.Contains("F4")) observation++;
-
-                    // By Type / Category
-                    if (!typeDistribution.ContainsKey(cat)) typeDistribution[cat] = 0;
-                    typeDistribution[cat]++;
-
-                    // By Area
-                    if (!areaDistribution.ContainsKey(area)) areaDistribution[area] = 0;
-                    areaDistribution[area]++;
-
-                    // By Responsible
-                    if (!responsibleDistribution.ContainsKey(resp))
+                    if (!isManualLesson)
                     {
-                        responsibleDistribution[resp] = new JsonObject
+                        total++;
+                        if (status == "OPEN") open++;
+                        else if (status == "IN_PROGRESS") inProgress++;
+                        else if (status == "PENDING_VERIFICATION") pendingVerification++;
+                        else if (status == "CLOSED") closed++;
+
+                        if (sev.Contains("CRITICAL") || sev.Contains("F1")) critical++;
+                        else if (sev.Contains("MAJOR") || sev.Contains("F2")) major++;
+                        else if (sev.Contains("MINOR") || sev.Contains("F3")) minor++;
+                        else if (sev.Contains("OBSERVATION") || sev.Contains("F4")) observation++;
+
+                        // By Type / Category
+                        if (!typeDistribution.ContainsKey(cat)) typeDistribution[cat] = 0;
+                        typeDistribution[cat]++;
+
+                        // By Area
+                        if (!areaDistribution.ContainsKey(area)) areaDistribution[area] = 0;
+                        areaDistribution[area]++;
+
+                        // By Responsible
+                        if (!responsibleDistribution.ContainsKey(resp))
                         {
-                            ["name"] = resp,
-                            ["total"] = 0,
-                            ["open"] = 0,
-                            ["closed"] = 0
-                        };
-                    }
-                    var rObj = responsibleDistribution[resp];
-                    rObj["total"] = (rObj["total"]?.GetValue<int>() ?? 0) + 1;
-                    if (status == "CLOSED")
-                    {
-                        rObj["closed"] = (rObj["closed"]?.GetValue<int>() ?? 0) + 1;
-                    }
-                    else
-                    {
-                        rObj["open"] = (rObj["open"]?.GetValue<int>() ?? 0) + 1;
-                    }
-
-                    // MTTR & On-time calculation
-                    if (status == "CLOSED" && DateTime.TryParse(obj["opened_at"]?.ToString(), out DateTime openDt))
-                    {
-                        DateTime closeDt = DateTime.TryParse(obj["closed_at"]?.ToString(), out DateTime cDt) ? cDt : DateTime.UtcNow;
-                        double days = (closeDt - openDt).TotalDays;
-                        if (days >= 0)
-                        {
-                            totalClosureDays += days;
-                            closedWithDurationCount++;
+                            responsibleDistribution[resp] = new JsonObject
+                            {
+                                ["name"] = resp,
+                                ["total"] = 0,
+                                ["open"] = 0,
+                                ["closed"] = 0
+                            };
                         }
+                        var rObj = responsibleDistribution[resp];
+                        int curTot = 0;
+                        if (rObj["total"] != null && int.TryParse(rObj["total"]!.ToString(), out int parsedTot)) curTot = parsedTot;
+                        rObj["total"] = curTot + 1;
 
-                        if (DateTime.TryParse(obj["due_date"]?.ToString(), out DateTime dueDt))
+                        if (status == "CLOSED")
                         {
-                            if (closeDt <= dueDt.AddDays(1)) onTimeClosedCount++;
+                            int curClosed = 0;
+                            if (rObj["closed"] != null && int.TryParse(rObj["closed"]!.ToString(), out int parsedClosed)) curClosed = parsedClosed;
+                            rObj["closed"] = curClosed + 1;
                         }
                         else
                         {
-                            onTimeClosedCount++;
+                            int curOpen = 0;
+                            if (rObj["open"] != null && int.TryParse(rObj["open"]!.ToString(), out int parsedOpen)) curOpen = parsedOpen;
+                            rObj["open"] = curOpen + 1;
+                        }
+
+                        // MTTR & On-time calculation
+                        if (status == "CLOSED" && DateTime.TryParse(obj["opened_at"]?.ToString(), out DateTime openDt))
+                        {
+                            DateTime closeDt = DateTime.TryParse(obj["closed_at"]?.ToString(), out DateTime cDt) ? cDt : DateTime.UtcNow;
+                            double days = (closeDt - openDt).TotalDays;
+                            if (days >= 0)
+                            {
+                                totalClosureDays += days;
+                                closedWithDurationCount++;
+                            }
+
+                            if (DateTime.TryParse(obj["due_date"]?.ToString(), out DateTime dueDt))
+                            {
+                                if (closeDt <= dueDt.AddDays(1)) onTimeClosedCount++;
+                            }
+                            else
+                            {
+                                onTimeClosedCount++;
+                            }
                         }
                     }
-                }
 
-                // Lessons Learned (both manual continuous improvement and closed audit findings)
-                string lesson = obj["lessons_learned"]?.ToString() ?? "";
-                if (!string.IsNullOrWhiteSpace(lesson))
-                {
-                    if (isManualLesson) manualLessonsCount++; else auditLessonsCount++;
-                    string title = obj["title"]?.ToString() ?? "Lección Aprendida";
-                    string loc = obj["location"]?.ToString() ?? area;
-                    string evUrl = obj["evidence_open_url"]?.ToString() ?? obj["evidence_close_url"]?.ToString() ?? "";
-                    string author = obj["assignee_name"]?.ToString() ?? obj["assigned_to"]?.ToString() ?? obj["closed_by"]?.ToString() ?? obj["auditor_name"]?.ToString() ?? "N/A";
-
-                    lessonsLearned.Add(new JsonObject
+                    // Lessons Learned (both manual continuous improvement and closed audit findings)
+                    string lesson = obj["lessons_learned"]?.ToString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(lesson))
                     {
-                        ["id"] = obj["id"]?.ToString(),
-                        ["tracking_code"] = tCode,
-                        ["tracker_code"] = tCode,
-                        ["title"] = title,
-                        ["category"] = cat,
-                        ["normative_table"] = obj["normative_table"]?.ToString() ?? obj["reference_table"]?.ToString() ?? "Buenas Prácticas",
-                        ["element_id"] = obj["element_id"]?.ToString() ?? "",
-                        ["area"] = area,
-                        ["location"] = loc,
-                        ["root_cause"] = obj["root_cause"]?.ToString() ?? "N/A",
-                        ["corrective_action"] = obj["corrective_action"]?.ToString() ?? "N/A",
-                        ["preventive_action"] = obj["preventive_action"]?.ToString() ?? "",
-                        ["lessons_learned"] = lesson,
-                        ["lesson"] = lesson,
-                        ["description"] = obj["description"]?.ToString() ?? "",
-                        ["evidence_url"] = evUrl,
-                        ["closed_at"] = obj["closed_at"]?.ToString() ?? obj["opened_at"]?.ToString() ?? obj["created_at"]?.ToString(),
-                        ["assigned_to"] = author,
-                        ["author"] = author,
-                        ["source_module"] = srcModule,
-                        ["is_manual"] = isManualLesson
-                    });
+                        if (isManualLesson) manualLessonsCount++; else auditLessonsCount++;
+                        string title = obj["title"]?.ToString() ?? "Lección Aprendida";
+                        string loc = obj["location"]?.ToString() ?? area;
+                        string evClose = obj["evidence_close_url"]?.ToString() ?? "";
+                        string evOpen = obj["evidence_open_url"]?.ToString() ?? "";
+                        string evUrl = !string.IsNullOrWhiteSpace(evClose) ? evClose : evOpen;
+                        string author = obj["assignee_name"]?.ToString() ?? obj["assigned_to"]?.ToString() ?? obj["closed_by"]?.ToString() ?? obj["auditor_name"]?.ToString() ?? "N/A";
+
+                        lessonsLearned.Add(new JsonObject
+                        {
+                            ["id"] = obj["id"]?.ToString(),
+                            ["tracking_code"] = tCode,
+                            ["tracker_code"] = tCode,
+                            ["title"] = title,
+                            ["category"] = cat,
+                            ["normative_table"] = obj["normative_table"]?.ToString() ?? obj["reference_table"]?.ToString() ?? "Buenas Prácticas",
+                            ["element_id"] = obj["element_id"]?.ToString() ?? "",
+                            ["area"] = area,
+                            ["location"] = loc,
+                            ["root_cause"] = obj["root_cause"]?.ToString() ?? "N/A",
+                            ["corrective_action"] = obj["corrective_action"]?.ToString() ?? "N/A",
+                            ["preventive_action"] = obj["preventive_action"]?.ToString() ?? "",
+                            ["lessons_learned"] = lesson,
+                            ["lesson"] = lesson,
+                            ["description"] = obj["description"]?.ToString() ?? "",
+                            ["evidence_url"] = evUrl,
+                            ["evidence_open_url"] = evOpen,
+                            ["evidence_close_url"] = evClose,
+                            ["closed_at"] = obj["closed_at"]?.ToString() ?? obj["opened_at"]?.ToString() ?? obj["created_at"]?.ToString(),
+                            ["assigned_to"] = author,
+                            ["author"] = author,
+                            ["source_module"] = srcModule,
+                            ["is_manual"] = isManualLesson
+                        });
+                    }
                 }
             }
-        }
 
-        double mttr = closedWithDurationCount > 0 ? Math.Round(totalClosureDays / closedWithDurationCount, 1) : 0.0;
-        double onTimePct = closed > 0 ? Math.Round((double)onTimeClosedCount / closed * 100.0, 1) : 100.0;
+            double mttr = closedWithDurationCount > 0 ? Math.Round(totalClosureDays / closedWithDurationCount, 1) : 0.0;
+            double onTimePct = closed > 0 ? Math.Round((double)onTimeClosedCount / closed * 100.0, 1) : 100.0;
 
-        var typeArr = new JsonArray();
-        foreach (var kvp in typeDistribution.OrderByDescending(x => x.Value))
-        {
-            typeArr.Add(new JsonObject { ["name"] = kvp.Key, ["count"] = kvp.Value });
-        }
-
-        var areaArr = new JsonArray();
-        foreach (var kvp in areaDistribution.OrderByDescending(x => x.Value))
-        {
-            areaArr.Add(new JsonObject { ["name"] = kvp.Key, ["count"] = kvp.Value });
-        }
-
-        var respArr = new JsonArray();
-        foreach (var r in responsibleDistribution.Values.OrderByDescending(x => x["total"]?.GetValue<int>() ?? 0))
-        {
-            respArr.Add(r.DeepClone());
-        }
-
-        return new JsonObject
-        {
-            ["totalFindings"] = total,
-            ["openFindings"] = open,
-            ["inProgressFindings"] = inProgress,
-            ["pendingVerificationFindings"] = pendingVerification,
-            ["closedFindings"] = closed,
-            ["criticalFindings"] = critical,
-            ["f1CriticalFindings"] = critical,
-            ["majorFindings"] = major,
-            ["f2MajorFindings"] = major,
-            ["minorFindings"] = minor,
-            ["f3MinorFindings"] = minor,
-            ["observationFindings"] = observation,
-            ["f4ObservationFindings"] = observation,
-            ["by_severity"] = new JsonObject
+            var typeArr = new JsonArray();
+            foreach (var kvp in typeDistribution.OrderByDescending(x => x.Value))
             {
-                ["critical"] = critical,
-                ["f1_critical"] = critical,
-                ["major"] = major,
-                ["f2_major"] = major,
-                ["minor"] = minor,
-                ["f3_minor"] = minor,
-                ["observation"] = observation,
-                ["f4_observation"] = observation
-            },
-            ["mttrDays"] = mttr,
-            ["onTimeRate"] = onTimePct,
-            ["typeDistribution"] = typeArr,
-            ["areaDistribution"] = areaArr,
-            ["responsibleDistribution"] = respArr,
-            ["lessonsLearned"] = lessonsLearned,
-            ["lessons_learned"] = lessonsLearned,
-            ["manualLessonsCount"] = manualLessonsCount,
-            ["auditLessonsCount"] = auditLessonsCount,
-            ["totalLessonsCount"] = lessonsLearned.Count
-        };
+                typeArr.Add(new JsonObject { ["name"] = kvp.Key, ["count"] = kvp.Value });
+            }
+
+            var areaArr = new JsonArray();
+            foreach (var kvp in areaDistribution.OrderByDescending(x => x.Value))
+            {
+                areaArr.Add(new JsonObject { ["name"] = kvp.Key, ["count"] = kvp.Value });
+            }
+
+            var respArr = new JsonArray();
+            foreach (var r in responsibleDistribution.Values.OrderByDescending(x => {
+                if (x["total"] != null && int.TryParse(x["total"]!.ToString(), out int tVal)) return tVal;
+                return 0;
+            }))
+            {
+                respArr.Add(r.DeepClone());
+            }
+
+            return new JsonObject
+            {
+                ["totalFindings"] = total,
+                ["openFindings"] = open,
+                ["inProgressFindings"] = inProgress,
+                ["pendingVerificationFindings"] = pendingVerification,
+                ["closedFindings"] = closed,
+                ["criticalFindings"] = critical,
+                ["f1CriticalFindings"] = critical,
+                ["majorFindings"] = major,
+                ["f2MajorFindings"] = major,
+                ["minorFindings"] = minor,
+                ["f3MinorFindings"] = minor,
+                ["observationFindings"] = observation,
+                ["f4ObservationFindings"] = observation,
+                ["by_severity"] = new JsonObject
+                {
+                    ["critical"] = critical,
+                    ["f1_critical"] = critical,
+                    ["major"] = major,
+                    ["f2_major"] = major,
+                    ["minor"] = minor,
+                    ["f3_minor"] = minor,
+                    ["observation"] = observation,
+                    ["f4_observation"] = observation
+                },
+                ["mttrDays"] = mttr,
+                ["onTimeRate"] = onTimePct,
+                ["typeDistribution"] = typeArr,
+                ["areaDistribution"] = areaArr,
+                ["responsibleDistribution"] = respArr,
+                ["lessonsLearned"] = lessonsLearned,
+                ["lessons_learned"] = lessonsLearned.DeepClone(),
+                ["manualLessonsCount"] = manualLessonsCount,
+                ["auditLessonsCount"] = auditLessonsCount,
+                ["totalLessonsCount"] = lessonsLearned.Count
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GetDashboardMetricsAsync Exception]: {ex.Message}");
+            return new JsonObject
+            {
+                ["totalFindings"] = 0,
+                ["openFindings"] = 0,
+                ["inProgressFindings"] = 0,
+                ["pendingVerificationFindings"] = 0,
+                ["closedFindings"] = 0,
+                ["criticalFindings"] = 0,
+                ["lessonsLearned"] = new JsonArray(),
+                ["lessons_learned"] = new JsonArray(),
+                ["manualLessonsCount"] = 0,
+                ["auditLessonsCount"] = 0,
+                ["totalLessonsCount"] = 0
+            };
+        }
     }
 }
