@@ -5393,6 +5393,7 @@ public class ApiController : ControllerBase
 
             string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
             string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+            string currentUserEmail = HttpContext.Session.GetString("user_email") ?? "";
             string targetSite = payload["site_id"]?.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(targetSite)) targetSite = CurrentUserSiteId;
 
@@ -6061,6 +6062,7 @@ public class ApiController : ControllerBase
 
             string currentUserId = HttpContext.Session.GetString("user_id") ?? "";
             string currentUserName = HttpContext.Session.GetString("user_name") ?? HttpContext.Session.GetString("user_email") ?? "Auditor";
+            string currentUserEmail = HttpContext.Session.GetString("user_email") ?? "";
             string targetSite = payload["site_id"]?.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(targetSite)) targetSite = CurrentUserSiteId;
 
