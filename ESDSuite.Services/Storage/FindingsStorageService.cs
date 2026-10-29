@@ -649,9 +649,11 @@ public class FindingsStorageService
             int major = 0;
             int minor = 0;
             int observation = 0;
+            int openCritical = 0;
             int manualLessonsCount = 0;
             int auditLessonsCount = 0;
 
+            var tableDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var typeDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var responsibleDistribution = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
             var areaDistribution = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -668,8 +670,17 @@ public class FindingsStorageService
                     string status = obj["status"]?.ToString().ToUpper() ?? "OPEN";
                     string sev = obj["severity"]?.ToString().ToUpper() ?? "MAJOR";
                     string cat = obj["category"]?.ToString() ?? "General";
-                    string area = obj["area"]?.ToString() ?? "General";
-                    string resp = obj["assignee_name"]?.ToString() ?? "Sin Asignar";
+                    string rawTable = obj["normative_table"]?.ToString() ?? obj["reference_table"]?.ToString() ?? cat;
+                    string tableKey = rawTable;
+                    if (tableKey.Contains("Tabla 1", StringComparison.OrdinalIgnoreCase)) tableKey = "Tabla 1 (Tierras/Personal)";
+                    else if (tableKey.Contains("Tabla 2", StringComparison.OrdinalIgnoreCase)) tableKey = "Tabla 2 (Superficies/EPA)";
+                    else if (tableKey.Contains("Tabla 3", StringComparison.OrdinalIgnoreCase)) tableKey = "Tabla 3 (Pisos/Calzado)";
+                    else if (tableKey.Contains("Tabla 4", StringComparison.OrdinalIgnoreCase)) tableKey = "Tabla 4 (Empaque)";
+
+                    string area = obj["area"]?.ToString() ?? obj["location"]?.ToString() ?? "General";
+                    string resp = obj["assignee_name"]?.ToString() ?? obj["assigned_to"]?.ToString() ?? "";
+                    if (string.IsNullOrWhiteSpace(resp)) resp = "Sin Asignar";
+
                     string srcModule = obj["source_module"]?.ToString() ?? "";
                     string tCode = obj["tracking_code"]?.ToString() ?? obj["tracker_code"]?.ToString() ?? "";
                     bool isManualLesson = srcModule.Equals("Lección Aprendida Manual", StringComparison.OrdinalIgnoreCase)
@@ -684,10 +695,25 @@ public class FindingsStorageService
                         else if (status == "PENDING_VERIFICATION") pendingVerification++;
                         else if (status == "CLOSED") closed++;
 
-                        if (sev.Contains("CRITICAL") || sev.Contains("F1")) critical++;
-                        else if (sev.Contains("MAJOR") || sev.Contains("F2")) major++;
-                        else if (sev.Contains("MINOR") || sev.Contains("F3")) minor++;
-                        else if (sev.Contains("OBSERVATION") || sev.Contains("F4")) observation++;
+                        bool isCrit = sev.Contains("CRITICAL") || sev.Contains("F1");
+                        bool isMaj = sev.Contains("MAJOR") || sev.Contains("F2");
+                        bool isMin = sev.Contains("MINOR") || sev.Contains("F3");
+                        bool isObs = sev.Contains("OBSERVATION") || sev.Contains("F4");
+
+                        if (isCrit) critical++;
+                        else if (isMaj) major++;
+                        else if (isMin) minor++;
+                        else if (isObs) observation++;
+                        else major++;
+
+                        if (status != "CLOSED" && isCrit)
+                        {
+                            openCritical++;
+                        }
+
+                        // By Table / Standard
+                        if (!tableDistribution.ContainsKey(tableKey)) tableDistribution[tableKey] = 0;
+                        tableDistribution[tableKey]++;
 
                         // By Type / Category
                         if (!typeDistribution.ContainsKey(cat)) typeDistribution[cat] = 0;
@@ -767,7 +793,7 @@ public class FindingsStorageService
                             ["tracker_code"] = tCode,
                             ["title"] = title,
                             ["category"] = cat,
-                            ["normative_table"] = obj["normative_table"]?.ToString() ?? obj["reference_table"]?.ToString() ?? "Buenas Prácticas",
+                            ["normative_table"] = rawTable,
                             ["element_id"] = obj["element_id"]?.ToString() ?? "",
                             ["area"] = area,
                             ["location"] = loc,
@@ -792,9 +818,44 @@ public class FindingsStorageService
 
             double mttr = closedWithDurationCount > 0 ? Math.Round(totalClosureDays / closedWithDurationCount, 1) : 0.0;
             double onTimePct = closed > 0 ? Math.Round((double)onTimeClosedCount / closed * 100.0, 1) : 100.0;
+            double resolutionRate = total > 0 ? Math.Round((double)closed / total * 100.0, 1) : 0.0;
+
+            var byTable = new JsonObject();
+            foreach (var kvp in tableDistribution.OrderByDescending(x => x.Value))
+            {
+                byTable[kvp.Key] = kvp.Value;
+            }
+
+            var byArea = new JsonObject();
+            foreach (var kvp in areaDistribution.OrderByDescending(x => x.Value))
+            {
+                byArea[kvp.Key] = kvp.Value;
+            }
+
+            var byResponsible = new JsonObject();
+            foreach (var kvp in responsibleDistribution)
+            {
+                byResponsible[kvp.Key] = kvp.Value.DeepClone();
+            }
+
+            var bySeverity = new JsonObject
+            {
+                ["critical"] = critical,
+                ["f1_critical"] = critical,
+                ["CRITICAL"] = critical,
+                ["major"] = major,
+                ["f2_major"] = major,
+                ["MAJOR"] = major,
+                ["minor"] = minor,
+                ["f3_minor"] = minor,
+                ["MINOR"] = minor,
+                ["observation"] = observation,
+                ["f4_observation"] = observation,
+                ["OBSERVATION"] = observation
+            };
 
             var typeArr = new JsonArray();
-            foreach (var kvp in typeDistribution.OrderByDescending(x => x.Value))
+            foreach (var kvp in tableDistribution.OrderByDescending(x => x.Value))
             {
                 typeArr.Add(new JsonObject { ["name"] = kvp.Key, ["count"] = kvp.Value });
             }
@@ -816,32 +877,46 @@ public class FindingsStorageService
 
             return new JsonObject
             {
+                ["total"] = total,
                 ["totalFindings"] = total,
+                ["total_findings"] = total,
+                ["open"] = open,
                 ["openFindings"] = open,
+                ["open_findings"] = open,
+                ["in_progress"] = inProgress,
+                ["inProgress"] = inProgress,
                 ["inProgressFindings"] = inProgress,
+                ["pending_verification"] = pendingVerification,
+                ["pendingVerification"] = pendingVerification,
                 ["pendingVerificationFindings"] = pendingVerification,
+                ["closed"] = closed,
                 ["closedFindings"] = closed,
+                ["closed_findings"] = closed,
+                ["active_findings"] = open + inProgress + pendingVerification,
+                ["activeFindings"] = open + inProgress + pendingVerification,
+                ["open_critical_count"] = openCritical,
+                ["openCriticalCount"] = openCritical,
                 ["criticalFindings"] = critical,
+                ["critical"] = critical,
                 ["f1CriticalFindings"] = critical,
                 ["majorFindings"] = major,
+                ["major"] = major,
                 ["f2MajorFindings"] = major,
                 ["minorFindings"] = minor,
+                ["minor"] = minor,
                 ["f3MinorFindings"] = minor,
                 ["observationFindings"] = observation,
+                ["observation"] = observation,
                 ["f4ObservationFindings"] = observation,
-                ["by_severity"] = new JsonObject
-                {
-                    ["critical"] = critical,
-                    ["f1_critical"] = critical,
-                    ["major"] = major,
-                    ["f2_major"] = major,
-                    ["minor"] = minor,
-                    ["f3_minor"] = minor,
-                    ["observation"] = observation,
-                    ["f4_observation"] = observation
-                },
+                ["by_severity"] = bySeverity,
+                ["by_table"] = byTable,
+                ["by_area"] = byArea,
+                ["by_responsible"] = byResponsible,
                 ["mttrDays"] = mttr,
+                ["mean_time_to_resolve_days"] = mttr,
                 ["onTimeRate"] = onTimePct,
+                ["on_time_closure_rate"] = onTimePct,
+                ["resolution_rate"] = resolutionRate,
                 ["typeDistribution"] = typeArr,
                 ["areaDistribution"] = areaArr,
                 ["responsibleDistribution"] = respArr,
@@ -857,12 +932,23 @@ public class FindingsStorageService
             Console.WriteLine($"[GetDashboardMetricsAsync Exception]: {ex.Message}");
             return new JsonObject
             {
+                ["total"] = 0,
                 ["totalFindings"] = 0,
+                ["open"] = 0,
                 ["openFindings"] = 0,
+                ["in_progress"] = 0,
                 ["inProgressFindings"] = 0,
+                ["pending_verification"] = 0,
                 ["pendingVerificationFindings"] = 0,
+                ["closed"] = 0,
                 ["closedFindings"] = 0,
+                ["active_findings"] = 0,
+                ["open_critical_count"] = 0,
                 ["criticalFindings"] = 0,
+                ["by_severity"] = new JsonObject(),
+                ["by_table"] = new JsonObject(),
+                ["by_area"] = new JsonObject(),
+                ["by_responsible"] = new JsonObject(),
                 ["lessonsLearned"] = new JsonArray(),
                 ["lessons_learned"] = new JsonArray(),
                 ["manualLessonsCount"] = 0,

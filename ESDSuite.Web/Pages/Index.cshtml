@@ -174,7 +174,7 @@
                     <div data-i18n="login.footer">esd360 &bull; Compliance ANSI/ESD S20.20 &bull; IEC 61340-5-1 &bull; ESD TR53</div>
                     <div style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:11px; color:var(--text-muted);">
                         <span>Version:</span>
-                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.9</span>
+                        <span id="login-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.10.0</span>
                     </div>
                 </div>
             </div>
@@ -286,7 +286,7 @@
                     <div style="font-family:var(--font-heading); font-weight:700; font-size:11px; color:var(--text-primary);" data-i18n="sidebar.platform">esd360 Enterprise Platform</div>
                     <div style="font-size:10px; color:var(--text-muted);">ANSI/ESD S20.20</div>
                 </div>
-                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.9.9</span>
+                <span id="system-version-badge" class="badge-pass" style="font-size:10px; padding:2px 7px; font-weight:800; background:var(--accent-blue-light); color:var(--accent-blue); border-color:rgba(37,99,235,0.2);">v2.10.0</span>
             </div>
         </div>
     </aside>
@@ -1580,26 +1580,36 @@
                     <!-- SUBTAB 2: DASHBOARD & METRICS -->
                     <div id="fnd-subtab-dashboard" style="display:none;">
                         <!-- HIGHLIGHT CARDS -->
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:20px;">
-                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_ontime_rate">% Cierre a Tiempo (On-Time)</div>
-                                <div id="fnd-dash-ontime" style="font-size:28px; font-weight:800; color:#10B981; margin-top:6px;">0%</div>
-                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Cumplimiento de fecha compromiso</div>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:20px;">
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center; border-top:3px solid #2563EB;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;">Total Hallazgos</div>
+                                <div id="fnd-dash-total" style="font-size:28px; font-weight:800; color:#2563EB; margin-top:6px;">0</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Desviaciones registradas</div>
                             </div>
-                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_mttr">MTTR (Tiempo Promedio Cierre)</div>
-                                <div id="fnd-dash-mttr" style="font-size:28px; font-weight:800; color:#3B82F6; margin-top:6px;">0 d</div>
-                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Días transcurridos apertura a cierre</div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center; border-top:3px solid #F59E0B;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;">Abiertos &amp; En Proceso</div>
+                                <div id="fnd-dash-active" style="font-size:28px; font-weight:800; color:#F59E0B; margin-top:6px;">0</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">En gestión activa de CAPA</div>
                             </div>
-                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_open_critical">Críticos Pendientes</div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center; border-top:3px solid #EF4444;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_open_critical">Críticos Pendientes (F1)</div>
                                 <div id="fnd-dash-critical" style="font-size:28px; font-weight:800; color:#EF4444; margin-top:6px;">0</div>
                                 <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Requieren contención inmediata</div>
                             </div>
-                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center;">
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center; border-top:3px solid #8B5CF6;">
                                 <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_resolution_rate">% Eficacia Global</div>
                                 <div id="fnd-dash-resolution" style="font-size:28px; font-weight:800; color:#8B5CF6; margin-top:6px;">0%</div>
-                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Hallazgos cerrados vs total abiertos</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Hallazgos cerrados vs total</div>
+                            </div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center; border-top:3px solid #3B82F6;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_mttr">MTTR (Promedio Cierre)</div>
+                                <div id="fnd-dash-mttr" style="font-size:28px; font-weight:800; color:#3B82F6; margin-top:6px;">0 d</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Días transcurridos apertura a cierre</div>
+                            </div>
+                            <div class="glass-card" style="background:#FFFFFF; padding:16px; border-radius:10px; text-align:center; border-top:3px solid #10B981;">
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;" data-i18n="findings.dash_ontime_rate">% Cierre a Tiempo</div>
+                                <div id="fnd-dash-ontime" style="font-size:28px; font-weight:800; color:#10B981; margin-top:6px;">0%</div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Cumplimiento fecha compromiso</div>
                             </div>
                         </div>
 
@@ -11384,16 +11394,28 @@
             const m = (data && (data.metrics || data.data)) ? (data.metrics || data.data) : data;
             if (!m || typeof m !== 'object') return;
 
+            const elTotal = document.getElementById('fnd-dash-total');
+            const elActive = document.getElementById('fnd-dash-active');
             const elOntime = document.getElementById('fnd-dash-ontime');
             const elMttr = document.getElementById('fnd-dash-mttr');
             const elCrit = document.getElementById('fnd-dash-critical');
             const elRes = document.getElementById('fnd-dash-resolution');
 
-            if (elOntime) elOntime.textContent = (m.on_time_closure_rate ?? 0) + '%';
-            if (elMttr) elMttr.textContent = (m.mean_time_to_resolve_days ?? 0) + ' d';
-            if (elCrit) elCrit.textContent = (m.open_critical_count ?? 0);
+            const total = m.total ?? m.totalFindings ?? 0;
+            const open = m.open ?? m.openFindings ?? 0;
+            const inProg = m.in_progress ?? m.inProgressFindings ?? 0;
+            const pending = m.pending_verification ?? m.pendingVerificationFindings ?? 0;
+            const closed = m.closed ?? m.closedFindings ?? 0;
+            const active = m.active_findings ?? m.activeFindings ?? (open + inProg + pending);
+            const openCrit = m.open_critical_count ?? m.openCriticalCount ?? (m.criticalFindings ?? 0);
+
+            if (elTotal) elTotal.textContent = total;
+            if (elActive) elActive.textContent = active;
+            if (elCrit) elCrit.textContent = openCrit;
+            if (elMttr) elMttr.textContent = (m.mean_time_to_resolve_days ?? m.mttrDays ?? 0) + ' d';
+            if (elOntime) elOntime.textContent = (m.on_time_closure_rate ?? m.onTimeRate ?? 0) + '%';
             
-            const resRate = (m.total && m.total > 0) ? Math.round(((m.closed || 0) / m.total) * 100) : 0;
+            const resRate = total > 0 ? Math.round((closed / total) * 100) : 0;
             if (elRes) elRes.textContent = resRate + '%';
 
             renderFindingsCharts(m);
@@ -11409,15 +11431,19 @@
         const ctxTable = document.getElementById('chart-findings-by-table');
         if (ctxTable) {
             if (chartFindingsByTable) chartFindingsByTable.destroy();
-            const labels = Object.keys(m.by_table || {});
-            const values = Object.values(m.by_table || {});
+            const tableMap = m.by_table || {};
+            if (Object.keys(tableMap).length === 0 && Array.isArray(m.typeDistribution)) {
+                m.typeDistribution.forEach(t => { if (t && t.name) tableMap[t.name] = t.count || 0; });
+            }
+            const labels = Object.keys(tableMap);
+            const values = Object.values(tableMap);
             chartFindingsByTable = new Chart(ctxTable, {
                 type: 'doughnut',
                 data: {
                     labels: labels.length ? labels : ['Sin datos'],
                     datasets: [{
                         data: values.length ? values : [0],
-                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
+                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B']
                     }]
                 },
                 options: {
@@ -11433,10 +11459,10 @@
         if (ctxSev) {
             if (chartFindingsBySeverity) chartFindingsBySeverity.destroy();
             const sevMap = m.by_severity || {};
-            const cF1 = sevMap['f1_critical'] ?? sevMap['critical'] ?? sevMap['CRITICAL'] ?? 0;
-            const cF2 = sevMap['f2_major'] ?? sevMap['major'] ?? sevMap['MAJOR'] ?? 0;
-            const cF3 = sevMap['f3_minor'] ?? sevMap['minor'] ?? sevMap['MINOR'] ?? 0;
-            const cF4 = sevMap['f4_observation'] ?? sevMap['observation'] ?? sevMap['OBSERVATION'] ?? 0;
+            const cF1 = sevMap['f1_critical'] ?? sevMap['critical'] ?? sevMap['CRITICAL'] ?? (m.criticalFindings ?? 0);
+            const cF2 = sevMap['f2_major'] ?? sevMap['major'] ?? sevMap['MAJOR'] ?? (m.majorFindings ?? 0);
+            const cF3 = sevMap['f3_minor'] ?? sevMap['minor'] ?? sevMap['MINOR'] ?? (m.minorFindings ?? 0);
+            const cF4 = sevMap['f4_observation'] ?? sevMap['observation'] ?? sevMap['OBSERVATION'] ?? (m.observationFindings ?? 0);
 
             chartFindingsBySeverity = new Chart(ctxSev, {
                 type: 'pie',
@@ -11460,9 +11486,21 @@
         if (ctxResp) {
             if (chartFindingsByResponsible) chartFindingsByResponsible.destroy();
             const respMap = m.by_responsible || {};
-            const labels = Object.keys(respMap).slice(0, 7);
-            const totals = labels.map(k => respMap[k].total || 0);
-            const closed = labels.map(k => respMap[k].closed || 0);
+            if (Object.keys(respMap).length === 0 && Array.isArray(m.responsibleDistribution)) {
+                m.responsibleDistribution.forEach(r => {
+                    if (r && r.name) {
+                        respMap[r.name] = {
+                            total: r.total || 0,
+                            open: r.open || 0,
+                            closed: r.closed || 0
+                        };
+                    }
+                });
+            }
+            const labels = Object.keys(respMap).slice(0, 8);
+            const totals = labels.map(k => respMap[k]?.total || 0);
+            const opens = labels.map(k => respMap[k]?.open || 0);
+            const closed = labels.map(k => respMap[k]?.closed || 0);
 
             chartFindingsByResponsible = new Chart(ctxResp, {
                 type: 'bar',
@@ -11470,6 +11508,7 @@
                     labels: labels.length ? labels : ['Sin asignaciones'],
                     datasets: [
                         { label: 'Total Asignados', data: totals, backgroundColor: '#94A3B8' },
+                        { label: 'Abiertos / En Proceso', data: opens, backgroundColor: '#F59E0B' },
                         { label: 'Cerrados Eficaces', data: closed, backgroundColor: '#10B981' }
                     ]
                 },
@@ -11487,7 +11526,10 @@
         if (ctxArea) {
             if (chartFindingsByArea) chartFindingsByArea.destroy();
             const areaMap = m.by_area || {};
-            const sortedAreas = Object.keys(areaMap).sort((a,b) => areaMap[b] - areaMap[a]).slice(0, 6);
+            if (Object.keys(areaMap).length === 0 && Array.isArray(m.areaDistribution)) {
+                m.areaDistribution.forEach(a => { if (a && a.name) areaMap[a.name] = a.count || 0; });
+            }
+            const sortedAreas = Object.keys(areaMap).sort((a,b) => areaMap[b] - areaMap[a]).slice(0, 7);
             const areaValues = sortedAreas.map(k => areaMap[k]);
 
             chartFindingsByArea = new Chart(ctxArea, {
